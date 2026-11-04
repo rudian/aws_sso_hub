@@ -1,0 +1,10 @@
+[credential "https://git-codecommit.us-east-1.amazonaws.com"]
+	helper = 
+	helper = !\"/opt/homebrew/bin/aws\" --profile 'acme' codecommit credential-helper $@
+	helper = "!f() { test \"$1\" = get || return 0; echo \"AWS SSO Hub: cannot get CodeCommit credentials for AWS profile 'acme' (not logged in, session expired, or AWS CLI missing). Click 'SSO sign-in' for this profile in AWS SSO Hub, or run: aws sso login --profile acme\" >&2; echo quit=1; }; f"
+	useHttpPath = true
+	interactive = false
+[awsssohub]
+	profile = acme
+	accountId = 111122223333
+	version = 1

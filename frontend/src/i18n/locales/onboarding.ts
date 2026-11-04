@@ -1,0 +1,46 @@
+// Namespace "onboarding": first-run screens (welcome, environment, what was found).
+export const zh = {
+  'onboarding.aria': '首次使用向导',
+  'onboarding.step.welcome': '欢迎',
+  'onboarding.step.env': '运行环境',
+  'onboarding.step.found': '找到的内容',
+  'onboarding.welcome.title': '欢迎使用 AWS SSO Hub',
+  'onboarding.welcome.body': '用 SSO 登录你的 AWS 账号，并让每个 CodeCommit 仓库自动用对账号。',
+  'onboarding.language': '语言',
+  'onboarding.theme': '外观',
+  'onboarding.start': '开始',
+  'onboarding.env.title': '检查运行环境',
+  'onboarding.env.body': '登录本身不需要 AWS CLI。绑定仓库和 Git 推送需要 AWS CLI v2 和 Git。',
+  'onboarding.env.cliNote': '没有 AWS CLI 也可以继续，装好之后点“重新检查”即可。',
+  'onboarding.found.title': '我们找到了这些',
+  'onboarding.found.body':
+    '{profiles} 个配置文件，{portals} 个 SSO 门户，{static} 个仍在使用访问密钥；{repos} 个 CodeCommit 仓库。',
+  'onboarding.found.folders': '扫描的文件夹：',
+  'onboarding.found.note': '到目前为止，什么都没有改动。',
+  'onboarding.found.loading': '正在读取你的配置…',
+  'onboarding.cta.tutorial': '先看教程',
+  'onboarding.cta.accounts': '查看账号',
+} as const
+
+export const en: { [K in keyof typeof zh]: string } = {
+  'onboarding.aria': 'First-run guide',
+  'onboarding.step.welcome': 'Welcome',
+  'onboarding.step.env': 'Your setup',
+  'onboarding.step.found': 'What we found',
+  'onboarding.welcome.title': 'Welcome to AWS SSO Hub',
+  'onboarding.welcome.body': 'Sign in to your AWS accounts with SSO, and make every CodeCommit repository use the right one.',
+  'onboarding.language': 'Language',
+  'onboarding.theme': 'Appearance',
+  'onboarding.start': 'Get started',
+  'onboarding.env.title': 'Check your setup',
+  'onboarding.env.body': 'Signing in does not need the AWS CLI. Binding repositories and Git pushes need AWS CLI v2 and Git.',
+  'onboarding.env.cliNote': 'You can continue without the AWS CLI. Install it, then choose Check again.',
+  'onboarding.found.title': 'Here’s what we found',
+  'onboarding.found.body':
+    '{profiles, plural, one {# profile} other {# profiles}}, {portals, plural, one {# SSO portal} other {# SSO portals}}, {static} still using access keys, and {repos, plural, one {# CodeCommit repository} other {# CodeCommit repositories}}.',
+  'onboarding.found.folders': 'Scanned folders:',
+  'onboarding.found.note': 'Nothing has been changed yet.',
+  'onboarding.found.loading': 'Reading your configuration…',
+  'onboarding.cta.tutorial': 'Start with the tutorial',
+  'onboarding.cta.accounts': 'Go to accounts',
+}

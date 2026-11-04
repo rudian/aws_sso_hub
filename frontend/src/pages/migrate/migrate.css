@@ -1,0 +1,56 @@
+/* Migration wizard. */
+.wizard > * { min-width: 0; }
+.wizard__rail--h { display: none; }
+@media (max-width: 1180px) {
+  .wizard { grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
+  .wizard__rail--h .stepper__hint { display: none; }
+  .wizard__rail { position: static; }
+  .wizard__rail--v { display: none; }
+  .wizard__rail--h { display: block; }
+}
+.wizard__body { display: flex; flex-direction: column; gap: var(--sp-4); margin-top: var(--sp-4); }
+.wizard__card .facts { margin: 0; }
+/* Compact rail: numbered markers joined by connectors; only the current step is named, in the line underneath. */
+.wizard__rail--h .stepper--h { gap: 0; align-items: center; }
+.wizard__rail--h .stepper__step { display: flex; align-items: center; flex: 1 1 0; min-width: 0; padding-bottom: 0; }
+.wizard__rail--h .stepper__step:last-child { flex: 0 0 auto; }
+.wizard__rail--h .stepper__marker { flex: none; }
+.wizard__rail--h .stepper--h .stepper__step:not(:last-child)::before { display: block; content: ""; position: static; order: 1; flex: 1; width: auto; height: 2px; margin: 0 var(--sp-2); border-radius: 1px; background: var(--border-strong); }
+.wizard__rail--h .stepper--h .stepper__step.is-done:not(:last-child)::before { background: var(--ink); }
+.wizard__rail--h .stepper__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wizard__stepline { margin: var(--sp-2) 0 0; font-size: var(--fs-13); color: var(--text-2); }
+.wizard-head { display: flex; gap: 14px; align-items: center; }
+
+.portal-choices { display: flex; flex-direction: column; gap: var(--sp-2); }
+.portal-choice { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.portal-choice:has(input:checked) { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+.portal-choice__head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.portal-choice__meta { display: flex; gap: var(--sp-3); font-size: var(--fs-12); color: var(--text-3); padding-left: 26px; flex-wrap: wrap; }
+.portal-choice__form { padding: var(--sp-3) 0 0 26px; }
+
+.account-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.account-card { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.account-card.is-match { border-color: color-mix(in srgb, var(--ok) 50%, var(--border)); }
+.account-card.is-selected { box-shadow: 0 0 0 1px var(--focus); border-color: var(--focus); }
+.account-card__head { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; font-size: var(--fs-13); }
+.account-card__roles { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; }
+
+.check-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.check-item { display: flex; align-items: flex-start; gap: var(--sp-3); font-size: var(--fs-14); }
+.check-item__mark { width: 22px; height: 22px; display: grid; place-items: center; flex: none; margin-top: 1px; }
+.check-item__mark svg { width: 18px; height: 18px; }
+.check-item--done .check-item__mark { color: var(--ok); }
+.check-item--failed .check-item__mark { color: var(--danger); }
+.check-item--pending { color: var(--text-3); }
+.check-item__detail { font-size: var(--fs-12); color: var(--text-3); margin-top: 2px; user-select: text; }
+
+.option-cards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+@media (max-width: 1180px) { .option-cards { grid-template-columns: 1fr; } }
+.option-card { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); }
+.option-card h3 { margin: 0; font-size: var(--fs-14); font-weight: var(--fw-semibold); color: var(--text); }
+.option-card p { margin: 0; font-size: var(--fs-13); color: var(--text-2); }
+.option-card .btn { align-self: flex-start; margin-top: auto; }
+.option-card__tail { margin-top: auto; padding-top: var(--sp-2); }
+
+button.back-link { background: none; border: 0; padding: 0; font: inherit; font-size: var(--fs-13); color: var(--text-2); cursor: default; }
+button.back-link:hover { color: var(--text); }

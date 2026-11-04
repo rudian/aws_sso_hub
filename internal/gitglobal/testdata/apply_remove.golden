@@ -1,0 +1,14 @@
+[credential]
+	helper = 
+	usehttppath = true
+[credential "https://github.com"]
+	helper = 
+	helper = !gh auth git-credential
+[credential "https://git-codecommit.*.amazonaws.com"]
+	helper = 
+	helper = "!f() { test \"$1\" = get || return 0; echo \"AWS SSO Hub: this repository is not bound to an AWS account (no CodeCommit credential helper). Open AWS SSO Hub > Repositories and bind it.\" >&2; echo quit=1; }; f"
+	useHttpPath = true
+[credential "https://git-codecommit-fips.*.amazonaws.com"]
+	helper = 
+	helper = "!f() { test \"$1\" = get || return 0; echo \"AWS SSO Hub: this repository is not bound to an AWS account (no CodeCommit credential helper). Open AWS SSO Hub > Repositories and bind it.\" >&2; echo quit=1; }; f"
+	useHttpPath = true

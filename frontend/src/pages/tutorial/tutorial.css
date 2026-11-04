@@ -1,0 +1,42 @@
+/* Tutorial page: buttons that carry the .toc__item / .navcard look, article details. */
+button.toc__item { width: 100%; border: 0; background: transparent; text-align: left; font: inherit; font-size: var(--fs-13); line-height: 1.4; cursor: default; }
+button.toc__item:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+.toc__list + .toc__group { margin-top: var(--sp-2); }
+.toc__progress .progress { margin-top: 0; }
+
+.article { min-width: 0; }
+.article__kicker .badge { flex: none; }
+.step__text { margin: 2px 0 0; }
+.step__text + .step__text { margin-top: 6px; }
+.step__text code, .callout__body code, .faq__a code { font-family: var(--font-mono); font-size: 12.5px; padding: 0 4px; border-radius: 4px; background: var(--surface-3); color: var(--text); }
+.step__crumbs { margin: 4px 0 2px; }
+.step__code { margin-top: 10px; }
+.step__code .code__body { white-space: pre-wrap; word-break: break-word; }
+.steps > li > div { min-width: 0; }
+.steps > li.done .step__title { color: var(--text-2); }
+.article__callouts { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-6); }
+.callout__body p { margin: 0 0 4px; }
+.callout__body p:last-child { margin-bottom: 0; }
+.article__done { margin-top: var(--sp-6); padding-top: var(--sp-4); border-top: 1px solid var(--border-subtle); }
+
+button.navcard { font: inherit; text-align: left; color: var(--text); cursor: default; transition: border-color var(--dur-1); }
+button.navcard:hover { border-color: var(--border-strong); }
+button.navcard--next { text-align: right; align-items: flex-end; margin-left: auto; }
+.article__nav .navcard b { max-width: 28ch; }
+
+.faq { margin-top: var(--sp-6); border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.faq__item { border-bottom: 1px solid var(--border-subtle); }
+.faq__item:last-child { border-bottom: 0; }
+.faq__q { list-style: none; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); font-weight: var(--fw-medium); font-size: var(--fs-14); cursor: default; }
+.faq__q::-webkit-details-marker { display: none; }
+.faq__q svg { flex: none; width: 14px; height: 14px; color: var(--text-3); transition: transform var(--dur-2) var(--ease-out); }
+.faq__item[open] > .faq__q svg { transform: rotate(90deg); }
+.faq__q:hover { background: var(--surface-2); }
+.faq__a { padding: 0 var(--sp-4) var(--sp-4) calc(var(--sp-4) + 14px + var(--sp-3)); color: var(--text-2); font-size: var(--fs-14); line-height: var(--lh-cjk); }
+.faq__a p { margin: 0 0 6px; }
+.faq__a p:last-child { margin-bottom: 0; }
+.faq__a b { color: var(--text); font-weight: var(--fw-semibold); }
+
+@media (max-width: 1060px) {
+  .tut { grid-template-columns: 220px 1fr; gap: var(--sp-6); }
+}

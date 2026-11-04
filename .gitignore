@@ -1,0 +1,29 @@
+# Tools and caches
+.tools/
+.task/
+.wails
+
+# Build output
+bin/
+dist/
+build/bin/
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+*.syso
+
+# The frontend build is embedded by main.go; keep only a placeholder so a fresh clone compiles
+frontend/dist/*
+!frontend/dist/.gitkeep
+
+# Dependencies
+node_modules/
+
+# Logs and coverage
+*.log
+coverage/
+coverage.out
+*.coverprofile
+cover.out
+frontend/coverage/
+
+# OS
+.DS_Store

@@ -1,0 +1,34 @@
+/* Repositories page. */
+
+.repo-table {
+  --cols: 24px minmax(170px, 1.4fr) minmax(160px, 1fr) minmax(180px, 1.2fr) 176px;
+  display: grid;
+  grid-template-columns: var(--cols);
+  column-gap: var(--sp-4);
+  padding: 0 var(--sp-4);
+  overflow-x: auto;
+}
+/* Rows share the table's tracks so an auto-sized actions column lines up across rows. */
+.repo-table > .table__head,
+.repo-table > .row { grid-template-columns: subgrid; grid-column: 1 / -1; margin: 0 calc(var(--sp-4) * -1); padding: 0 var(--sp-4); }
+
+/* Narrow windows: the actions track shrinks to its content and the status detail line is dropped. */
+@media (max-width: 1180px) {
+  .repo-table { --cols: 24px minmax(140px, 1.3fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; }
+  .repo-table .hint__detail { display: none; }
+}
+
+.toolbar { flex-wrap: wrap; row-gap: var(--sp-2); }
+.toolbar .search { flex: 1 1 200px; max-width: 240px; width: auto; min-width: 160px; }
+
+/* Middle ellipsis: the head gives way first; the tail (usually the last path segment) is kept whole as long as
+   there is room and only then gets its own end ellipsis, so a narrow column never clips without an indicator. */
+.midtrunc { display: flex; min-width: 0; max-width: 100%; overflow: hidden; }
+.midtrunc__head { flex: 0 1000 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+.midtrunc__tail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+
+.hint__label { display: block; }
+.hint__detail { display: block; }
+
+/* The popover has its own padding, so the content width is 360px inside it. */
+.bind-popover { width: 392px; }

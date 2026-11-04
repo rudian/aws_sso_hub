@@ -1,0 +1,27 @@
+[profile acme]
+region = us-east-1
+output = json
+
+[profile globex]
+region = eu-west-1
+
+# ===== 平台基础设施（2026-03-01 添加）=====
+# 平台基础设施：通过 IAM Identity Center 登录，下面两个配置文件共用同一个门户
+[sso-session initech]
+sso_start_url  = https://d-1234567890.awsapps.com/start
+sso_region     = us-west-2
+sso_registration_scopes = sso:account:access
+
+[profile initech-admin]
+sso_session    = initech
+sso_account_id = 777788889999
+sso_role_name  = AdministratorAccess
+region         = us-west-2
+output         = json
+
+[profile initech-readonly]
+sso_session    = initech
+sso_account_id = 777788889999
+sso_role_name  = ReadOnlyAccess
+region         = us-west-2
+output         = json
