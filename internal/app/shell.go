@@ -2,6 +2,7 @@ package app
 
 import (
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -19,30 +20,62 @@ type Shell struct {
 	app  *application.App
 	win  *application.WebviewWindow
 	tray *trayController
+	life *Lifecycle
 
 	keepRunning atomic.Bool
+	trayOn      atomic.Bool
 }
 
 // NewShell creates the shell. Call Install once the main window exists.
-func NewShell(c *Container, rt *wailsRuntime, app *application.App, win *application.WebviewWindow) *Shell {
-	sh := &Shell{c: c, rt: rt, app: app, win: win}
+func NewShell(c *Container, rt *wailsRuntime, app *application.App, win *application.WebviewWindow, life *Lifecycle) *Shell {
+	if life == nil {
+		life = NewLifecycle()
+	}
+	sh := &Shell{c: c, rt: rt, app: app, win: win, life: life}
 	sh.tray = newTrayController(sh)
 	return sh
 }
 
-func (sh *Shell) showWindow() { sh.rt.ShowWindow() }
+// hideWindow hides the window. On Windows a hidden window has no taskbar button, so with the tray setting off
+// the window is minimised instead: the user can always get it back.
+func (sh *Shell) hideWindow() {
+	if runtime.GOOS == "windows" && !sh.trayOn.Load() {
+		sh.win.Minimise()
+		return
+	}
+	sh.win.Hide()
+}
+
+// showWindow brings the window back only when it is not on screen. It never calls Restore: Wails' Restore
+// leaves full screen and un-zooms a zoomed window, which a menu command must not do.
+func (sh *Shell) showWindow() {
+	if !sh.win.IsVisible() {
+		sh.win.Show()
+	}
+	if sh.win.IsMinimised() {
+		sh.win.UnMinimise()
+	}
+	sh.win.Focus()
+}
 
 // Install registers the window hook, applies the saved tray settings and subscribes to later changes.
 func (sh *Shell) Install() {
 	sh.rt.SetWindow(sh.win)
 
-	// Closing the window quits, unless the tray is on and "keep running" is set: then it only hides.
+	// Closing the window hides it while tasks run or "keep running" is set; otherwise it goes through the quit
+	// flow. The event is always cancelled: the app ends only through Quit, never because the last window went.
 	sh.win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		if sh.keepRunning.Load() {
-			sh.win.Hide()
-			e.Cancel()
+		e.Cancel()
+		if sh.life.CloseAction(sh.keepRunning.Load()) == CloseHide {
+			sh.hideWindow()
+			return
 		}
+		go sh.app.Quit() // asks Lifecycle.ShouldQuit, which never blocks and may open the dialog
 	})
+	sh.life.SetQuit(sh.app.Quit)
+	sh.life.SetOnBackground(sh.hideWindow)
+	sh.installMenu(sh.c.Settings.UILanguage())
+	sh.c.OnUILanguage(sh.installMenu)
 
 	sh.apply(sh.c.Settings.Tray())
 	sh.c.OnSettingsChanged(func(prev, next api.Settings) {
@@ -73,6 +106,7 @@ func (sh *Shell) Install() {
 
 func (sh *Shell) apply(t api.TraySettings) {
 	sh.keepRunning.Store(t.Enabled && t.KeepRunning)
+	sh.trayOn.Store(t.Enabled)
 	if t.Enabled {
 		sh.tray.Enable()
 	} else {

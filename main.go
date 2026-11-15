@@ -7,9 +7,11 @@ import (
 	"os"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/updater"
 
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/app"
+	"github.com/rudian/codepass/internal/appguard"
 	"github.com/rudian/codepass/internal/logx"
 	"github.com/rudian/codepass/internal/paths"
 	"github.com/rudian/codepass/internal/version"
@@ -26,6 +28,10 @@ var appIcon []byte
 // Event registration lives in internal/app/events.go (init). Services are built by internal/app from one
 // container that owns every engine (container.go).
 func main() {
+	// Must stay the first statement (plan 4.14 item 6; main_test.go checks it). In helper mode (this binary
+	// re-executed by the updater to swap itself) nothing below may run: no paths, no log file, no services.
+	updater.HandleHelperMode()
+
 	p, err := paths.Resolve()
 	if err != nil {
 		log.Fatal(err)
@@ -45,9 +51,16 @@ func main() {
 		logger.Error("startup failed", "err", err)
 		log.Fatal(fmt.Errorf("startup failed: %w", err))
 	}
+	// The old AWS SSO Hub has the same bundle ID, so Wails' single-instance check would hand this launch to it and
+	// exit without a word. Ask the user first; this must run before application.New.
+	if !p.Sandbox && appguard.Run(oldAppDeps(c.Settings.UILanguage())) == appguard.Exit {
+		logger.Info("old app is running and was not stopped; exiting")
+		return
+	}
 	logger.Info("starting", "version", version.Version, "sandbox", p.Sandbox)
 
 	var mainWindow *application.WebviewWindow
+	life := app.NewLifecycle() // tasks-running and quit-decision hooks; A2-05 and A2-14 supply them
 
 	wapp := application.New(application.Options{
 		Name:        version.ProductName,
@@ -66,12 +79,13 @@ func main() {
 			Middleware: application.Middleware(app.RuntimeGuard),
 		},
 		Mac: application.MacOptions{
-			// Closing the window quits; the shell hides it instead when the tray and "keep running" are on.
-			ApplicationShouldTerminateAfterLastWindowClosed: true,
+			// Hiding or closing the last window never ends the app; the quit flow does (internal/app/window.go).
+			ApplicationShouldTerminateAfterLastWindowClosed: app.TerminateAfterLastWindowClosed,
 		},
 		Windows: application.WindowsOptions{
-			DisableQuitOnLastWindowClosed: false,
+			DisableQuitOnLastWindowClosed: !app.TerminateAfterLastWindowClosed,
 			WebviewUserDataPath:           p.WebViewDir, // stable even if the exe is renamed
+			WndProcInterceptor:            app.WndProc,  // notes a logout, restart or shutdown (WM_QUERYENDSESSION)
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: version.BundleID,
@@ -82,6 +96,8 @@ func main() {
 		},
 		// Quitting stops tickers, servers and the tray only. Tokens, role caches and session records stay.
 		OnShutdown: c.Shutdown,
+		// Cmd+Q, the menu, the Dock and the tray ask the quit decision hook.
+		ShouldQuit: life.ShouldQuit,
 	})
 
 	mainWindow = wapp.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -103,10 +119,17 @@ func main() {
 		},
 	})
 
-	app.NewShell(c, rt, wapp, mainWindow).Install()
+	app.NewShell(c, rt, wapp, mainWindow, life).Install()
 
 	if err := wapp.Run(); err != nil {
 		logger.Error("run failed", "err", err)
 		log.Fatal(err)
 	}
+}
+
+// oldAppDeps are the production dependencies of the old-app handoff, with the prompts in the saved UI language.
+func oldAppDeps(lang string) appguard.Deps {
+	d := appguard.SystemDeps()
+	d.Lang = lang
+	return d
 }
