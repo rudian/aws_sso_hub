@@ -1,11 +1,11 @@
-# Tools and caches
-.tools/
+# Tools and caches (no trailing slash: task worktrees link .tools and node_modules, and a trailing slash only matches folders)
+.tools
 .task/
 .wails
 
 # Build output
 bin/
-dist/
+/dist/
 build/bin/
 build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
 *.syso
@@ -15,7 +15,7 @@ frontend/dist/*
 !frontend/dist/.gitkeep
 
 # Dependencies
-node_modules/
+node_modules
 
 # Logs and coverage
 *.log

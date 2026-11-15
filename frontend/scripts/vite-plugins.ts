@@ -1,4 +1,6 @@
-import type { Plugin } from 'vite'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import type { Plugin, ResolvedConfig } from 'vite'
 
 /** The policy written into production builds. The dev server runs without it (React refresh and HMR need inline script and websockets). */
 export const CSP_POLICY = [
@@ -44,6 +46,25 @@ export function mockStubPlugin(stub: string): Plugin {
     resolveId(source, importer) {
       if (source === './mock' && importer && /[\\/]src[\\/]api[\\/]services\.ts$/.test(importer)) return stub
       return null
+    },
+  }
+}
+
+/**
+ * Build-only plugin: Vite empties dist before each build, which deletes the tracked dist/.gitkeep placeholder.
+ * main.go embeds frontend/dist, so a checkout without the placeholder (fresh clone, CI, new worktree) fails to compile.
+ * Writing it back after the bundle closes keeps `git status` clean after a build.
+ */
+export function keepGitkeepPlugin(): Plugin {
+  let outDir = ''
+  return {
+    name: 'codepass:keep-gitkeep',
+    apply: 'build',
+    configResolved(config: ResolvedConfig) {
+      outDir = join(config.root, config.build.outDir)
+    },
+    closeBundle() {
+      if (outDir) writeFileSync(join(outDir, '.gitkeep'), '')
     },
   }
 }

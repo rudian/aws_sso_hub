@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wails from "@wailsio/runtime/plugins/vite";
-import { cspPlugin, mockStubPlugin } from "./scripts/vite-plugins.ts";
+import { cspPlugin, keepGitkeepPlugin, mockStubPlugin } from "./scripts/vite-plugins.ts";
 
 const mockStub = fileURLToPath(new URL("./src/api/mockStub.ts", import.meta.url));
 
@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     wails("./bindings"),
     cspPlugin(),
+    keepGitkeepPlugin(),
     // Only a production build drops the mock layer; `build:dev` (mode development) keeps it for local inspection.
     ...(mode === "production" ? [mockStubPlugin(mockStub)] : []),
   ],
