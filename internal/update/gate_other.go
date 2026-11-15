@@ -1,9 +1,9 @@
-//go:build !darwin
+//go:build !darwin && !windows
 
 package update
 
-// GateSupported is false until the Windows check (the exe's file version equals the manifest version) exists
-// (F1-20, gate_windows.go). F1-20 changes this file's build tag to !darwin && !windows when it adds that file.
+// GateSupported is false: the macOS check is gate_darwin.go and the Windows check is gate_windows.go; every other
+// platform has no payload check, so no update is offered.
 func GateSupported() bool { return false }
 
 // VerifyBundle refuses everything on platforms without a check: failing closed.
