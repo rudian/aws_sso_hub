@@ -414,22 +414,36 @@ svg { flex-shrink: 0; }
 
 /* Account "pass": the signature component. A keycard with an identity stripe. */
 .pass {
-  position: relative; display: flex; flex-direction: column; gap: var(--sp-4);
+  position: relative; display: flex; flex-direction: column; gap: var(--sp-2);
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl);
-  padding: var(--sp-5) var(--sp-5) var(--sp-4) calc(var(--sp-5) + 6px);
-  box-shadow: var(--shadow-1); overflow: hidden; min-height: 196px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) calc(var(--sp-3) + 6px);
+  box-shadow: var(--shadow-1); overflow: hidden; min-width: 0;
   transition: border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
 }
 .pass:hover { border-color: var(--border-strong); }
 .pass__stripe { position: absolute; inset: 0 auto 0 0; width: 6px; background: var(--acct, var(--border-strong)); }
 .pass--static .pass__stripe { background: repeating-linear-gradient(-45deg, var(--acct) 0 6px, color-mix(in srgb, var(--acct) 35%, transparent) 6px 12px); }
-.pass__head { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.pass__head { display: flex; align-items: center; gap: var(--sp-3); }
+.pass__head .acct-tile { width: 32px; height: 32px; border-radius: 9px; font-size: 12px; }
+.pass__head .pass__name { display: block; font-size: var(--fs-14); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pass__head .pass__role { margin-top: 0; line-height: var(--lh-tight); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Facts row: account / region / repos. Dots clipped at the start of a wrapped line. */
+.pass__facts {
+  display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0;
+  margin: 0 0 0 -14px; clip-path: inset(-4px -4px -4px 10px);
+  font-size: var(--fs-12); line-height: var(--lh-snug); color: var(--text-2);
+}
+.pass__fact { position: relative; display: flex; min-width: 0; padding-left: 14px; }
+.pass__fact::before { content: ""; position: absolute; left: 4px; top: 50%; width: 3px; height: 3px; margin-top: -1.5px; border-radius: 50%; background: var(--text-disabled); }
+.pass__fact dd { margin: 0; min-width: 0; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-user-select: text; user-select: text; }
+.pass__fact:first-child dd { color: var(--text); }
 .pass__name { font-size: var(--fs-16); font-weight: var(--fw-semibold); line-height: var(--lh-tight); display: flex; align-items: center; gap: var(--sp-2); }
 .pass__meta { display: grid; grid-template-columns: auto 1fr; gap: 4px var(--sp-4); font-size: var(--fs-13); }
 .pass__meta dt { color: var(--text-3); }
 .pass__meta dd { margin: 0; color: var(--text); font-family: var(--font-mono); font-size: var(--fs-12); align-self: center; -webkit-user-select: text; user-select: text; }
-.pass__state { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-13); color: var(--text-2); min-height: 22px; }
-.pass__actions { display: flex; align-items: center; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-3); border-top: 1px dashed var(--border); }
+.pass__state { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-13); color: var(--text-2); min-height: 20px; }
+.pass__actions { display: flex; align-items: center; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-2); border-top: 1px dashed var(--border); }
 .pass--active { border-color: color-mix(in srgb, var(--acct) 30%, var(--border)); }
 .pass--expired .pass__state { color: var(--warn); }
 
@@ -437,7 +451,20 @@ svg { flex-shrink: 0; }
 .portal__header { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .portal__title { font-size: var(--fs-16); font-weight: var(--fw-semibold); }
 .portal__meta { font-size: var(--fs-12); color: var(--text-3); display: flex; gap: var(--sp-3); align-items: center; }
-.portal__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-4); }
+.portal__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-3); }
+.portal__toggle { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; padding: 0; border: 0; background: none; color: var(--text-3); border-radius: var(--r-md); cursor: default; }
+.portal__toggle:hover { color: var(--text); }
+.portal__toggle:hover .portal__icon { border-color: var(--border-strong); }
+.portal__chevron { width: 16px; height: 16px; flex: none; transition: transform var(--dur-2) var(--ease-out); }
+.portal__toggle[aria-expanded="true"] .portal__chevron { transform: rotate(90deg); }
+.portal__grid[hidden] { display: none; }
+.portal__grid.is-revealed { animation: portal-reveal var(--dur-2) var(--ease-out); }
+@keyframes portal-reveal { from { opacity: 0; transform: translateY(-4px); } }
+/* 56px = chevron 16 + gap 4 + icon 36, aligns the summary with the title */
+.portal__summary { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding-left: calc(56px + var(--sp-3)); font-size: var(--fs-12); color: var(--text-3); }
+.portal__peek { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--sp-1); }
+.portal__peek > span { display: inline-flex; }
+.portal__peek-more { font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- 7. Identity */
 .acct-tile {
@@ -453,7 +480,9 @@ svg { flex-shrink: 0; }
   display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 3px;
   border-radius: var(--r-sm); background: var(--acct-soft); color: var(--acct-ink);
   font-size: var(--fs-12); font-weight: var(--fw-semibold); white-space: nowrap; border: 1px solid var(--acct-line);
+  max-width: 100%; min-width: 0;
 }
+.acct-chip__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acct-chip .acct-tile { width: 20px; height: 18px; border-radius: 4px; font-size: 11px; letter-spacing: -.02em; box-shadow: none; }
 .acct-chip--none { background: transparent; color: var(--text-3); border: 1px dashed var(--border-strong); padding: 0 8px; font-weight: var(--fw-medium); }
 .acct-bar { width: 3px; align-self: stretch; border-radius: 3px; background: var(--acct, transparent); }

@@ -32,3 +32,51 @@
 
 /* The popover has its own padding, so the content width is 360px inside it. */
 .bind-popover { width: 392px; }
+
+/* Clone modal: repository picker. */
+.clone-pick { max-height: 248px; overflow: auto; scroll-padding-top: 36px; }
+.clone-pick__bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--sp-3); min-height: 36px; padding: 0 var(--sp-4); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-12); color: var(--text-3); }
+.clone-pick__all { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--text-2); }
+.clone-pick__count { margin-left: auto; white-space: nowrap; }
+.clone-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--border-subtle); transition: background var(--dur-1); }
+.clone-row:last-child { border-bottom: 0; }
+.clone-row:hover { background: var(--surface-2); }
+.clone-row.is-selected { background: color-mix(in srgb, var(--focus) 9%, var(--surface)); }
+.clone-row__check { display: grid; place-items: center; padding: 0 var(--sp-3) 0 var(--sp-4); }
+.clone-row__pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-3) 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; }
+.clone-row__text { flex: 1; min-width: 0; }
+
+/* Clone modal: destination notes for several repositories. */
+.clone-skip { display: flex; align-items: flex-start; gap: var(--sp-2); font-size: var(--fs-12); line-height: 1.4; color: var(--warn); overflow-wrap: anywhere; }
+.clone-skip > svg { flex: none; margin-top: 2px; }
+.clone-cmds .code__body { max-height: 112px; overflow-y: auto; }
+
+/* Clone modal: queue (cloning and done). */
+.clone-run__title { font-size: var(--fs-14); font-weight: var(--fw-semibold); color: var(--text); }
+.clone-run__dest { font-size: var(--fs-12); overflow-wrap: anywhere; }
+.clone-log { max-height: 130px; min-height: 64px; overflow: auto; }
+.clone-q-list { overflow: auto; }
+.clone-queue { max-height: 208px; }
+.clone-result { max-height: 304px; }
+.clone-q { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; column-gap: var(--sp-3); min-height: 38px; padding: var(--sp-1) var(--sp-4); border-bottom: 1px solid var(--border-subtle); font-size: var(--fs-13); }
+.clone-q:last-child { border-bottom: 0; }
+.clone-q__icon { display: grid; place-items: center; color: var(--text-3); }
+.clone-q__icon > svg { width: 16px; height: 16px; }
+.clone-q__name { color: var(--text); font-weight: var(--fw-medium); }
+.clone-q__state { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; }
+.clone-q__err { grid-column: 2 / -1; padding-bottom: var(--sp-1); font-size: var(--fs-12); line-height: 1.4; color: var(--danger); overflow-wrap: anywhere; }
+.clone-q__err > span { color: var(--text-2); }
+.clone-q--queued .clone-q__name, .clone-q--exists .clone-q__name, .clone-q--stopped .clone-q__name { color: var(--text-3); font-weight: var(--fw-regular); }
+.clone-q--cloning { background: var(--surface-2); }
+.clone-q--cloning .clone-q__icon { color: var(--busy); }
+.clone-q--done .clone-q__icon { color: var(--ok); }
+.clone-q--failed .clone-q__icon, .clone-q--failed .clone-q__state { color: var(--danger); }
+
+/* Clone modal: summary for several repositories. */
+.clone-sum { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.clone-sum__icon { flex: none; margin-top: 1px; }
+.clone-sum__icon--ok { color: var(--ok); }
+.clone-sum__icon--neutral { color: var(--text-3); }
+.clone-sum__icon--warn { color: var(--warn); }
+.clone-sum__icon--danger { color: var(--danger); }
+.clone-sum__title { font-size: var(--fs-16); font-weight: var(--fw-semibold); color: var(--text); overflow-wrap: anywhere; }

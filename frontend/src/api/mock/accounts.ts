@@ -37,6 +37,7 @@ const AUTHORIZE_URL =
 
 const HOST_SUFFIXES = ['.awsapps.com', '.app.aws', '.awsapps.cn', '.portal.amazonaws.com', '.portal.amazonaws.com.cn', '.app.amazonwebservices.com.cn', '.portal.amazonaws.eu', '.api.amazonwebservices.eu']
 const HOSTS_EXACT = ['identitycenter.amazonaws.com', 'identitycenter.amazonaws.com.cn', 'identitycenter.amazonaws.eu', 'identitycenter.us-gov.amazonaws.com']
+const SIGN_IN_DEVICE_HOST_RE = /^(device\.sso|oidc)\.[a-z]{2,4}(-[a-z]+)+-\d+\.amazonaws\.(com|com\.cn|eu)$/
 const SESSION_NAME_RE = /^[A-Za-z0-9_.-]+$/
 const REGION_RE = /^[a-z]{2}(-gov|-iso[a-z]*)?-[a-z]+-[0-9]{1,2}$/
 
@@ -161,7 +162,7 @@ const login = (portal: string, mode: LoginMode): CancellablePromise<LoginResult>
         endSigningIn()
         reject(toRuntimeError(e))
       }
-      at(0, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseStarting, browserOpened: false }))
+      at(0, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseStarting, browserOpened: false, privateWindow: false }))
       if (outcome === 'port') {
         at(200, () => failWith(fail(ErrorCode.ErrLoginPort, 'cannot listen on a local port')))
         return
@@ -172,20 +173,21 @@ const login = (portal: string, mode: LoginMode): CancellablePromise<LoginResult>
             portal,
             phase: LoginPhase.LoginPhaseDevice,
             browserOpened: false,
+            privateWindow: false,
             userCode: 'WDJB-MJHT',
             verificationUri: 'https://device.sso.us-east-1.amazonaws.com/',
             verificationUriComplete: 'https://device.sso.us-east-1.amazonaws.com/?user_code=WDJB-MJHT',
             expiresAt: fromNow(10 * MIN),
           })
         } else {
-          mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseWaiting, authorizeUrl: AUTHORIZE_URL, browserOpened: true, expiresAt: fromNow(10 * MIN) })
+          mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseWaiting, authorizeUrl: AUTHORIZE_URL, browserOpened: true, privateWindow: w.settings.privateSignIn, expiresAt: fromNow(10 * MIN) })
         }
       })
       if (outcome === 'denied') at(1500, () => failWith(fail(ErrorCode.ErrLoginDenied, 'access denied')))
       else if (outcome === 'timeout') at(1500, () => failWith(fail(ErrorCode.ErrLoginTimeout, 'login timed out')))
       else if (outcome === 'network') at(1500, () => failWith(fail(ErrorCode.ErrNetwork, 'cannot reach AWS', undefined, 'oidc.us-east-1.amazonaws.com')))
       else if (outcome === 'success') {
-        at(2200, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseExchanging, browserOpened: !device }))
+        at(2200, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseExchanging, browserOpened: !device, privateWindow: !device && w.settings.privateSignIn }))
         at(2500, () => {
           applyLoginSuccess(w, portal)
           emitSession(w, portal)
@@ -411,6 +413,23 @@ export const mockAccountService: typeof AccountReal = {
       const w = getWorld()
       const p = requirePortal(w, portal)
       console.info('[mock] open portal', p.startUrl)
+    }),
+
+  // Device-code flow's "open page" button: reports whether the page opened in a private window.
+  OpenSignInPage: (url) =>
+    run(READ, () => {
+      let u: URL | undefined
+      try {
+        u = new URL(url)
+      } catch {
+        /* rejected below */
+      }
+      const host = u?.hostname.toLowerCase() ?? ''
+      const okHost = HOSTS_EXACT.includes(host) || HOST_SUFFIXES.some((x) => host.endsWith(x) && host.length > x.length) || SIGN_IN_DEVICE_HOST_RE.test(host)
+      if (!u || u.protocol !== 'https:' || u.username || u.password || !okHost)
+        throw fail(ErrorCode.ErrInvalidInput, 'not a sign-in page URL', { field: 'url' })
+      console.info('[mock] open sign-in page', url)
+      return getWorld().settings.privateSignIn
     }),
 
   OpenConsole: (profile) =>

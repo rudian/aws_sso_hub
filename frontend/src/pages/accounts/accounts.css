@@ -20,9 +20,10 @@
 .portal__meta > :not(.mono) { flex: none; }
 .portal__title { display: flex; align-items: center; gap: var(--sp-2); }
 .portal__legacy { font-weight: var(--fw-medium); }
-.pass__block { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pass__block { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .pass__keys { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-.pass__repos { font-family: var(--font-sans); font-size: var(--fs-13); font-variant-numeric: tabular-nums; }
+.pass__fact .pass__repos { overflow: visible; font-family: var(--font-sans); font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+.pass .countdown { gap: var(--sp-1); }
 .pass__repos .link { font-variant-numeric: tabular-nums; }
 .pass__details { font-size: var(--fs-12); color: var(--text-3); }
 .pass__details summary { cursor: default; }

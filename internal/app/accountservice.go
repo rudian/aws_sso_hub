@@ -2,10 +2,14 @@ package app
 
 import (
 	"context"
+	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/aws_sso_hub/internal/awsconfig"
 	"github.com/rudian/aws_sso_hub/internal/transfer"
 )
 
@@ -127,6 +131,46 @@ func (s *AccountService) OpenPortal(portal string) error {
 		return fail(err)
 	}
 	return fail(s.c.RT.OpenURL(u))
+}
+
+// signInDeviceHostRE matches the IAM Identity Center device-authorization and OIDC endpoints, which are
+// AWS-operated and not on the portal host list. Wildcard amazonaws.com is deliberately not accepted: it
+// contains customer-controlled names such as S3 bucket hosts.
+var signInDeviceHostRE = regexp.MustCompile(`^(device\.sso|oidc)\.[a-z]{2,4}(-[a-z]+)+-\d+\.amazonaws\.(com|com\.cn|eu)$`)
+
+// checkSignInURL accepts https URLs on an AWS portal host (the awsconfig allow-list, which includes the
+// dual-stack *.app.aws and *.app.amazonwebservices.com.cn portals) or an Identity Center device host; sandbox mode also accepts the loopback http
+// endpoints of the fake servers.
+func checkSignInURL(raw string, sandbox bool) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return api.NewError(api.ErrInvalidInput, "not a sign-in page URL").WithParam("field", "url")
+	}
+	if sandbox && u.Scheme == "http" {
+		switch u.Hostname() {
+		case "127.0.0.1", "localhost", "::1":
+			return nil
+		}
+	}
+	host := strings.ToLower(u.Hostname())
+	if u.Scheme == "https" && u.User == nil {
+		if awsconfig.IsAWSPortalHost(host) || signInDeviceHostRE.MatchString(host) {
+			return nil
+		}
+	}
+	return api.NewError(api.ErrInvalidInput, "not a sign-in page URL").WithParam("field", "url")
+}
+
+// OpenSignInPage opens a sign-in page again from the login window: the device-code verification page ("Open
+// browser") or the browser sign-in authorize URL ("Open again"). It follows the "private sign-in" setting
+// and returns whether the page opened in a private browser window. Only https pages on an AWS portal host
+// (including dual-stack portals) or an Identity Center device host are accepted.
+func (s *AccountService) OpenSignInPage(url string) (bool, error) {
+	if err := checkSignInURL(url, s.c.Paths.Sandbox); err != nil {
+		return false, fail(err)
+	}
+	private, err := s.c.openSignIn(url)
+	return private, fail(err)
 }
 
 // OpenConsole: P1

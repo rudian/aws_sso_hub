@@ -66,3 +66,27 @@ describe('PassCard "Copy export AWS_PROFILE"', () => {
     })
   }
 })
+
+describe('PassCard repos fact', () => {
+  const noop = () => undefined
+  const dtTexts = () => Array.from(host.querySelectorAll('.pass__facts dt')).map((e) => e.textContent)
+
+  it('shows the bound count with its sr-only labels', () => {
+    const { portal, profile } = initech()
+    mount(<PassCard profile={{ ...profile, boundRepos: 3 }} portal={portal} readOnly={false} onDialog={noop} />)
+    expect(host.querySelector('.pass__repos')?.textContent).toBe('3 repos bound')
+    expect(dtTexts()).toContain('Repos')
+    expect(dtTexts()).toContain('Account')
+    const dts = Array.from(host.querySelectorAll('.pass__facts dt'))
+    expect(dts.length).toBeGreaterThan(0)
+    for (const dt of dts) expect(dt.classList.contains('sr-only')).toBe(true)
+  })
+
+  it('says no repos are bound for zero', () => {
+    const { portal, profile } = initech()
+    mount(<PassCard profile={{ ...profile, boundRepos: 0 }} portal={portal} readOnly={false} onDialog={noop} />)
+    expect(host.querySelector('.pass__repos')?.textContent).toBe('No repos bound')
+    expect(host.querySelector('.pass__repos button')).toBeNull()
+    expect(dtTexts()).toContain('Repos')
+  })
+})

@@ -39,10 +39,13 @@ type Config struct {
 	RegistrationsDir string
 	Endpoints        Endpoints
 	OpenBrowser      func(url string) error
-	Lang             func() string // "zh-CN" | "en"
-	Now              func() time.Time
-	Sleep            func(ctx context.Context, d time.Duration) error // nil = real
-	CallbackTimeout  time.Duration                                    // 0 = 10 min
+	// OpenSignIn, when set, opens the sign-in page instead of OpenBrowser and reports whether it did so in a
+	// private browser window.
+	OpenSignIn      func(url string) (private bool, err error)
+	Lang            func() string // "zh-CN" | "en"
+	Now             func() time.Time
+	Sleep           func(ctx context.Context, d time.Duration) error // nil = real
+	CallbackTimeout time.Duration                                    // 0 = 10 min
 }
 
 // Status is the token-level state of a session (the accounts engine derives the user-facing state from it).

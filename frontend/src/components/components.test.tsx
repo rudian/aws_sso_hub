@@ -14,6 +14,7 @@ import { Modal } from './Modal'
 import { DiffView } from './DiffView'
 import { Segmented } from './Segmented'
 import { Tabs } from './Tabs'
+import { AcctChip } from './AcctChip'
 import { Button } from './Button'
 import { Field } from './Field'
 import { Input } from './Input'
@@ -312,5 +313,16 @@ describe('CodeText', () => {
     render(<CodeText text={`use ${codeMark('--profile acme')}`} />)
     expect(host.querySelector('code')?.textContent).toBe('--profile acme')
     expect(host.textContent).toBe('use --profile acme')
+  })
+})
+
+describe('AcctChip', () => {
+  it('renders an ellipsis-able name and a title with the full name', () => {
+    const name = 'a-very-long-profile-name-that-would-overflow-the-cell'
+    render(<AcctChip slot={2} monogram="AV" name={name} />)
+    expect(host.querySelector('.acct-chip')?.hasAttribute('title')).toBe(false)
+    const nameEl = host.querySelector('.acct-chip__name')
+    expect(nameEl?.getAttribute('title')).toBe(name)
+    expect(nameEl?.textContent).toBe(name)
   })
 })

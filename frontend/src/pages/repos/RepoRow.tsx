@@ -436,7 +436,7 @@ function RepoRowImpl({ repo, selected, profiles, portals, now, cliReady, testing
         </span>
         <MiddleText className="row__secondary" value={repo.remoteKind === RemoteKind.RemoteSSH ? repo.remoteUrl : repo.displayPath} />
       </div>
-      <div className="row__cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+      <div className="row__cell" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0 }}>
         {account}
       </div>
       <div className="row__cell">{status}</div>

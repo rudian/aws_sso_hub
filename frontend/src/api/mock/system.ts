@@ -49,6 +49,10 @@ export const mockSystemService: typeof SystemReal = {
       if (p.awsCliPath != null) s.awsCliPath = p.awsCliPath
       if (p.gitPath != null) s.gitPath = p.gitPath
       if (p.autoBindOnAdd != null) s.autoBindOnAdd = p.autoBindOnAdd
+      if (p.privateSignIn != null) s.privateSignIn = p.privateSignIn
+      if (p.collapsedPortals) s.collapsedPortals = [...p.collapsedPortals]
+      if (p.lastCloneProfile != null) s.lastCloneProfile = p.lastCloneProfile
+      if (p.lastCloneRegion != null) s.lastCloneRegion = p.lastCloneRegion
       mockEmit('settings:changed', deepCopy(s))
       return s
     }),

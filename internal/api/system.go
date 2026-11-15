@@ -145,6 +145,11 @@ type Settings struct {
 	AWSCLIPath      string           `json:"awsCliPath"`      // "" = auto-detect
 	GitPath         string           `json:"gitPath"`         // "" = auto-detect
 	AutoBindOnAdd   bool             `json:"autoBindOnAdd"`   // bind a hand-added repository to its detected SSO profile
+	PrivateSignIn   bool             `json:"privateSignIn"`   // open the sign-in page in a private browser window (default true)
+
+	CollapsedPortals []string `json:"collapsedPortals"` // portal names collapsed on the Accounts page
+	LastCloneProfile string   `json:"lastCloneProfile"` // AWS profile of the last successful clone
+	LastCloneRegion  string   `json:"lastCloneRegion"`  // region of the last successful clone
 }
 
 // SettingsPatch: nil fields are left unchanged.
@@ -162,6 +167,11 @@ type SettingsPatch struct {
 	AWSCLIPath      *string           `json:"awsCliPath,omitempty"`
 	GitPath         *string           `json:"gitPath,omitempty"`
 	AutoBindOnAdd   *bool             `json:"autoBindOnAdd,omitempty"`
+	PrivateSignIn   *bool             `json:"privateSignIn,omitempty"`
+
+	CollapsedPortals []string `json:"collapsedPortals,omitempty"` // nil = unchanged; empty slice = clear
+	LastCloneProfile *string  `json:"lastCloneProfile,omitempty"`
+	LastCloneRegion  *string  `json:"lastCloneRegion,omitempty"`
 }
 
 type BackupKind string

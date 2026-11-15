@@ -427,3 +427,42 @@ func TestCallbackPageEscapes(t *testing.T) {
 		t.Fatal("zh error body")
 	}
 }
+
+func TestLoginPKCEReportsPrivateWindow(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		private     bool
+		err         error
+		wantOpened  bool
+		wantPrivate bool
+	}{
+		{"private", true, nil, true, true},
+		{"normal", false, nil, true, false},
+		{"failed", true, errors.New("no browser"), false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEnv(t)
+			plain := false
+			e.m.cfg.OpenBrowser = func(string) error { plain = true; return nil }
+			approve := e.browser(okCallback)
+			e.m.cfg.OpenSignIn = func(u string) (bool, error) {
+				if tc.err != nil {
+					// the user opens the printed URL by hand
+					approve(u)
+					return false, tc.err
+				}
+				return tc.private, approve(u)
+			}
+			if _, err := e.m.Login(context.Background(), e.sess, api.LoginModeBrowser, e.progress); err != nil {
+				t.Fatal(err)
+			}
+			if plain {
+				t.Fatal("OpenBrowser must not be used when OpenSignIn is set")
+			}
+			w := e.prog[1]
+			if w.Phase != api.LoginPhaseWaiting || w.BrowserOpened != tc.wantOpened || w.PrivateWindow != tc.wantPrivate {
+				t.Fatalf("waiting progress %+v", w)
+			}
+		})
+	}
+}

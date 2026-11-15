@@ -12,10 +12,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/rudian/aws_sso_hub/internal/api"
 	"github.com/rudian/aws_sso_hub/internal/backup"
 	"github.com/rudian/aws_sso_hub/internal/execx"
+	"github.com/rudian/aws_sso_hub/internal/gitx"
 	"github.com/rudian/aws_sso_hub/internal/migrate"
 	"github.com/rudian/aws_sso_hub/internal/redact"
 )
@@ -28,6 +31,8 @@ const (
 	defaultUILanguage     = "zh-CN"
 	defaultLeadMinutes    = 15
 	defaultBackupRetained = 20
+	maxCollapsedPortals   = 500
+	maxLabelLen           = 200
 )
 
 // data is the JSON shape of settings.json.
@@ -47,6 +52,10 @@ type data struct {
 	AWSCLIPath           string                        `json:"awsCliPath"`
 	GitPath              string                        `json:"gitPath"`
 	AutoBindOnAdd        bool                          `json:"autoBindOnAdd"`
+	PrivateSignIn        *bool                         `json:"privateSignIn,omitempty"` // nil (key absent) = true
+	CollapsedPortals     []string                      `json:"collapsedPortals"`
+	LastCloneProfile     string                        `json:"lastCloneProfile"`
+	LastCloneRegion      string                        `json:"lastCloneRegion"`
 	FirstRunDone         bool                          `json:"firstRunDone"`
 	UILanguage           string                        `json:"uiLanguage"`
 	AccountColors        map[string]int                `json:"accountColors"`
@@ -57,6 +66,9 @@ type data struct {
 	RepoTests            map[string]api.TestResult     `json:"repoTests"`
 	PendingDeactivations []migrate.PendingDeactivation `json:"pendingDeactivations"`
 }
+
+// privateSignIn is the effective value: a settings file without the key means "on".
+func (d *data) privateSignIn() bool { return d.PrivateSignIn == nil || *d.PrivateSignIn }
 
 // Store is the settings file. All methods are safe for concurrent use.
 type Store struct {
@@ -71,18 +83,19 @@ type Store struct {
 
 func defaults(defaultScanRoot string) data {
 	return data{
-		SchemaVersion:   schemaVersion,
-		Language:        api.LanguageSystem,
-		Theme:           api.ThemeSystem,
-		Motion:          api.MotionSystem,
-		ScanRoots:       []string{defaultScanRoot},
-		ExtraRepos:      []string{},
-		Reminders:       api.ReminderSettings{ExpiryNotice: true, LeadMinutes: defaultLeadMinutes, AutoRenew: true},
-		TerminalApp:     api.TerminalAuto,
-		BackupRetention: defaultBackupRetained,
-		TutorialDone:    []string{},
-		UILanguage:      defaultUILanguage,
-		AutoBindOnAdd:   true,
+		SchemaVersion:    schemaVersion,
+		Language:         api.LanguageSystem,
+		Theme:            api.ThemeSystem,
+		Motion:           api.MotionSystem,
+		ScanRoots:        []string{defaultScanRoot},
+		ExtraRepos:       []string{},
+		Reminders:        api.ReminderSettings{ExpiryNotice: true, LeadMinutes: defaultLeadMinutes, AutoRenew: true},
+		TerminalApp:      api.TerminalAuto,
+		BackupRetention:  defaultBackupRetained,
+		TutorialDone:     []string{},
+		CollapsedPortals: []string{},
+		UILanguage:       defaultUILanguage,
+		AutoBindOnAdd:    true,
 
 		AccountColors:        map[string]int{},
 		Monograms:            map[string]string{},
@@ -190,6 +203,24 @@ func (s *Store) normalize() {
 	d.ScanRoots = dedupe(roots)
 	d.ExtraRepos = dedupe(cleanAbs(d.ExtraRepos))
 	d.TutorialDone = dedupe(d.TutorialDone)
+	portals := make([]string, 0, len(d.CollapsedPortals))
+	for _, v := range d.CollapsedPortals {
+		if v = strings.TrimSpace(v); v != "" {
+			portals = append(portals, v)
+		}
+	}
+	if portals = dedupe(portals); len(portals) > maxCollapsedPortals {
+		portals = portals[:maxCollapsedPortals]
+	}
+	d.CollapsedPortals = portals
+	d.LastCloneProfile = strings.TrimSpace(d.LastCloneProfile)
+	if !validLabel(d.LastCloneProfile, true) {
+		d.LastCloneProfile = ""
+	}
+	d.LastCloneRegion = strings.TrimSpace(d.LastCloneRegion)
+	if d.LastCloneRegion != "" && !gitx.RegionRE.MatchString(d.LastCloneRegion) {
+		d.LastCloneRegion = ""
+	}
 	if d.AccountColors == nil {
 		d.AccountColors = map[string]int{}
 	}
@@ -217,6 +248,23 @@ func (s *Store) normalize() {
 	if d.PendingDeactivations == nil {
 		d.PendingDeactivations = []migrate.PendingDeactivation{}
 	}
+}
+
+// validLabel reports whether v is at most maxLabelLen characters with no control characters; empty is
+// accepted only when allowEmpty.
+func validLabel(v string, allowEmpty bool) bool {
+	if v == "" {
+		return allowEmpty
+	}
+	if utf8.RuneCountInString(v) > maxLabelLen {
+		return false
+	}
+	for _, r := range v {
+		if unicode.IsControl(r) {
+			return false
+		}
+	}
+	return true
 }
 
 func cleanAbs(in []string) []string {
@@ -299,6 +347,11 @@ func (s *Store) apiLocked() api.Settings {
 		AWSCLIPath:      d.AWSCLIPath,
 		GitPath:         d.GitPath,
 		AutoBindOnAdd:   d.AutoBindOnAdd,
+		PrivateSignIn:   d.privateSignIn(),
+
+		CollapsedPortals: append([]string{}, d.CollapsedPortals...),
+		LastCloneProfile: d.LastCloneProfile,
+		LastCloneRegion:  d.LastCloneRegion,
 	}
 }
 
@@ -408,6 +461,38 @@ func (s *Store) Update(p api.SettingsPatch) (api.Settings, error) {
 
 	if p.AutoBindOnAdd != nil {
 		next.AutoBindOnAdd = *p.AutoBindOnAdd
+	}
+	if p.PrivateSignIn != nil {
+		v := *p.PrivateSignIn
+		next.PrivateSignIn = &v
+	}
+	if p.CollapsedPortals != nil {
+		if len(p.CollapsedPortals) > maxCollapsedPortals {
+			return api.Settings{}, invalid("collapsedPortals")
+		}
+		portals := make([]string, 0, len(p.CollapsedPortals))
+		for _, v := range p.CollapsedPortals {
+			v = strings.TrimSpace(v)
+			if !validLabel(v, false) {
+				return api.Settings{}, invalid("collapsedPortals")
+			}
+			portals = append(portals, v)
+		}
+		next.CollapsedPortals = dedupe(portals)
+	}
+	if p.LastCloneProfile != nil {
+		v := strings.TrimSpace(*p.LastCloneProfile)
+		if !validLabel(v, true) {
+			return api.Settings{}, invalid("lastCloneProfile")
+		}
+		next.LastCloneProfile = v
+	}
+	if p.LastCloneRegion != nil {
+		v := strings.TrimSpace(*p.LastCloneRegion)
+		if v != "" && !gitx.RegionRE.MatchString(v) {
+			return api.Settings{}, invalid("lastCloneRegion")
+		}
+		next.LastCloneRegion = v
 	}
 
 	prev := s.d
@@ -687,6 +772,13 @@ func (s *Store) RemoveExtraRepo(path string) error {
 		}
 		d.ExtraRepos = kept
 	})
+}
+
+// PrivateSignIn reports whether the sign-in page opens in a private browser window (default true).
+func (s *Store) PrivateSignIn() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.d.privateSignIn()
 }
 
 // AutoBindOnAdd reports whether a hand-added repository is bound to its detected SSO profile.

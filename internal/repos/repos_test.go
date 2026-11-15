@@ -767,6 +767,25 @@ func TestRepairAll(t *testing.T) {
 	}
 }
 
+func TestCloneRequiresUsableProfile(t *testing.T) {
+	f := newFixture(t)
+	bare := f.sb.InitBare(t, "remote_repo.git")
+	*f.remote = func(region, name string) string { return bare }
+	outside := filepath.Join(f.sb.Root, "outside")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	(*f.profs)[1].Usable, (*f.profs)[1].NotSignedInPortal = false, "initech"
+	req := api.CloneRequest{Profile: "initech-admin", Region: "us-east-1", RepoName: "remote_repo", ParentDir: outside, FolderName: "remote_repo"}
+	_, err := f.eng.Clone(context.Background(), req)
+	if err == nil || api.AsAppError(err).Code != api.ErrNotSignedIn || api.AsAppError(err).Params["portal"] != "initech" {
+		t.Fatalf("signed out: %v", err)
+	}
+	if _, serr := os.Lstat(filepath.Join(outside, "remote_repo")); serr == nil {
+		t.Error("git ran for a signed-out profile")
+	}
+}
+
 func TestCloneAddsExtraRepo(t *testing.T) {
 	f := newFixture(t)
 	bare := f.sb.InitBare(t, "remote_repo.git")

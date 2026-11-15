@@ -15,6 +15,7 @@ import (
 	"github.com/rudian/aws_sso_hub/internal/api"
 	"github.com/rudian/aws_sso_hub/internal/awsapi"
 	"github.com/rudian/aws_sso_hub/internal/backup"
+	"github.com/rudian/aws_sso_hub/internal/browser"
 	"github.com/rudian/aws_sso_hub/internal/codecommit"
 	"github.com/rudian/aws_sso_hub/internal/credstore"
 	"github.com/rudian/aws_sso_hub/internal/envcheck"
@@ -78,6 +79,12 @@ type Container struct {
 	opts ContainerOptions
 	now  func() time.Time
 
+	// private opens a URL in a private window of the default browser. nil in sandbox mode: a sandboxed
+	// app never launches a real browser. Tests may set it to a fake.
+	private interface {
+		OpenPrivate(ctx context.Context, rawURL string) (bool, error)
+	}
+
 	subMu sync.Mutex
 	subs  []func(name string, data any)
 
@@ -113,6 +120,9 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 
 	c := &Container{Paths: p, RT: rt, Log: o.Logger, opts: o, now: o.Now}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
+	if !p.Sandbox {
+		c.private = &browser.Opener{Home: p.Home}
+	}
 
 	st, first, err := settings.Open(p.SettingsFile, p.DefaultScanRoot, o.Now)
 	if err != nil {
@@ -138,6 +148,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		RegistrationsDir: p.RegistrationsDir,
 		Endpoints:        sso.Endpoints{OIDC: o.Endpoints.OIDC, Portal: o.Endpoints.Portal},
 		OpenBrowser:      rt.OpenURL,
+		OpenSignIn:       c.openSignIn,
 		Lang:             st.UILanguage,
 		Now:              o.Now,
 	})
@@ -406,4 +417,25 @@ func (c *Container) notifyUILanguage(lang string) {
 	for _, h := range hs {
 		h(lang)
 	}
+}
+
+// openSignIn opens a sign-in page. With the "private sign-in" setting on it tries a private window of the
+// default browser first, so an old web session of the browser is never reused; when that is not possible
+// (browser without a private switch, detection failure, sandbox mode) it falls back to the normal open and
+// reports private = false.
+func (c *Container) openSignIn(raw string) (bool, error) {
+	if err := checkOpenable(raw, c.Paths.Sandbox); err != nil {
+		return false, err
+	}
+	if c.private != nil && !c.Paths.Sandbox && c.Settings.PrivateSignIn() {
+		ctx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+		private, err := c.private.OpenPrivate(ctx, raw)
+		cancel()
+		if err != nil {
+			c.Log.Warn("cannot open a private browser window; using the normal one", "error", err.Error())
+		} else if private {
+			return true, nil
+		}
+	}
+	return false, c.RT.OpenURL(raw)
 }

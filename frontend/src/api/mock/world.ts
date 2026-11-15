@@ -631,6 +631,10 @@ function baseSettings(): Settings {
     awsCliPath: '',
     gitPath: '',
     autoBindOnAdd: true,
+    privateSignIn: true,
+    collapsedPortals: [],
+    lastCloneProfile: '',
+    lastCloneRegion: '',
   }
 }
 

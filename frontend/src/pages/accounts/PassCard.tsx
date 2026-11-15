@@ -85,40 +85,50 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
       <div className="pass__head">
         <AcctTile slot={profile.colorSlot} monogram={profile.monogram} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="pass__name">{profile.name}</div>
-          <div className="pass__role">{profile.role}</div>
+          <div className="pass__name" title={profile.name}>{profile.name}</div>
+          <div className="pass__role" title={profile.role}>{profile.role}</div>
         </div>
         <Menu align="end" trigger={<IconButton label={t('card.moreAria', { name: profile.name })} icon={MoreHorizontal} size="sm" />} items={items} />
       </div>
-      <dl className="pass__meta" style={{ margin: 0 }}>
-        <dt>{t('card.label.account')}</dt>
-        <dd>{profile.accountId}</dd>
-        <dt>{t('card.label.region')}</dt>
-        <dd>{profile.region}</dd>
-        <dt>{t('card.label.repos')}</dt>
-        <dd className="pass__repos">
-          {profile.boundRepos > 0 ? (
-            <button type="button" className="link" aria-label={t('card.reposLink', { name: profile.name })} onClick={() => navigate({ page: 'repos', profile: profile.name })}>
-              {t('card.repos.bound', { n: profile.boundRepos })}
-            </button>
-          ) : (
-            <span className="muted">{t('card.repos.none')}</span>
-          )}
-        </dd>
-      </dl>
-      {keysLeft && (
-        <div className="pass__keys">
-          <Badge kind="warn" icon={KeyRound}>
-            {t('legacy.keysLeft')}
-          </Badge>
-          <Gated blocked={readOnly}>
-            <Button size="sm" variant="secondary" onClick={() => navigate({ page: 'migrate', profile: profile.name, step: MigrationStep.MigrationRemoveKey })}>
-              {t('legacy.keysLeft.action')}
-            </Button>
-          </Gated>
-        </div>
-      )}
       <div className="pass__block">
+        <dl className="pass__facts">
+          {profile.accountId && (
+            <div className="pass__fact">
+              <dt className="sr-only">{t('card.label.account')}</dt>
+              <dd>{profile.accountId}</dd>
+            </div>
+          )}
+          {profile.region && (
+            <div className="pass__fact">
+              <dt className="sr-only">{t('card.label.region')}</dt>
+              <dd>{profile.region}</dd>
+            </div>
+          )}
+          <div className="pass__fact">
+            <dt className="sr-only">{t('card.label.repos')}</dt>
+            <dd className="pass__repos">
+              {profile.boundRepos > 0 ? (
+                <button type="button" className="link" aria-label={t('card.reposLink', { name: profile.name })} onClick={() => navigate({ page: 'repos', profile: profile.name })}>
+                  {t('card.repos.count', { n: profile.boundRepos })}
+                </button>
+              ) : (
+                <span className="muted">{t('card.repos.zero')}</span>
+              )}
+            </dd>
+          </div>
+        </dl>
+        {keysLeft && (
+          <div className="pass__keys">
+            <Badge kind="warn" icon={KeyRound}>
+              {t('legacy.keysLeft')}
+            </Badge>
+            <Gated blocked={readOnly}>
+              <Button size="sm" variant="secondary" onClick={() => navigate({ page: 'migrate', profile: profile.name, step: MigrationStep.MigrationRemoveKey })}>
+                {t('legacy.keysLeft.action')}
+              </Button>
+            </Gated>
+          </div>
+        )}
         {counting ? (
           <Countdown session={session} slot={profile.colorSlot} label={activeLabel(session, now, t)} onChangeLength={() => onDialog({ kind: 'length', portal: portal.name })} />
         ) : (
@@ -135,7 +145,7 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
           </div>
         )}
         {shared && (
-          <span className="pass__shared">
+          <span className="pass__shared" title={shared}>
             <LinkIcon aria-hidden="true" />
             {shared}
           </span>
@@ -147,9 +157,7 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
             <Button size="sm" icon={ExternalLink} onClick={() => void Accounts.OpenConsole(profile.name).catch(failToast)}>
               {t('card.console')}
             </Button>
-            <Button size="sm" variant="ghost" icon={Terminal} onClick={() => navigate({ page: 'terminal', profile: profile.name })}>
-              {t('card.terminal')}
-            </Button>
+            <IconButton size="sm" label={t('card.terminal')} icon={Terminal} onClick={() => navigate({ page: 'terminal', profile: profile.name })} />
           </>
         )}
         <span className="spacer" />

@@ -21,6 +21,7 @@ import { formatUntilDay } from '../../lib/time'
 import { useNow } from '../../lib/useNow'
 import { useActions } from '../../shell/AppActions'
 import { useAccounts } from '../../state/accounts'
+import { useSettings } from '../../state/settings'
 import { loginErrorText, loginSuccessText, splitFirstSentence } from './model'
 import { cancelQuietly, clock } from './util'
 import './accounts.css'
@@ -45,6 +46,11 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
   const { t, lang } = useI18n()
   const { toast, confirm } = useActions()
   const { state } = useAccounts()
+  const { settings } = useSettings()
+  // device flow: whether the last "Open browser" press ended up in a private window (null until pressed)
+  const [devicePrivate, setDevicePrivate] = useState<boolean | null>(null)
+  // browser flow: whether the last "Open again" press ended up in a private window (null until pressed)
+  const [reopenPrivate, setReopenPrivate] = useState<boolean | null>(null)
 
   const [mode, setMode] = useState<LoginMode>(initialMode ?? LoginMode.LoginModeBrowser)
   const [attempt, setAttempt] = useState(0)
@@ -67,6 +73,8 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
     let timer: ReturnType<typeof setTimeout> | undefined
     setPhase('starting')
     setProgress(null)
+    setDevicePrivate(null)
+    setReopenPrivate(null)
     setError(null)
     const off = onEvent('login:progress', (p) => {
       if (!alive || p.portal !== portal) return
@@ -173,10 +181,41 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, result])
 
+  const openDevicePage = async (url: string) => {
+    try {
+      setDevicePrivate(await Accounts.OpenSignInPage(url))
+    } catch {
+      setDevicePrivate(false)
+      try {
+        await openExternal(url)
+      } catch {
+        /* the address is on screen to copy */
+      }
+    }
+  }
+
+  // "Open again" goes through the same backend open as the first open, so it is private again when the
+  // setting is on.
+  const reopenPage = async (url: string) => {
+    try {
+      setReopenPrivate(await Accounts.OpenSignInPage(url))
+    } catch {
+      setReopenPrivate(false)
+      try {
+        await openExternal(url)
+      } catch {
+        /* the address can be copied */
+      }
+    }
+  }
+
   const switchMode = (m: LoginMode) => {
     setMode(m)
     setAttempt((a) => a + 1)
   }
+
+  const isPrivate = reopenPrivate ?? !!progress?.privateWindow
+  const privateMissed = !!settings?.privateSignIn && !!progress?.browserOpened && !isPrivate
 
   const subtitle = info ? <span className="mono">{info.startUrlHost}</span> : undefined
 
@@ -208,7 +247,7 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
             </Button>
           )}
           {phase === 'device' && progress?.verificationUriComplete && (
-            <Button variant="primary" icon={ExternalLink} onClick={() => void openExternal(progress.verificationUriComplete as string)}>
+            <Button variant="primary" icon={ExternalLink} onClick={() => void openDevicePage(progress.verificationUriComplete as string)}>
               {t('login.device.open')}
             </Button>
           )}
@@ -244,11 +283,16 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
         <div className="login-modal__body login-modal__body--tall">
           <Handoff />
           <p className="login-lead">{t('login.waiting.title')}</p>
-          {splitFirstSentence(t('login.waiting.body')).map((line, i) => line && (
+          {splitFirstSentence(t(isPrivate ? 'login.waiting.body.private' : 'login.waiting.body')).map((line, i) => line && (
             <p key={i} className="login-text">
               {line}
             </p>
           ))}
+          {privateMissed && (
+            <p className="login-text" role="status">
+              {t('login.private.unavailable')}
+            </p>
+          )}
           {progress && !progress.browserOpened && (
             <p className="login-text" role="status">
               {t('login.browser.fallback')}
@@ -279,7 +323,7 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
             >
               {t('login.copyLink')}
             </Button>
-            <Button variant="ghost" size="sm" icon={ExternalLink} onClick={() => progress?.authorizeUrl && void openExternal(progress.authorizeUrl)}>
+            <Button variant="ghost" size="sm" icon={ExternalLink} onClick={() => progress?.authorizeUrl && void reopenPage(progress.authorizeUrl)}>
               {t('login.openAgain')}
             </Button>
           </div>
@@ -290,6 +334,12 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
         <div className="login-modal__body login-modal__body--tall">
           <p className="login-lead login-lead--device">{t('login.device.title')}</p>
           <p className="login-text">{t('login.device.body')}</p>
+          {settings?.privateSignIn && devicePrivate !== false && <p className="login-text">{t('login.device.private')}</p>}
+          {settings?.privateSignIn && devicePrivate === false && (
+            <p className="login-text" role="status">
+              {t('login.private.unavailable')}
+            </p>
+          )}
           <UserCode code={progress?.userCode ?? ''} label={t('login.device.code.aria', { code: progress?.userCode ?? '' })} />
           <div className="input-group" style={{ marginTop: 'var(--sp-4)' }}>
             <Input mono readOnly aria-label={t('login.device.url')} value={progress?.verificationUriComplete ?? progress?.verificationUri ?? ''} onFocus={(e) => e.currentTarget.select()} />

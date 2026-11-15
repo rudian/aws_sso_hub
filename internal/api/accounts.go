@@ -137,6 +137,7 @@ type LoginProgress struct {
 	Phase                   LoginPhase `json:"phase"`
 	AuthorizeURL            string     `json:"authorizeUrl,omitempty"` // not secret (client id, PKCE challenge, state)
 	BrowserOpened           bool       `json:"browserOpened"`
+	PrivateWindow           bool       `json:"privateWindow"` // the sign-in page was opened in a private browser window
 	UserCode                string     `json:"userCode,omitempty"`
 	VerificationURI         string     `json:"verificationUri,omitempty"`
 	VerificationURIComplete string     `json:"verificationUriComplete,omitempty"`

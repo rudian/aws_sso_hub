@@ -1,4 +1,4 @@
-import { cloneElement } from 'react'
+import { cloneElement, useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { toUiError } from '../../api/errors'
 import { Accounts } from '../../api/services'
@@ -6,6 +6,7 @@ import type { Portal } from '../../api/models'
 import { Tooltip } from '../../components/Tooltip'
 import { errorText, useI18n } from '../../i18n'
 import { useActions } from '../../shell/AppActions'
+import { useSettings } from '../../state/settings'
 
 /** Open dialogs of the Accounts page. Entries name their subject; the page looks the object up in the current state. */
 export type DialogState =
@@ -73,4 +74,40 @@ export function Gated({ blocked, fill, children }: { blocked: boolean; fill?: bo
       </span>
     </Tooltip>
   )
+}
+
+/** Collapsed portals: change locally first (instant), then write to settings. While settings is null everything is expanded. */
+export function useCollapsedPortals(portalNames: string[]) {
+  const { settings, update } = useSettings()
+  const failToast = useErrorToast()
+  const saved = settings?.collapsedPortals
+  const [local, setLocal] = useState<string[] | null>(null)
+  const pending = useRef(0)
+
+  // settings changed with no write of ours in flight: drop the local copy and follow settings
+  useEffect(() => {
+    if (pending.current === 0) setLocal(null)
+  }, [saved])
+
+  const list = local ?? saved ?? []
+
+  const write = (next: string[]) => {
+    const clean = next.filter((n) => portalNames.includes(n)) // also drops deleted or renamed portals
+    setLocal(clean)
+    pending.current += 1
+    update({ collapsedPortals: clean })
+      .catch((e) => {
+        setLocal(null) // failed: fall back to the saved value
+        failToast(e)
+      })
+      .finally(() => {
+        pending.current -= 1
+      })
+  }
+
+  const isCollapsed = (name: string) => list.includes(name)
+  const toggle = (name: string) => write(isCollapsed(name) ? list.filter((n) => n !== name) : [...list, name])
+  const allCollapsed = portalNames.length > 0 && portalNames.every(isCollapsed)
+  const setAll = (collapsed: boolean) => write(collapsed ? [...portalNames] : [])
+  return { isCollapsed, toggle, allCollapsed, setAll }
 }

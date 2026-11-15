@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Download, Plus, RefreshCw, Upload } from 'lucide-react'
+import { ArrowLeftRight, ChevronsDownUp, ChevronsUpDown, Download, Plus, RefreshCw, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Accounts } from '../../api/services'
 import { ProfileKind, StaticState } from '../../api/models'
@@ -18,7 +18,7 @@ import { useAccounts } from '../../state/accounts'
 import { AddPortalModal } from './AddPortalModal'
 import { ColorDialog } from './ColorDialog'
 import { ExportDialog } from './ExportDialog'
-import { Gated, useSignOut } from './hooks'
+import { Gated, useCollapsedPortals, useSignOut } from './hooks'
 import type { DialogState } from './hooks'
 import { ImportDialog } from './ImportDialog'
 import { LegacyPanel } from './LegacyPanel'
@@ -42,6 +42,8 @@ export function AccountsPage() {
   const readOnly = !!state?.readOnly
   const profiles = state?.profiles ?? []
   const portals = useMemo(() => (state?.portals ?? []).filter((p) => !p.draft), [state])
+  const portalNames = useMemo(() => portals.map((p) => p.name), [portals])
+  const fold = useCollapsedPortals(portalNames)
   const statics = useMemo(() => staticProfiles(profiles), [profiles])
 
   const doRefresh = async () => {
@@ -98,6 +100,14 @@ export function AccountsPage() {
           <p className="page__subtitle">{state ? <CodeText text={t('accounts.subtitle', { n: profiles.length, file: codeMark('~/.aws/config') })} /> : t('common.loading')}</p>
         </div>
         <div className="page__actions">
+          {portals.length > 1 && (
+            <IconButton
+              label={t(fold.allCollapsed ? 'portal.expandAll' : 'portal.collapseAll')}
+              icon={fold.allCollapsed ? ChevronsUpDown : ChevronsDownUp}
+              bordered
+              onClick={() => fold.setAll(!fold.allCollapsed)}
+            />
+          )}
           <IconButton label={t('tip.refresh')} icon={RefreshCw} bordered className={refreshing ? 'is-spinning' : undefined} disabled={refreshing} onClick={() => void doRefresh()} />
           <Menu
             align="end"
@@ -124,7 +134,7 @@ export function AccountsPage() {
             <Skeleton variant="text" width={180} />
             <div className="portal__grid">
               {[0, 1, 2].map((i) => (
-                <Skeleton key={i} variant="block" height={196} />
+                <Skeleton key={i} variant="block" height={160} />
               ))}
             </div>
           </div>
@@ -152,7 +162,7 @@ export function AccountsPage() {
         <LegacyPanel profiles={statics} readOnly={readOnly} />
 
         {portals.map((p) => (
-          <PortalSection key={p.name} portal={p} profiles={profiles.filter((x) => x.kind !== ProfileKind.ProfileKindStatic)} readOnly={readOnly} onDialog={setDialog} />
+          <PortalSection key={p.name} portal={p} profiles={profiles.filter((x) => x.kind !== ProfileKind.ProfileKindStatic)} readOnly={readOnly} onDialog={setDialog} collapsed={fold.isCollapsed(p.name)} onToggle={() => fold.toggle(p.name)} />
         ))}
       </div>
 

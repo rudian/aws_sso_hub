@@ -124,6 +124,13 @@ func (e *Engine) Clone(ctx context.Context, req api.CloneRequest) (api.BindOutco
 	if err != nil {
 		return api.BindOutcome{}, err
 	}
+	if !p.Usable {
+		portal := p.NotSignedInPortal
+		if portal == "" {
+			portal = p.Portal
+		}
+		return api.BindOutcome{}, api.NewError(api.ErrNotSignedIn, "profile is not signed in").WithParam("portal", portal)
+	}
 	dest, canonical, err := e.cloneTarget(req)
 	if err != nil {
 		return api.BindOutcome{}, err

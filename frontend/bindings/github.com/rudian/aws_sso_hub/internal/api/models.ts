@@ -1075,6 +1075,11 @@ export interface LoginProgress {
      */
     "authorizeUrl"?: string;
     "browserOpened": boolean;
+
+    /**
+     * the sign-in page was opened in a private browser window
+     */
+    "privateWindow": boolean;
     "userCode"?: string;
     "verificationUri"?: string;
     "verificationUriComplete"?: string;
@@ -1611,6 +1616,26 @@ export interface Settings {
      * bind a hand-added repository to its detected SSO profile
      */
     "autoBindOnAdd": boolean;
+
+    /**
+     * open the sign-in page in a private browser window (default true)
+     */
+    "privateSignIn": boolean;
+
+    /**
+     * portal names collapsed on the Accounts page
+     */
+    "collapsedPortals": string[] | null;
+
+    /**
+     * AWS profile of the last successful clone
+     */
+    "lastCloneProfile": string;
+
+    /**
+     * region of the last successful clone
+     */
+    "lastCloneRegion": string;
 }
 
 /**
@@ -1638,6 +1663,14 @@ export interface SettingsPatch {
     "awsCliPath"?: string | null;
     "gitPath"?: string | null;
     "autoBindOnAdd"?: boolean | null;
+    "privateSignIn"?: boolean | null;
+
+    /**
+     * nil = unchanged; empty slice = clear
+     */
+    "collapsedPortals"?: string[] | null;
+    "lastCloneProfile"?: string | null;
+    "lastCloneRegion"?: string | null;
 }
 
 export enum Severity {

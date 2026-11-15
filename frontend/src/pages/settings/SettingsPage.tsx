@@ -270,6 +270,12 @@ export function SettingsPage() {
           </Row>
         </Card>
 
+        <Card id="set-signin" title={t('settings.group.signin')}>
+          <Row label={t('settings.signin.private')} desc={t('settings.signin.private.hint')}>
+            <Switch label={t('settings.signin.private')} checked={s.privateSignIn} onChange={(v) => void save({ privateSignIn: v })} />
+          </Row>
+        </Card>
+
         <Card id="set-reminders" title={t('settings.reminders')}>
           <Row label={t('settings.reminders.expiry')}>
             <Switch label={t('settings.reminders.expiry')} checked={s.reminders.expiryNotice} onChange={(v) => void save({ reminders: { ...s.reminders, expiryNotice: v } })} />

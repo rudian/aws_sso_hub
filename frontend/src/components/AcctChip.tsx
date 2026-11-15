@@ -26,7 +26,7 @@ export function AcctChip({ slot, monogram, name, dashed, none, accountId, classN
       role={label ? 'img' : undefined}
     >
       {!none && monogram && <AcctTile slot={slot} monogram={monogram} />}
-      <span>{name}</span>
+      <span className="acct-chip__name" title={name}>{name}</span>
     </span>
   )
 }

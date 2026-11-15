@@ -597,6 +597,24 @@ func Preview(path, display, backupDirDisplay string, before, after []byte) api.F
 var allowedHostSuffixes = []string{".awsapps.com", ".app.aws", ".awsapps.cn", ".portal.amazonaws.com", ".portal.amazonaws.com.cn",
 	".app.amazonwebservices.com.cn", ".portal.amazonaws.eu", ".api.amazonwebservices.eu"}
 var allowedHosts = []string{"identitycenter.amazonaws.com", "identitycenter.amazonaws.com.cn", "identitycenter.amazonaws.eu", "identitycenter.us-gov.amazonaws.com"}
+
+// IsAWSPortalHost reports whether host (lower-case, no port) is a known AWS access-portal / Identity Center
+// host: one of the exact hosts or a proper subdomain of an allowed suffix (including dual-stack portals).
+func IsAWSPortalHost(host string) bool {
+	host = strings.ToLower(host)
+	for _, h := range allowedHosts {
+		if host == h {
+			return true
+		}
+	}
+	for _, suf := range allowedHostSuffixes {
+		if strings.HasSuffix(host, suf) && len(host) > len(suf) {
+			return true
+		}
+	}
+	return false
+}
+
 var portalRegionRE = regexp.MustCompile(`\.portal\.([a-z0-9-]+)\.app\.aws$`)
 
 var (
@@ -626,18 +644,7 @@ func NormalizeStartURL(raw string) (normalized, guessedRegion string, err *api.A
 	if !startHostRE.MatchString(host) {
 		return "", "", bad
 	}
-	ok := false
-	for _, h := range allowedHosts {
-		if host == h {
-			ok = true
-		}
-	}
-	for _, suf := range allowedHostSuffixes {
-		if strings.HasSuffix(host, suf) && len(host) > len(suf) {
-			ok = true
-		}
-	}
-	if !ok {
+	if !IsAWSPortalHost(host) {
 		return "", "", bad
 	}
 	if strings.HasSuffix(host, ".awsapps.com") {

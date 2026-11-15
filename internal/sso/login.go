@@ -286,15 +286,20 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 		ln.Close()
 	}()
 
-	opened := false
-	if m.cfg.OpenBrowser != nil {
+	opened, private := false, false
+	switch {
+	case m.cfg.OpenSignIn != nil:
+		p, err := m.cfg.OpenSignIn(authURL)
+		opened = err == nil
+		private = opened && p
+	case m.cfg.OpenBrowser != nil:
 		opened = m.cfg.OpenBrowser(authURL) == nil
 	}
 	timeout := m.cfg.CallbackTimeout
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}
-	progress(api.LoginProgress{Portal: s.Name, Phase: api.LoginPhaseWaiting, AuthorizeURL: authURL, BrowserOpened: opened,
+	progress(api.LoginProgress{Portal: s.Name, Phase: api.LoginPhaseWaiting, AuthorizeURL: authURL, BrowserOpened: opened, PrivateWindow: private,
 		ExpiresAt: m.now().UTC().Add(timeout).Format(time.RFC3339)})
 
 	timer := time.NewTimer(timeout)

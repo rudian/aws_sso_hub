@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -446,5 +447,131 @@ func TestLoadDropsInvalidToolPaths(t *testing.T) {
 	}
 	if d := s.DroppedToolPaths(); len(d) != 1 || d[0] != "awsCliPath" {
 		t.Errorf("dropped: %v", d)
+	}
+}
+
+func TestCloneAndPortalSettingsDefaults(t *testing.T) {
+	s, _, _ := open(t)
+	a := s.API()
+	if a.CollapsedPortals == nil || len(a.CollapsedPortals) != 0 || a.LastCloneProfile != "" || a.LastCloneRegion != "" {
+		t.Fatalf("%+v", a)
+	}
+}
+
+func TestCloneAndPortalSettingsRoundTripAndPatch(t *testing.T) {
+	s, path, _ := open(t)
+	prof, region := "dev-admin", "eu-west-1"
+	out, err := s.Update(api.SettingsPatch{CollapsedPortals: []string{" acme ", "initech", "acme"}, LastCloneProfile: &prof, LastCloneRegion: &region})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(out.CollapsedPortals) != "[acme initech]" || out.LastCloneProfile != prof || out.LastCloneRegion != region {
+		t.Fatalf("%+v", out)
+	}
+	// no aliasing: mutating the returned slice must not change the store
+	out.CollapsedPortals[0] = "x"
+	if s.API().CollapsedPortals[0] != "acme" {
+		t.Fatal("slice aliased")
+	}
+	s2, _, err := Open(path, filepath.Join(t.TempDir(), "code"), fixedNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := s2.API(); fmt.Sprint(a.CollapsedPortals) != "[acme initech]" || a.LastCloneProfile != prof || a.LastCloneRegion != region {
+		t.Fatalf("reload: %+v", a)
+	}
+	// nil leaves everything unchanged
+	if out, err = s.Update(api.SettingsPatch{}); err != nil || len(out.CollapsedPortals) != 2 || out.LastCloneProfile != prof || out.LastCloneRegion != region {
+		t.Fatalf("%+v %v", out, err)
+	}
+	// empty slice / empty strings clear
+	empty := ""
+	out, err = s.Update(api.SettingsPatch{CollapsedPortals: []string{}, LastCloneProfile: &empty, LastCloneRegion: &empty})
+	if err != nil || out.CollapsedPortals == nil || len(out.CollapsedPortals) != 0 || out.LastCloneProfile != "" || out.LastCloneRegion != "" {
+		t.Fatalf("%+v %v", out, err)
+	}
+}
+
+func TestCloneAndPortalSettingsValidation(t *testing.T) {
+	s, _, _ := open(t)
+	bad := func(name string, p api.SettingsPatch, field string) {
+		t.Helper()
+		_, err := s.Update(p)
+		var ae *api.AppError
+		if !errors.As(err, &ae) || ae.Code != api.ErrInvalidInput || ae.Params["field"] != field {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	str := func(v string) *string { return &v }
+	many := make([]string, 501)
+	for i := range many {
+		many[i] = "p" + strconv.Itoa(i)
+	}
+	bad("region", api.SettingsPatch{LastCloneRegion: str("mars")}, "lastCloneRegion")
+	bad("profile long", api.SettingsPatch{LastCloneProfile: str(strings.Repeat("a", 201))}, "lastCloneProfile")
+	bad("profile ctrl", api.SettingsPatch{LastCloneProfile: str("a\nb")}, "lastCloneProfile")
+	bad("portal empty", api.SettingsPatch{CollapsedPortals: []string{"ok", "  "}}, "collapsedPortals")
+	bad("portal long", api.SettingsPatch{CollapsedPortals: []string{strings.Repeat("a", 201)}}, "collapsedPortals")
+	bad("portal ctrl", api.SettingsPatch{CollapsedPortals: []string{"a\x00b"}}, "collapsedPortals")
+	bad("too many", api.SettingsPatch{CollapsedPortals: many}, "collapsedPortals")
+	if _, err := s.Update(api.SettingsPatch{CollapsedPortals: many[:500]}); err != nil {
+		t.Fatalf("500 entries must be accepted: %v", err)
+	}
+}
+
+func TestCloneAndPortalSettingsNormalizeOnLoad(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	raw := `{"collapsedPortals":[" a ","a","","b"],"lastCloneProfile":"bad\u0001","lastCloneRegion":"mars"}`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, _, err := Open(path, filepath.Join(dir, "code"), fixedNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := s.API()
+	if fmt.Sprint(a.CollapsedPortals) != "[a b]" || a.LastCloneProfile != "" || a.LastCloneRegion != "" {
+		t.Fatalf("%+v", a)
+	}
+}
+
+func TestPrivateSignInDefaultAndPatch(t *testing.T) {
+	s, path, _ := open(t)
+	if !s.PrivateSignIn() || !s.API().PrivateSignIn {
+		t.Fatal("privateSignIn defaults to true")
+	}
+	off, on := false, true
+	got, err := s.Update(api.SettingsPatch{PrivateSignIn: &off})
+	if err != nil || got.PrivateSignIn || s.PrivateSignIn() {
+		t.Fatalf("patch false: %+v %v", got, err)
+	}
+	// an unrelated patch keeps it; a reload sees false
+	theme := api.ThemeDark
+	if _, err := s.Update(api.SettingsPatch{Theme: &theme}); err != nil {
+		t.Fatal(err)
+	}
+	re, _, err := Open(path, filepath.Join(filepath.Dir(path), "code"), fixedNow)
+	if err != nil || re.PrivateSignIn() || re.API().PrivateSignIn {
+		t.Fatalf("reload: %+v %v", re.API(), err)
+	}
+	got, err = re.Update(api.SettingsPatch{PrivateSignIn: &on})
+	if err != nil || !got.PrivateSignIn || !re.PrivateSignIn() {
+		t.Fatalf("patch true: %+v %v", got, err)
+	}
+	re2, _, err := Open(path, filepath.Join(filepath.Dir(path), "code"), fixedNow)
+	if err != nil || !re2.PrivateSignIn() {
+		t.Fatalf("reload true: %v", err)
+	}
+}
+
+func TestPrivateSignInOldFileIsOn(t *testing.T) {
+	old := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(old, []byte(`{"schemaVersion":1,"firstRunDone":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	o, _, err := Open(old, "/tmp/code", fixedNow)
+	if err != nil || !o.PrivateSignIn() || !o.API().PrivateSignIn {
+		t.Fatalf("old file: %v", err)
 	}
 }

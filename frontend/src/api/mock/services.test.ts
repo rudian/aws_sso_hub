@@ -266,6 +266,20 @@ describe('mock services', () => {
     expect(await code(mock.system.UpdateSettings({ reminders: { expiryNotice: true, leadMinutes: 10, autoRenew: true } }))).toBe(ErrorCode.ErrInvalidInput)
   })
 
+  it('settings: clone and portal fields default, update with copies, and clear', async () => {
+    resetWorld('fresh')
+    const d = await call(mock.system.GetSettings())
+    expect(d).toMatchObject({ collapsedPortals: [], lastCloneProfile: '', lastCloneRegion: '' })
+    const arr = ['acme']
+    const s = await call(mock.system.UpdateSettings({ collapsedPortals: arr, lastCloneProfile: 'dev', lastCloneRegion: 'eu-west-1' }))
+    expect(s).toMatchObject({ collapsedPortals: ['acme'], lastCloneProfile: 'dev', lastCloneRegion: 'eu-west-1' })
+    arr.push('x')
+    expect((await call(mock.system.GetSettings())).collapsedPortals).toEqual(['acme'])
+    expect((await call(mock.system.UpdateSettings({ theme: 'dark' as never }))).collapsedPortals).toEqual(['acme'])
+    const c = await call(mock.system.UpdateSettings({ collapsedPortals: [], lastCloneProfile: '', lastCloneRegion: '' }))
+    expect(c).toMatchObject({ collapsedPortals: [], lastCloneProfile: '', lastCloneRegion: '' })
+  })
+
   it('restoring a redacted credentials backup needs confirmation', async () => {
     resetWorld('mid')
     const entry = (await call(mock.system.ListBackups()))!.find((b) => b.kind === 'aws-credentials')!

@@ -1,9 +1,11 @@
 import clsx from 'clsx'
+import { useId, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Clock, Globe, LogOut, MoreHorizontal, Plus } from 'lucide-react'
+import { ChevronRight, Clock, Globe, LogOut, MoreHorizontal, Plus } from 'lucide-react'
 import { copyText } from '../../api/platform'
 import { Accounts } from '../../api/services'
 import type { Portal, Profile } from '../../api/models'
+import { AcctTile } from '../../components/AcctTile'
 import { Badge } from '../../components/Badge'
 import { Banner } from '../../components/Banner'
 import { Button } from '../../components/Button'
@@ -61,10 +63,21 @@ interface PortalSectionProps {
   profiles: Profile[]
   readOnly: boolean
   onDialog: (d: DialogState) => void
+  collapsed?: boolean
+  onToggle?: () => void
 }
 
+const PEEK = 8
+
 /** One portal: header with session pill, sign-out and menu, a grid of passes, and the dashed "add account or role" tile. */
-export function PortalSection({ portal, profiles, readOnly, onDialog }: PortalSectionProps) {
+export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed = false, onToggle }: PortalSectionProps) {
+  const gridId = useId()
+  const titleId = useId()
+  const [revealed, setRevealed] = useState(false) // animate only after the user toggled
+  const toggle = () => {
+    setRevealed(true)
+    onToggle?.()
+  }
   const { t } = useI18n()
   const { toast } = useActions()
   const failToast = useErrorToast()
@@ -96,13 +109,16 @@ export function PortalSection({ portal, profiles, readOnly, onDialog }: PortalSe
   ]
 
   return (
-    <section className="portal-panel" id={`portal-${portal.name}`} data-portal={portal.name} aria-label={t('accounts.section.portalAria', { name: portal.name })}>
+    <section className={clsx('portal-panel', collapsed && 'is-collapsed')} id={`portal-${portal.name}`} data-portal={portal.name} aria-label={t('accounts.section.portalAria', { name: portal.name })}>
       <div className="portal__header">
-        <span className="portal__icon">
-          <Globe aria-hidden="true" />
-        </span>
+        <button type="button" className="portal__toggle" aria-expanded={!collapsed} aria-controls={gridId} aria-labelledby={titleId} onClick={toggle}>
+          <ChevronRight className="portal__chevron" aria-hidden="true" />
+          <span className="portal__icon">
+            <Globe aria-hidden="true" />
+          </span>
+        </button>
         <div className="portal__id">
-          <h2 className="portal__title">
+          <h2 className="portal__title" id={titleId}>
             {portal.legacyFormat ? portal.startUrlHost.split('/')[0] : portal.name}
             {portal.legacyFormat && (
               <Badge kind="neutral" className="portal__legacy">
@@ -130,20 +146,39 @@ export function PortalSection({ portal, profiles, readOnly, onDialog }: PortalSe
           {t('session.endedEarly')}
         </Banner>
       )}
-      <div className="portal__grid">
-        {mine.map((p) => (
-          <PassCard key={p.name} profile={p} portal={portal} readOnly={readOnly} onDialog={onDialog} />
-        ))}
-        {!portal.legacyFormat && (
-          <Gated blocked={readOnly} fill>
-            <button type="button" className="pass-add" onClick={() => onDialog({ kind: 'addRole', portal: portal.name })}>
-              <span className="icon-btn icon-btn--bordered">
-                <Plus aria-hidden="true" />
-              </span>
-              <strong>{t('card.add.title')}</strong>
-              <span>{t('card.add.body', { portal: portal.name })}</span>
-            </button>
-          </Gated>
+      {collapsed && (
+        <div className="portal__summary">
+          {mine.length > 0 && (
+            <span className="portal__peek" aria-hidden="true">
+              {mine.slice(0, PEEK).map((p) => (
+                <span key={p.name} title={p.name}>
+                  <AcctTile size="sm" slot={p.colorSlot} monogram={p.monogram} />
+                </span>
+              ))}
+              {mine.length > PEEK && <span className="portal__peek-more">+{mine.length - PEEK}</span>}
+            </span>
+          )}
+          <span>{t('portal.summary', { n: mine.length })}</span>
+        </div>
+      )}
+      <div className={clsx('portal__grid', revealed && 'is-revealed')} id={gridId} hidden={collapsed}>
+        {!collapsed && (
+          <>
+            {mine.map((p) => (
+              <PassCard key={p.name} profile={p} portal={portal} readOnly={readOnly} onDialog={onDialog} />
+            ))}
+            {!portal.legacyFormat && (
+              <Gated blocked={readOnly} fill>
+                <button type="button" className="pass-add" onClick={() => onDialog({ kind: 'addRole', portal: portal.name })}>
+                  <span className="icon-btn icon-btn--bordered">
+                    <Plus aria-hidden="true" />
+                  </span>
+                  <strong>{t('card.add.title')}</strong>
+                  <span>{t('card.add.body', { portal: portal.name })}</span>
+                </button>
+              </Gated>
+            )}
+          </>
         )}
       </div>
     </section>
