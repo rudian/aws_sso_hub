@@ -1,0 +1,62 @@
+/* ==========================================================================
+   Codepass - motion (ui-design.md section 3).
+   Rule: motion explains a change of place or state; nothing moves to decorate.
+   Only opacity, transform and grid-template-rows are ever animated here
+   (scripts/styles.test.ts enforces it). The reduced-motion switches live in tokens.css
+   (section 16) and also catch everything in this file.
+   Durations: --dur-page 200ms, --dur-panel 220ms, --dur-list 180ms, --dur-leave 160ms.
+   ========================================================================== */
+
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes sheet-in { from { opacity: 0; transform: translateX(24px); } }
+@keyframes sheet-out { to { opacity: 0; transform: translateX(24px); } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes panel-up { from { opacity: 0; transform: translateY(12px); } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+@keyframes row-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes caret { 50% { opacity: 0; } }
+@keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+/* Page switch and workspace tab switch: new content fades in and rises 6px; the old one is removed at once. */
+.page-enter { animation: page-in var(--dur-page) var(--ease-enter) both; }
+
+/* Popover, menu, hover card, completion list: fade + 4px drop + scale from the anchor edge. */
+.pop-enter { animation: pop-in var(--dur-leave) var(--ease-enter) both; transform-origin: var(--pop-origin, top left); }
+
+/* List insert: only add .row-enter (and .collapse.is-leaving) when listMotionAllowed(rows) is true (lists over 200 rows skip motion); animateInsert in lib/motion.ts checks it. The row fades in and drops 4px. Siblings slide through the FLIP helper in lib/motion.ts. */
+.row-enter { animation: row-in var(--dur-list) var(--ease-enter) both; }
+
+/* List remove: the row fades and collapses its height (grid rows 1fr -> 0fr). Wrap the row:
+   <div class="collapse"><div class="collapse__inner">row</div></div> and add .is-leaving. */
+.collapse { display: grid; grid-template-rows: 1fr; opacity: 1; transition: grid-template-rows var(--dur-leave) var(--ease-exit), opacity var(--dur-leave) var(--ease-exit); }
+.collapse__inner { min-height: 0; min-width: 0; overflow: visible; transition: overflow 0s linear var(--dur-leave); transition-behavior: allow-discrete; }
+.collapse.is-leaving, .collapse.is-closed { grid-template-rows: 0fr; }
+.collapse.is-leaving { opacity: 0; }
+.collapse.is-leaving > .collapse__inner, .collapse.is-closed > .collapse__inner { overflow: hidden; transition: overflow 0s; }
+/* Closed content leaves the tab order and the accessibility tree once the collapse has finished (a discrete flip, not motion). */
+.collapse.is-closed > .collapse__inner { visibility: hidden; transition: overflow 0s, visibility 0s linear var(--dur-leave); transition-behavior: allow-discrete; }
+
+/* Group expand / collapse (projects, portals, file-list groups): height through grid rows, content fades, chevron turns. */
+.expand { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-panel) var(--ease-move); }
+.expand > .expand__inner { min-height: 0; min-width: 0; overflow: visible; opacity: 1; transition: opacity var(--dur-leave) var(--ease-enter), visibility 0s, overflow 0s linear var(--dur-panel); transition-behavior: allow-discrete; }
+.expand.is-closed { grid-template-rows: 0fr; transition-duration: var(--dur-leave); }
+.expand.is-closed > .expand__inner { overflow: hidden; opacity: 0; visibility: hidden; transition: opacity var(--dur-leave) var(--ease-enter), visibility 0s linear var(--dur-leave), overflow 0s; transition-behavior: allow-discrete; }
+.chev { transition: transform var(--dur-leave) var(--ease-move); }
+.chev.is-open { transform: rotate(90deg); }
+
+/* Bottom panel (terminal, problems, find): grows from the status bar, content fades 60ms later. */
+.bpanel__body { animation: fade-in var(--dur-leave) var(--ease-enter) 60ms both; }
+
+/* Side sheet: slides in 24px from the right with a fade; out 160ms. */
+.sheet-backdrop.is-leaving { animation: fade-out var(--dur-leave) var(--ease-exit) both; }
+.sheet.is-leaving { animation: sheet-out var(--dur-leave) var(--ease-exit) both; }
+
+/* Task state: the dot colour cross-fades; "waiting for you" breathes at 1.6s (steady under reduced motion). */
+.state-dot { transition: opacity var(--dur-2) var(--ease-enter); }
+.is-breathing { animation: breathe 1.6s ease-in-out infinite; }
+
+/* Terminal session start: fades in after the first byte, never an empty flash. */
+.term-enter { animation: fade-in 120ms var(--ease-enter) both; }
+
+/* FLIP helper (lib/motion.ts) animates transform through the Web Animations API; this only hints the browser. */
+[data-flip-key] { will-change: auto; }

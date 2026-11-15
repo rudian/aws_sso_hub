@@ -1,7 +1,8 @@
 import type { Language, MotionPref, Theme } from '../api/models'
-import { Language as L, MotionPref as M, Theme as T } from '../api/models'
+import { Language as L, Theme as T } from '../api/models'
 import { systemLang } from '../i18n'
 import type { Lang } from '../i18n'
+import { applyMotionPref } from './motion'
 
 /** system removes the attribute so prefers-color-scheme decides. */
 export function applyTheme(theme: Theme): void {
@@ -11,11 +12,9 @@ export function applyTheme(theme: Theme): void {
   else root.removeAttribute('data-theme')
 }
 
-/** reduce -> data-motion="reduce"; full forces motion; system defers to prefers-reduced-motion in CSS. */
+/** Writes data-motion: reduce and full are explicit, system removes it so the OS decides (lib/motion.ts). */
 export function applyMotion(motion: MotionPref): void {
-  const root = document.documentElement
-  if (motion === M.MotionReduce) root.setAttribute('data-motion', 'reduce')
-  else root.removeAttribute('data-motion')
+  applyMotionPref(motion)
 }
 
 export function applyPlatform(platform: string): void {

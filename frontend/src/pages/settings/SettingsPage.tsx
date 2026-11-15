@@ -61,10 +61,6 @@ function Card({ title, id, children }: { title: ReactNode; id: string; children:
   )
 }
 
-function prefersReducedMotion(): boolean {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
 /** One tool-path override: edit, save, or go back to automatic detection. */
 function ToolPath({ label, value, detected, onSave }: { label: string; value: string; detected?: string; onSave: (v: string) => Promise<void> }) {
   const { t } = useI18n()
@@ -166,7 +162,6 @@ export function SettingsPage() {
 
   const s: Settings = settings
   const roots = s.scanRoots ?? []
-  const motionOn = s.motion === MotionPref.MotionReduce || (s.motion === MotionPref.MotionSystem && prefersReducedMotion())
 
   const addFolder = async () => {
     try {
@@ -223,10 +218,16 @@ export function SettingsPage() {
             />
           </Row>
           <Row label={t('settings.motion')} desc={t('settings.motion.hint')}>
-            <Switch
-              label={t('settings.motion')}
-              checked={motionOn}
-              onChange={(on) => void save({ motion: on ? MotionPref.MotionReduce : prefersReducedMotion() ? MotionPref.MotionFull : MotionPref.MotionSystem })}
+            <Segmented<MotionPref>
+              role="radiogroup"
+              ariaLabel={t('settings.motion')}
+              value={s.motion}
+              onChange={(v) => void save({ motion: v })}
+              items={[
+                { value: MotionPref.MotionSystem, label: t('settings.motion.system') },
+                { value: MotionPref.MotionFull, label: t('settings.motion.full') },
+                { value: MotionPref.MotionReduce, label: t('settings.motion.reduce') },
+              ]}
             />
           </Row>
         </Card>

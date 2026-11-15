@@ -10,7 +10,8 @@ import { LoginMode, LoginPhase } from '../../api/models'
 import { I18nProvider } from '../../i18n'
 import { ActionsProvider } from '../../shell/AppActions'
 import { AccountsProvider } from '../../state/accounts'
-import { SettingsProvider } from '../../state/settings'
+import { applyMotion } from '../../lib/theme'
+import { SettingsProvider, useSettings } from '../../state/settings'
 import { LoginModal } from '../accounts/LoginModal'
 import { SettingsPage } from './SettingsPage'
 
@@ -137,5 +138,32 @@ describe('LoginModal: Open again', () => {
     expect(spy).toHaveBeenCalledWith(url)
     expect(plain).not.toHaveBeenCalled()
     expect(text()).toContain(FALLBACK)
+  })
+})
+
+describe('Settings: motion', () => {
+  function Apply() {
+    const { settings } = useSettings()
+    if (settings) applyMotion(settings.motion)
+    return null
+  }
+  afterEach(() => document.documentElement.removeAttribute('data-motion'))
+
+  it('offers System / Full / Reduced; Full is saved and written to data-motion', async () => {
+    const spy = vi.spyOn(System, 'UpdateSettings')
+    mount(createElement('div', null, createElement(Apply), createElement(SettingsPage)))
+    await flush(200)
+    const group = document.querySelector('[role="radiogroup"][aria-label="Motion"]')
+    expect(group).not.toBeNull()
+    const radios = [...(group?.querySelectorAll<HTMLElement>('[role="radio"]') ?? [])]
+    expect(radios.map((r) => r.textContent)).toEqual(['System', 'Full', 'Reduced'])
+    act(() => radios[1].click())
+    await flush(1500)
+    expect(spy).toHaveBeenCalledWith({ motion: 'full' })
+    expect(getWorld().settings.motion).toBe('full')
+    expect(document.documentElement.getAttribute('data-motion')).toBe('full')
+    act(() => document.querySelectorAll<HTMLElement>('[role="radiogroup"][aria-label="Motion"] [role="radio"]')[2].click())
+    await flush(1500)
+    expect(document.documentElement.getAttribute('data-motion')).toBe('reduce')
   })
 })
