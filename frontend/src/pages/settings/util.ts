@@ -1,7 +1,8 @@
 import type { BackupEntry } from '../../api/models'
 import type { MessageKey, T } from '../../i18n'
 
-export const REPO_URL = 'https://github.com/rudian/codepass'
+// Stays on the current repository until the GitHub repo is renamed (task R7-08); GitHub redirects the old URL afterwards.
+export const REPO_URL = 'https://github.com/rudian/aws_sso_hub'
 
 /** 812 -> "812 B", 2048 -> "2.0 KB", 1572864 -> "1.5 MB" */
 export function formatBytes(n: number): string {
