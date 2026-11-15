@@ -83,6 +83,12 @@ type RepoRecord struct {
 	FirstCommit string `json:"firstCommit,omitempty"`
 	// OriginURL is the URL of the "origin" remote when the record was last seen. Filled by F1-18.
 	OriginURL string `json:"originUrl,omitempty"`
+	// FirstSeen is the start time of the scan that created this record. A folder is offered as "moved here" only
+	// when it was first seen no earlier than the scan that marked the old record missing; a zero value never
+	// matches (so a second checkout that is kept for a while, then deleted, never takes over the survivor).
+	FirstSeen *time.Time `json:"firstSeen,omitempty"`
+	// DeclinedMoves lists the IDs of missing records the person said this folder is not a move of.
+	DeclinedMoves []string `json:"declinedMoves,omitempty"`
 }
 
 // Data is the whole projects.json document.

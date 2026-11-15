@@ -21,6 +21,7 @@ import (
 	"github.com/rudian/codepass/internal/gitx"
 	"github.com/rudian/codepass/internal/gitx/gitxtest"
 	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/projects"
 	"github.com/rudian/codepass/internal/repos"
 )
 
@@ -119,7 +120,7 @@ func newFx(t *testing.T) *fx {
 	gitFn := func(ctx context.Context) (*gitx.Git, error) { return sb.Git, nil }
 	f.repos = repos.New(repos.Deps{
 		Paths: pathsV, Git: gitFn, AWSPath: func() (string, error) { return f.aws, nil }, AWSReady: func() bool { return true },
-		Profiles: profiles, Store: &store{roots: []string{f.code}}, Backup: f.backup,
+		Profiles: profiles, Store: &store{roots: []string{f.code}}, Registry: projects.OpenMemory(), Backup: f.backup,
 		CodeCommit: func(p aws.CredentialsProvider, region string) codecommit.API { return nil },
 		Emit:       func(name string, data any) {}, Now: time.Now, GOOS: "darwin",
 	})

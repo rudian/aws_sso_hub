@@ -232,7 +232,7 @@ func (e *Engine) CompareCommits(ctx context.Context, id string) (api.Repo, error
 	owner := r.owner
 	e.mu.Unlock()
 	if len(owner.Candidates) < 2 {
-		return e.buildRepo(r, pm, e.d.Store.RepoTests()), nil
+		return e.buildRepo(r, pm, e.reg.LastTests()), nil
 	}
 	aws, err := e.awsPath()
 	if err != nil {

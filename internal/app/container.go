@@ -24,6 +24,7 @@ import (
 	"github.com/rudian/codepass/internal/gitx"
 	"github.com/rudian/codepass/internal/migrate"
 	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/projects"
 	"github.com/rudian/codepass/internal/repos"
 	"github.com/rudian/codepass/internal/settings"
 	"github.com/rudian/codepass/internal/sso"
@@ -166,6 +167,12 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		Paths: p, Sessions: c.SSO, Portals: c.Accounts, Backup: bk, Endpoints: awsEP, Store: st,
 		Emit: emit, Now: o.Now, OnWrite: c.files.note,
 	})
+	// projects.json: repository IDs, projects, saved connection tests (F1-18). A newer or damaged file is
+	// returned as is (store.ErrNewerVersion / store.ErrCorrupt) and never replaced by an empty store.
+	reg, err := projects.Open(filepath.Join(filepath.Dir(p.SettingsFile), "projects.json"))
+	if err != nil {
+		return nil, err
+	}
 	c.Repos = repos.New(repos.Deps{
 		Paths:      p,
 		Git:        c.git,
@@ -173,6 +180,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		AWSReady:   c.awsReady,
 		Profiles:   c.profileSource,
 		Store:      st,
+		Registry:   reg,
 		Backup:     bk,
 		CodeCommit: codecommit.NewFactory(o.Endpoints.CodeCommit),
 		Emit:       emit,

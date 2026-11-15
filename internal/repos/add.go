@@ -180,22 +180,21 @@ func (e *Engine) AddExisting(ctx context.Context, path string) (api.AddRepoResul
 			WithDetail(strings.Join(remoteHostsOf(urls), ", "))
 	}
 
-	// Is it listed already?
-	id := repoID(top)
+	// Is it listed already? Look at the listed records first: a second spelling of the same folder (a symlinked
+	// parent) must not make a second record.
+	var id string
 	e.mu.Lock()
 	scanned := e.scanned
 	listed := false
-	if r, ok := e.recs[id]; ok && r != nil {
-		listed = true
-	} else {
-		for _, r := range e.recs {
-			if samePath(r.sr.Path, top) {
-				id, top, listed = r.id, r.sr.Path, true
-				break
-			}
+	for _, r := range e.recs {
+		if samePath(r.sr.Path, top) {
+			id, top, listed = r.id, r.sr.Path, true
+			break
 		}
 	}
 	e.mu.Unlock()
+	// A folder that is not listed gets its record from the scan below, stamped with the scan's clock, so a move
+	// done by hand is still recognised (the new record is not older than the old one's missing mark).
 	added := false
 	if !listed || !scanned {
 		listed = e.underScanRoot(top)

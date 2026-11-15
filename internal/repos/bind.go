@@ -161,7 +161,7 @@ func (e *Engine) outcome(ctx context.Context, id, backupID string) api.BindOutco
 	e.mu.Unlock()
 	o := api.BindOutcome{RepoID: id, OK: true, BackupID: backupID}
 	if ok {
-		repo := e.buildRepo(r, pm, e.d.Store.RepoTests())
+		repo := e.buildRepo(r, pm, e.reg.LastTests())
 		o.Repo = &repo
 	}
 	return o
@@ -317,9 +317,7 @@ func (e *Engine) test(ctx context.Context, id string) (api.TestResult, error) {
 			}
 		}
 	}
-	if e.d.Store != nil {
-		_ = e.d.Store.SetRepoTest(res)
-	}
+	_ = e.reg.SetLastTest(res.RepoID, res)
 	return res, nil
 }
 

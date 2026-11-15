@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -86,6 +87,15 @@ func (s *Store) Snapshot() Data {
 func (s *Store) Mutate(fn func(d *Data) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.f == nil { // in-memory store (OpenMemory): nothing is read or written
+		next := clone(s.d)
+		next.SchemaVersion = SchemaVersion
+		if err := fn(&next); err != nil {
+			return err
+		}
+		s.d = next
+		return nil
+	}
 	next := Data{}
 	err := s.f.Update(&next, func() error {
 		next.SchemaVersion = SchemaVersion
@@ -125,6 +135,18 @@ func clone(d Data) Data {
 			a := *r.AI
 			c.AI = &a
 		}
+		if r.MissingSince != nil {
+			t := *r.MissingSince
+			c.MissingSince = &t
+		}
+		if r.FirstSeen != nil {
+			t := *r.FirstSeen
+			c.FirstSeen = &t
+		}
+		c.DeclinedMoves = append([]string(nil), r.DeclinedMoves...)
+		if len(c.DeclinedMoves) == 0 {
+			c.DeclinedMoves = nil
+		}
 		if r.Integrated != nil {
 			c.Integrated = make(map[string]string, len(r.Integrated))
 			for k, v := range r.Integrated {
@@ -154,6 +176,38 @@ func (d *Data) FindByPath(path string) *RepoRecord {
 	return nil
 }
 
+// findPath is FindByPath for a folder that is being registered: an exact match wins; on macOS and Windows a
+// match that differs only in case is accepted unless both folders exist and are different files (a
+// case-sensitive volume holding two repositories). It never writes; the second result is true when the match
+// came from folding and the stored spelling differs from path.
+func (d *Data) findPath(path string) (*RepoRecord, bool) {
+	clean := filepath.Clean(path)
+	for i := range d.Repos {
+		if d.Repos[i].Path == clean {
+			return &d.Repos[i], false
+		}
+	}
+	if !pathFold {
+		return nil, false
+	}
+	for i := range d.Repos {
+		r := &d.Repos[i]
+		if !strings.EqualFold(r.Path, clean) {
+			continue
+		}
+		a, errA := os.Stat(r.Path)
+		b, errB := os.Stat(clean)
+		if errA == nil && errB == nil {
+			if !os.SameFile(a, b) {
+				continue
+			}
+			return r, true
+		}
+		return r, false
+	}
+	return nil, false
+}
+
 // FindRepo returns the record with this ID.
 func (d *Data) FindRepo(id string) *RepoRecord {
 	for i := range d.Repos {
@@ -164,17 +218,22 @@ func (d *Data) FindRepo(id string) *RepoRecord {
 	return nil
 }
 
-// FindByLegacyID returns the record whose 0.0.1 ID matches.
+// FindByLegacyID returns the record whose 0.0.1 ID matches. A hash that more than one record carries (a folder
+// that was relocated and whose old path was then used by another repository) is ambiguous: nothing is returned.
 func (d *Data) FindByLegacyID(legacy string) *RepoRecord {
 	if legacy == "" {
 		return nil
 	}
+	var found *RepoRecord
 	for i := range d.Repos {
 		if d.Repos[i].LegacyID == legacy {
-			return &d.Repos[i]
+			if found != nil {
+				return nil
+			}
+			found = &d.Repos[i]
 		}
 	}
-	return nil
+	return found
 }
 
 // FindProject returns the project with this ID.
@@ -216,11 +275,12 @@ func (s *Store) EnsureRepo(path string, provider Provider) (RepoRecord, bool, er
 	var out RepoRecord
 	created := false
 	err := s.Mutate(func(d *Data) error {
-		if r := d.FindByPath(path); r != nil {
+		if r, _ := d.findPath(path); r != nil {
 			out = *r
 			return errNoChange
 		}
-		r := RepoRecord{ID: NewID("r_"), LegacyID: LegacyID(path), Path: filepath.Clean(path), Provider: provider}
+		at := s.now().UTC()
+		r := RepoRecord{ID: NewID("r_"), LegacyID: LegacyID(path), Path: filepath.Clean(path), Provider: provider, FirstSeen: &at}
 		d.Repos = append(d.Repos, r)
 		out, created = r, true
 		return nil
@@ -233,20 +293,9 @@ func (s *Store) EnsureRepo(path string, provider Provider) (RepoRecord, bool, er
 
 var errNoChange = errors.New("no change")
 
-// SetRepoPath records a new folder for the same repository (rename or move). The ID never changes.
-func (s *Store) SetRepoPath(id, newPath string) error {
-	return s.Mutate(func(d *Data) error {
-		r := d.FindRepo(id)
-		if r == nil {
-			return fmt.Errorf("%w: repository %s", ErrNotFound, id)
-		}
-		if o := d.FindByPath(newPath); o != nil && o.ID != id {
-			return ErrDuplicate
-		}
-		r.Path = filepath.Clean(newPath)
-		return nil
-	})
-}
+// SetRepoPath records a new folder for the same repository (rename or move). It is Relocate: the ID never
+// changes and a "missing" mark is cleared.
+func (s *Store) SetRepoPath(id, newPath string) error { return s.Relocate(id, newPath) }
 
 // SetHidden sets or clears the hidden flag.
 func (s *Store) SetHidden(id string, hidden bool) error {

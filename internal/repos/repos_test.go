@@ -19,6 +19,7 @@ import (
 	"github.com/rudian/codepass/internal/gitx"
 	"github.com/rudian/codepass/internal/gitx/gitxtest"
 	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/projects"
 	"github.com/rudian/codepass/internal/repos"
 )
 
@@ -75,12 +76,6 @@ func (s *fakeStore) RepoTests() map[string]api.TestResult {
 	}
 	return out
 }
-func (s *fakeStore) SetRepoTest(r api.TestResult) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.tests[r.RepoID] = r
-	return nil
-}
 func (s *fakeStore) Lang() string { return s.lang }
 
 type snap struct {
@@ -131,6 +126,8 @@ type fixture struct {
 	sb      *gitxtest.Sandbox
 	eng     *repos.Engine
 	store   *fakeStore
+	reg     *projects.Store
+	clock   time.Time // the engine's Now
 	backup  *fakeBackup
 	aws     string
 	awsOK   *bool
@@ -181,6 +178,8 @@ func newFixture(t *testing.T) *fixture {
 	if err := os.MkdirAll(f.code, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	f.reg = projects.OpenMemory()
+	f.clock = time.Date(2026, 11, 4, 10, 0, 0, 0, time.UTC)
 	f.store.roots = []string{f.code}
 	f.aws = sb.FakeAWS(t, filepath.Join(sb.Root, "fakebin"), "ok")
 	ok := true
@@ -212,13 +211,13 @@ func newFixture(t *testing.T) *fixture {
 		Profiles: func(ctx context.Context) ([]repos.ProfileInfo, error) {
 			return append([]repos.ProfileInfo(nil), *f.profs...), nil
 		},
-		Store: f.store, Backup: f.backup,
+		Store: f.store, Registry: f.reg, Backup: f.backup,
 		CodeCommit: func(p aws.CredentialsProvider, region string) codecommit.API {
 			cr, _ := p.Retrieve(context.Background())
 			return f.ccAPIs[cr.AccessKeyID]
 		},
 		Emit: f.events.emit,
-		Now:  func() time.Time { return time.Date(2026, 11, 4, 10, 0, 0, 0, time.UTC) },
+		Now:  func() time.Time { return f.clock },
 		GOOS: "darwin",
 		RemoteURLFor: func(region, name string) string {
 			if fn := *f.remote; fn != nil {
@@ -641,8 +640,8 @@ func TestTestConnectionRecordsResult(t *testing.T) {
 	if res.RepoID != id || res.Status != api.TestNetwork || res.At != "2026-11-04T10:00:00Z" || res.Profile != "acme" {
 		t.Errorf("result: %+v", res)
 	}
-	if rec, ok := f.store.tests[id]; !ok || rec.Status != api.TestNetwork {
-		t.Errorf("not recorded: %+v", f.store.tests)
+	if rec, ok := f.reg.LastTests()[id]; !ok || rec.Status != api.TestNetwork {
+		t.Errorf("not recorded: %+v", f.reg.LastTests())
 	}
 	if r := f.byName(f.state(), "r"); r.LastTest == nil || r.LastTest.Status != api.TestNetwork {
 		t.Errorf("LastTest: %+v", r.LastTest)

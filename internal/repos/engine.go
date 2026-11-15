@@ -5,8 +5,6 @@ package repos
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +18,7 @@ import (
 	"github.com/rudian/codepass/internal/codecommit"
 	"github.com/rudian/codepass/internal/gitx"
 	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/projects"
 	"github.com/rudian/codepass/internal/redact"
 )
 
@@ -44,9 +43,29 @@ type Store interface {
 	AddExtraRepo(path string) error
 	RemoveExtraRepo(path string) error
 	AutoBindOnAdd() bool
+	// RepoTests are the connection test results 0.0.1 kept in settings.json under the path hash. They are only
+	// read, once per record, to fill the registry (F1-18); the engine never writes them back.
 	RepoTests() map[string]api.TestResult
-	SetRepoTest(r api.TestResult) error
 	Lang() string
+}
+
+// Registry is the repository registry (internal/projects, F1-18): the only place a path becomes a repository
+// ID and back. *projects.Store implements it. Deps.Registry is required: the app passes the projects.json store
+// and tests pass projects.OpenMemory(). There is no silent in-memory fallback.
+type Registry interface {
+	IDsForPaths(paths []string, provider projects.Provider, at time.Time) ([]string, error)
+	IDsForExisting(paths []string) []string
+	IDForPath(path string) (string, error)
+	PathOf(id string) (string, bool)
+	Snapshot() projects.Data
+	LastTests() map[string]api.TestResult
+	SetLastTest(id string, r api.TestResult) error
+	ImportLegacyTests(legacy map[string]api.TestResult) (int, error)
+	SetIdentities(m map[string]projects.RepoIdentity) error
+	Reconcile(probe func(path string) projects.Presence, at time.Time) (missing, purged []string, err error)
+	MovedFrom(id string) (projects.RepoRecord, bool)
+	Reattach(oldID, newID string) error
+	DeclineMove(newID, oldID string) error
 }
 
 // BackupPort snapshots a file before the engine changes it.
@@ -62,6 +81,7 @@ type Deps struct {
 	AWSReady   func() bool
 	Profiles   ProfileSource
 	Store      Store
+	Registry   Registry
 	Backup     BackupPort
 	CodeCommit codecommit.Factory
 	Emit       func(name string, data any)
@@ -86,6 +106,9 @@ type Engine struct {
 	scanMu sync.Mutex // serialises scans
 	mu     sync.Mutex
 	recs   map[string]*rec
+	reg    Registry
+	moved  map[string]MovedOffer
+	lost   map[string]api.OwnerResult // owner results of records that left the list, for a re-attach
 
 	scanned           bool
 	scannedAt         time.Time
@@ -106,12 +129,13 @@ func New(d Deps) *Engine {
 	if d.GOOS == "" {
 		d.GOOS = goosDefault()
 	}
-	return &Engine{d: d, recs: map[string]*rec{}}
-}
-
-func repoID(path string) string {
-	sum := sha1.Sum([]byte(filepath.Clean(path)))
-	return hex.EncodeToString(sum[:])[:16]
+	reg := d.Registry
+	if reg == nil {
+		// No silent fallback to an in-memory registry: IDs would change at every launch and test results
+		// would never be saved. Every registry call fails loudly instead, until the caller passes one.
+		reg = noRegistry{}
+	}
+	return &Engine{d: d, recs: map[string]*rec{}, reg: reg, moved: map[string]MovedOffer{}, lost: map[string]api.OwnerResult{}}
 }
 
 func fileExists(p string) bool {
@@ -198,6 +222,7 @@ func (e *Engine) Scan(ctx context.Context) (api.ReposState, error) {
 		e.mu.Unlock()
 	}()
 
+	scanAt := e.d.Now() // one clock for FirstSeen and MissingSince of this scan
 	roots := e.d.Store.ScanRoots()
 	dirs, err := gitx.FindRepoDirs(ctx, roots, gitx.DefaultScanOptions, func(root string, found int) {
 		e.d.Emit(api.EventScanProgress, api.ScanProgress{Root: e.d.Paths.Display(root), Found: found})
@@ -227,15 +252,27 @@ func (e *Engine) Scan(ctx context.Context) (api.ReposState, error) {
 	}
 	gh, ghFound := e.readGlobalHelper(ctx, g)
 
+	ids, err := e.idsFor(scanned, scanAt)
+	if err != nil {
+		return api.ReposState{}, err
+	}
 	e.mu.Lock()
 	next := make(map[string]*rec, len(scanned))
-	for _, sr := range scanned {
-		id := repoID(sr.Path)
+	for i, sr := range scanned {
+		id := ids[i]
+		if id == "" { // no record and projects.json could not be written: left out until the next scan
+			continue
+		}
 		r := &rec{id: id, sr: sr, cls: e.classify(sr), owner: emptyOwner()}
 		if old, ok := e.recs[id]; ok {
 			r.owner = old.owner
 		}
 		next[id] = r
+	}
+	for id, old := range e.recs { // a row that left the list (folder moved by hand) keeps its owner for a re-attach
+		if _, ok := next[id]; !ok && old.owner.Status != api.OwnerUnknown {
+			e.lost[id] = old.owner
+		}
 	}
 	e.recs = next
 	e.scanned = true
@@ -243,6 +280,7 @@ func (e *Engine) Scan(ctx context.Context) (api.ReposState, error) {
 	e.scannedAt = e.d.Now()
 	e.globalHelper, e.globalHelperFound = gh, ghFound
 	e.mu.Unlock()
+	e.afterScan(ctx, g, scanned, ids, scanAt)
 
 	st := e.buildState(ctx)
 	e.d.Emit(api.EventReposChanged, st)
@@ -300,11 +338,18 @@ func (e *Engine) Invalidate(ctx context.Context) {
 	e.mu.Unlock()
 	scanned, _ := g.InspectMany(ctx, dirs, gitx.DefaultScanOptions.Concurrency)
 	gh, ghFound := e.readGlobalHelper(ctx, g)
+	ids, err := e.idsFor(scanned, e.d.Now())
+	if err != nil {
+		return
+	}
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	next := make(map[string]*rec, len(scanned))
-	for _, sr := range scanned {
-		id := repoID(sr.Path)
+	for i, sr := range scanned {
+		id := ids[i]
+		if id == "" {
+			continue
+		}
 		r := &rec{id: id, sr: sr, cls: e.classify(sr), owner: emptyOwner()}
 		if old, ok := e.recs[id]; ok {
 			r.owner = old.owner
@@ -369,7 +414,7 @@ func (e *Engine) buildRepo(r *rec, pm map[string]ProfileInfo, tests map[string]a
 
 func (e *Engine) buildState(ctx context.Context) api.ReposState {
 	pm := profileMap(e.profiles(ctx))
-	tests := e.d.Store.RepoTests()
+	tests := e.reg.LastTests()
 	roots := e.d.Store.ScanRoots()
 
 	e.mu.Lock()

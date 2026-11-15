@@ -170,7 +170,10 @@ func (e *Engine) Clone(ctx context.Context, req api.CloneRequest) (api.BindOutco
 	if !ok {
 		return api.BindOutcome{}, api.NewError(api.ErrNotCodeCommit, "the cloned repository has no CodeCommit remote")
 	}
-	id := repoID(sr.Path)
+	id, err := e.idFor(sr.Path)
+	if err != nil {
+		return api.BindOutcome{}, err
+	}
 	e.mu.Lock()
 	e.recs[id] = &rec{id: id, sr: sr, cls: e.classify(sr), owner: emptyOwner()}
 	e.mu.Unlock()
