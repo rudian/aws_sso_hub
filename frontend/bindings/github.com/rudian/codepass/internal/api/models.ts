@@ -471,6 +471,25 @@ export enum ErrorCode {
      */
     $zero = "",
 
+    /**
+     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
+     *
+     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
+     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
+     */
+    ErrMovedHasData = "E_MOVED_HAS_DATA",
+
+    /**
+     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
+     * after 30 days, or the question was answered already).
+     */
+    ErrMovedGone = "E_MOVED_GONE",
+
+    /**
+     * ErrProjectNotFound: the project does not exist (any more). params: id
+     */
+    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
+
     ErrInternal = "E_INTERNAL",
     ErrCancelled = "E_CANCELLED",
     ErrNotImplemented = "E_NOT_IMPLEMENTED",
@@ -642,25 +661,6 @@ export enum ErrorCode {
      * params: reason (not-json | format | version | size | limit)
      */
     ErrImportFormat = "E_IMPORT_FORMAT",
-
-    /**
-     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
-     *
-     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
-     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
-     */
-    ErrMovedHasData = "E_MOVED_HAS_DATA",
-
-    /**
-     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
-     * after 30 days, or the question was answered already).
-     */
-    ErrMovedGone = "E_MOVED_GONE",
-
-    /**
-     * ErrProjectNotFound: the project does not exist (any more). params: id
-     */
-    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
 };
 
 /**
