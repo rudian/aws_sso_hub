@@ -17,9 +17,9 @@ import (
 	"github.com/rudian/codepass/internal/redact"
 )
 
-// MinVersion is the oldest supported git. Older releases have known code-execution flaws in repository and
-// submodule handling, and 2.26 introduced the `config --show-scope` the app relies on.
-const MinVersion = "2.39.1"
+// MinVersion is the oldest supported git (FU-04a): 2.44.0 is the first release that honours GIT_NO_LAZY_FETCH,
+// which every read-only call relies on. It is the same number as envcheck.GitMin; both must change together.
+const MinVersion = "2.44.0"
 
 // ProfileNameRE mirrors awsconfig.ProfileNameRE (the git side must not import AWS-side packages).
 var ProfileNameRE = regexp.MustCompile(`^[A-Za-z0-9_.@+=,-]{1,64}$`)
@@ -71,8 +71,15 @@ func New(ctx context.Context, bin string, env []string) (*Git, error) {
 			return nil, api.NewError(api.ErrGitMissing, "git was not found")
 		}
 		bin = p
-	} else if _, err := os.Stat(bin); err != nil {
-		return nil, api.NewError(api.ErrGitMissing, "git was not found")
+	} else {
+		if _, err := os.Stat(bin); err != nil {
+			return nil, api.NewError(api.ErrGitMissing, "git was not found")
+		}
+		// A chosen path that is (or links to) the developer-tools stub must never run: it would open the
+		// "install developer tools" dialog (checklist item 10).
+		if err := execx.GuardDevToolStub(ctx, bin); err != nil {
+			return nil, api.NewError(api.ErrGitMissing, "git was not found")
+		}
 	}
 	g := &Git{Bin: bin, Env: append([]string(nil), env...)}
 	res, err := g.Run(ctx, "", nil, "--version")

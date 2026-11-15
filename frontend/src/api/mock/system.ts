@@ -2,6 +2,7 @@ import * as SystemReal from '../../../bindings/github.com/rudian/codepass/intern
 import { initialUI } from '../../lib/initialUI'
 import { BackupKind, BackupReason, ErrorCode, ProfileKind } from '../models'
 import type { BackupEntry, DiffLine, Settings } from '../models'
+import type { FailureCause, InstallFailure, InstallState, InstallStep, Preflight, SetupState, SetupTool, SetupToolID, ToolServiceApi } from './toolTypes'
 import { mockEmit } from '../events'
 import { deepCopy, iso, now } from './clock'
 import { HOME, SCAN_ROOT_DISPLAY, add, addBackup, ctx, del, fold, getWorld, mkPreview } from './world'
@@ -145,3 +146,275 @@ export const mockSystemService: typeof SystemReal = {
 }
 
 export type { World }
+
+// ---- tools gate and installers (F1-12) ---------------------------------------------------------------------
+// A scripted ToolService for the setup screen (F1-15) and the Health rows. The scenario comes from the query:
+//   ?setup=ready|missing|old-git|chosen-git|noadmin|managed|lowdisk|partial|proxy|nowinget   (default ready: the gate is open)
+//   partial always ends with prefix_exists and nowinget with winget_missing, as the Go installer does
+//   &setupFail=<cause>[&setupFailAt=<step id>]   the run fails with that cause at that step (default: the first install step)
+// Typed against the hand-written mirror in toolTypes.ts until the generated bindings exist.
+
+export type SetupScenario = 'ready' | 'missing' | 'old-git' | 'chosen-git' | 'noadmin' | 'managed' | 'lowdisk' | 'partial' | 'proxy' | 'nowinget'
+const SETUP_SCENARIOS: SetupScenario[] = ['ready', 'missing', 'old-git', 'chosen-git', 'noadmin', 'managed', 'lowdisk', 'partial', 'proxy', 'nowinget']
+
+const FAIL_EXIT: Partial<Record<FailureCause, number>> = {
+  damaged_download: 15, bad_signature: 12, unknown_signer: 13, not_notarized: 14, prefix_exists: 20, disk_full: 11,
+  cancelled: 1, auth_denied: 1, not_admin: 1, network: 1, proxy_auth: 1, policy: 1, installer_failed: 1, needs_admin: 2316632089 /* 0x8A150019 as Go reports it: the uint32 */, winget_missing: -1,
+}
+const FAIL_LINE: Partial<Record<FailureCause, string>> = {
+  network: 'Error: Failure while executing; `curl --fail https://ghcr.io/v2/homebrew/core/git/blobs/sha256` exited with 28.',
+  disk_full: 'Error: No space left on device @ io_write',
+  cancelled: 'execution error: User canceled. (-128)',
+  auth_denied: 'execution error: The administrator user name or password was incorrect. (-60005)',
+  bad_signature: 'codepass-pkg: signature: Status: no signature',
+  unknown_signer: 'codepass-pkg: Team ID is ABCDEFGHIJ, expected 927JGANW46',
+  damaged_download: 'size 154000000, expected 154292112',
+  prefix_exists: 'codepass-pkg: /opt/homebrew already exists',
+  installer_failed: 'Error: git: unexpected failure in post_install',
+}
+
+interface ToolWorld {
+  scenario: SetupScenario
+  platform: 'darwin' | 'windows'
+  tools: SetupTool[]
+  pre: Preflight
+  install: InstallState
+  failCause?: FailureCause
+  failAt?: string
+  timers: ReturnType<typeof setTimeout>[]
+  cancelAt: boolean
+}
+
+function queryParam(name: string): string | null {
+  try {
+    return typeof location === 'undefined' ? null : new URLSearchParams(location.search).get(name)
+  } catch {
+    return null
+  }
+}
+
+const ok = (id: SetupToolID, version: string, path: string, min?: string): SetupTool => ({ id, status: 'ok', version, path, ...(min ? { min } : {}), blocking: false, fix: '' })
+const missing = (id: SetupToolID): SetupTool => ({ id, status: 'missing', blocking: true, fix: 'install' })
+
+function buildTools(scn: SetupScenario, platform: 'darwin' | 'windows'): { tools: SetupTool[]; pre: Preflight } {
+  const GB = 1_000_000_000
+  const pre: Preflight = { admin: platform === 'darwin' ? 'yes' : 'unknown', managed: platform === 'darwin' ? 'no' : 'unknown', freeBytes: 184 * GB, needBytes: 1.2 * GB, enoughSpace: true, prefixExists: false, proxy: { source: 'none' } }
+  if (platform === 'windows') {
+    const winget = scn === 'nowinget' ? ({ id: 'winget', status: 'missing', blocking: true, fix: 'open-store' } as SetupTool) : ok('winget', '1.9.25200', '%LOCALAPPDATA%\\Microsoft\\WindowsApps\\winget.exe')
+    if (scn === 'ready') return { tools: [winget, ok('git', '2.47.1', 'C:\\Program Files\\Git\\cmd\\git.exe', '2.44.0'), ok('awscli', '2.17.0', 'C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe', '2.9.0')], pre }
+    return { tools: [winget, missing('git'), missing('awscli')], pre }
+  }
+  const brew = ok('homebrew', '5.1.2', '/opt/homebrew/bin/brew')
+  const git = ok('git', '2.56.1', '/opt/homebrew/bin/git', '2.44.0')
+  const aws = ok('awscli', '2.40.3', '/opt/homebrew/bin/aws', '2.9.0')
+  switch (scn) {
+    case 'ready':
+      return { tools: [brew, git, aws], pre }
+    case 'old-git':
+      return { tools: [brew, { id: 'git', status: 'too-old', version: '2.39.5', min: '2.44.0', path: '/usr/bin/git', blocking: true, fix: 'upgrade', elsewhere: true }, aws], pre }
+    case 'chosen-git':
+      // the git path chosen in Settings is too old, a usable git is found by detection: the run clears the chosen path
+      return { tools: [brew, { id: 'git', status: 'too-old', version: '2.43.0', min: '2.44.0', path: '/Users/alex/tools/git', blocking: true, fix: 'use-detected', override: true }, aws], pre }
+    case 'noadmin':
+      return { tools: [missing('homebrew'), missing('git'), missing('awscli')], pre: { ...pre, admin: 'no' } }
+    case 'managed':
+      return { tools: [missing('homebrew'), missing('git'), missing('awscli')], pre: { ...pre, managed: 'yes' } }
+    case 'lowdisk':
+      return { tools: [missing('homebrew'), missing('git'), missing('awscli')], pre: { ...pre, freeBytes: 0.6 * GB, enoughSpace: false } }
+    case 'partial':
+      return { tools: [{ id: 'homebrew', status: 'missing', blocking: true, fix: 'repair-prefix' }, missing('git'), missing('awscli')], pre: { ...pre, prefixExists: true } }
+    case 'proxy':
+      return { tools: [missing('homebrew'), missing('git'), missing('awscli')], pre: { ...pre, proxy: { hostPort: 'proxy.example.com:8080', source: 'system' } } }
+    default:
+      return { tools: [missing('homebrew'), missing('git'), missing('awscli')], pre }
+  }
+}
+
+const emptyInstall = (): InstallState => ({ running: false, cancelling: false, cancelled: false, steps: [], log: [], finished: false })
+let toolWorld: ToolWorld | undefined
+
+/** Resets the scripted gate. Tests call it; the page gets it from the query on first use. */
+export function resetToolMock(scenario?: SetupScenario, platform?: 'darwin' | 'windows', failCause?: FailureCause, failAt?: string): void {
+  if (toolWorld) toolWorld.timers.forEach(clearTimeout)
+  const q = queryParam('setup') as SetupScenario | null
+  const scn: SetupScenario = scenario ?? (q !== null && SETUP_SCENARIOS.includes(q) ? q : 'ready')
+  const plat = platform ?? initialUI.platform
+  const { tools, pre } = buildTools(scn, plat)
+  toolWorld = { scenario: scn, platform: plat, tools, pre, install: emptyInstall(), failCause: failCause ?? (queryParam('setupFail') as FailureCause | null) ?? undefined, failAt: failAt ?? queryParam('setupFailAt') ?? undefined, timers: [], cancelAt: false }
+}
+
+function tw(): ToolWorld {
+  if (!toolWorld) resetToolMock()
+  return toolWorld as ToolWorld
+}
+
+function setupState(w: ToolWorld): SetupState {
+  const ready = w.tools.filter((t) => t.status === 'ok' || t.status === 'outdated').length
+  return { platform: w.platform, tools: deepCopy(w.tools), ready, total: w.tools.length, blocked: w.tools.some((t) => t.blocking), preflight: deepCopy(w.pre), checkedAt: iso(now()) }
+}
+
+function planSteps(w: ToolWorld): InstallStep[] {
+  const steps: InstallStep[] = []
+  for (const t of w.tools) {
+    if (!t.blocking || t.fix === 'use-detected') continue
+    if (t.id === 'homebrew') {
+      if (t.fix === 'repair-prefix') steps.push({ id: 'homebrew:install', tool: 'homebrew', kind: 'install', state: 'queued' })
+      else {
+        steps.push({ id: 'homebrew:download', tool: 'homebrew', kind: 'download', state: 'queued', command: 'Homebrew.pkg' })
+        steps.push({ id: 'homebrew:verify', tool: 'homebrew', kind: 'verify', state: 'queued', command: 'pkgutil --check-signature' })
+        steps.push({ id: 'homebrew:install', tool: 'homebrew', kind: 'install', state: 'queued', command: 'installer -pkg Homebrew.pkg', indeterminate: true })
+      }
+    } else if (t.id === 'winget') {
+      steps.push({ id: 'winget:install', tool: 'winget', kind: 'install', state: 'queued' })
+    } else {
+      const f = t.id === 'awscli' ? 'awscli' : 'git'
+      const cmd = w.platform === 'windows' ? `winget install --id ${t.id === 'awscli' ? 'Amazon.AWSCLI -e --scope machine' : 'Git.Git -e'}` : `brew ${t.fix === 'upgrade' && !t.elsewhere ? 'upgrade' : 'install'} ${f}`
+      steps.push({ id: `${t.id}:install`, tool: t.id, kind: 'install', state: 'queued', command: cmd })
+    }
+  }
+  return steps
+}
+
+function pushInstall(w: ToolWorld): void {
+  mockEmit('tools:install-progress', deepCopy(w.install))
+}
+
+function logLine(w: ToolWorld, line: string): void {
+  const log = w.install.log ?? []
+  log.push(line)
+  w.install.log = log.slice(-200)
+}
+
+const FOUND: Record<string, [string, string]> = {
+  homebrew: ['5.1.2', '/opt/homebrew/bin/brew'],
+  git: ['2.56.1', '/opt/homebrew/bin/git'],
+  awscli: ['2.40.3', '/opt/homebrew/bin/aws'],
+  winget: ['1.9.25200', '%LOCALAPPDATA%\\Microsoft\\WindowsApps\\winget.exe'],
+}
+
+function finishRun(w: ToolWorld, failure: InstallFailure | undefined, cancelled: boolean): void {
+  const steps = w.install.steps ?? []
+  for (const s of steps) if (s.state === 'queued' || s.state === 'running' || s.state === 'waiting-os') s.state = 'skipped'
+  if (failure) {
+    const f = steps.find((s) => s.id === failure.stepId)
+    if (f) f.state = 'failed'
+  }
+  w.install.running = false
+  w.install.cancelling = false
+  w.install.cancelled = cancelled
+  w.install.finished = true
+  w.install.failure = failure ?? null
+  pushInstall(w)
+}
+
+function runStep(w: ToolWorld, i: number): void {
+  const steps = w.install.steps ?? []
+  if (i >= steps.length) {
+    finishRun(w, undefined, w.install.cancelling)
+    return
+  }
+  if (w.install.cancelling) {
+    finishRun(w, undefined, true)
+    return
+  }
+  const step = steps[i]
+  // The Go installer always fails these two rows, whatever the script says.
+  const row0 = w.tools.find((t) => t.id === step.tool)
+  const forced: FailureCause | undefined = step.id === 'homebrew:install' && row0?.fix === 'repair-prefix' ? 'prefix_exists' : step.id === 'winget:install' ? 'winget_missing' : undefined
+  const scripted = w.failCause !== undefined && (w.failAt ? w.failAt === step.id : step.kind === 'install' || i === steps.length - 1)
+  const failCause = forced ?? (scripted ? w.failCause : undefined)
+  const failHere = failCause !== undefined
+  step.state = step.id === 'homebrew:install' ? 'waiting-os' : 'running'
+  pushInstall(w)
+  const done = (): void => {
+    if (failCause) {
+      const cause = failCause
+      const failure: InstallFailure = {
+        tool: step.tool, stepId: step.id, cause, exitCode: FAIL_EXIT[cause] ?? 1,
+        ...(step.command ? { command: step.command } : {}),
+        ...(cause === 'network' || cause === 'proxy_auth' ? { proxy: w.pre.proxy.hostPort ?? '' } : {}),
+        ...(FAIL_LINE[cause] ? { line: FAIL_LINE[cause] } : {}),
+      }
+      if (FAIL_LINE[cause]) logLine(w, FAIL_LINE[cause] as string)
+      finishRun(w, failure, false)
+      return
+    }
+    step.state = 'done'
+    const row = w.tools.find((t) => t.id === step.tool)
+    if (row && step.kind === 'install') {
+      const [version, path] = FOUND[row.id] ?? ['1.0.0', '']
+      Object.assign(row, { status: 'ok', version, path, blocking: false, fix: '', elsewhere: false })
+    }
+    pushInstall(w)
+    runStep(w, i + 1)
+  }
+  const later = (ms: number, fn: () => void): void => {
+    w.timers.push(setTimeout(fn, ms))
+  }
+  if (step.kind === 'download') {
+    const total = 154_292_112
+    step.total = total
+    let tick = 0
+    const next = (): void => {
+      if (w.install.cancelling) return finishRun(w, undefined, true)
+      tick++
+      step.done = Math.min(total, Math.round((total * tick) / 6))
+      logLine(w, `Homebrew.pkg ${Math.round((100 * tick) / 6)}%`)
+      pushInstall(w)
+      if (tick >= 6 || (failHere && tick >= 3)) return done()
+      later(150, next)
+    }
+    later(150, next)
+  } else {
+    if (step.command?.startsWith('brew')) logLine(w, `==> Pouring ${step.tool === 'awscli' ? 'awscli--2.40.3' : 'git--2.56.1'}.arm64_tahoe.bottle.tar.gz`)
+    pushInstall(w)
+    later(step.id === 'homebrew:install' ? 1500 : 600, done)
+  }
+}
+
+export const mockToolService: ToolServiceApi = {
+  GetSetupState: () => run(READ, () => setupState(tw())),
+
+  StartSetupInstall: () =>
+    run(READ, () => {
+      const w = tw()
+      if (w.install.running) throw fail(ErrorCode.ErrInvalidInput, 'a setup run is already going', { field: 'run' })
+      // A chosen tool path that blocks the gate is cleared first; detection then finds the tool.
+      for (const t of w.tools) {
+        if (t.blocking && t.override && t.fix === 'use-detected') {
+          const [version, path] = FOUND[t.id] ?? ['1.0.0', '']
+          Object.assign(t, { status: 'ok', version, path, blocking: false, fix: '', elsewhere: false, override: false })
+        }
+      }
+      w.install = { ...emptyInstall(), running: true, steps: planSteps(w) }
+      pushInstall(w)
+      if (!w.pre.enoughSpace && (w.install.steps ?? []).length > 0) {
+        const first = (w.install.steps ?? [])[0]
+        finishRun(w, { tool: first.tool, stepId: first.id, cause: 'disk_full', exitCode: -1 }, false)
+        return
+      }
+      w.timers.push(setTimeout(() => runStep(w, 0), 50))
+    }),
+
+  CancelSetupInstall: () =>
+    run(READ, () => {
+      const w = tw()
+      if (!w.install.running) return
+      w.install.cancelling = true
+      pushInstall(w)
+    }),
+
+  GetInstallState: () => run(READ, () => tw().install),
+
+  OpenInstallPage: (tool) =>
+    run(READ, () => {
+      const aws = 'https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html'
+      const pages: Record<'darwin' | 'windows', Partial<Record<string, string>>> = {
+        darwin: { homebrew: 'https://brew.sh/', git: 'https://git-scm.com/download/mac', awscli: aws },
+        windows: { winget: 'https://apps.microsoft.com/detail/9nblggh4nns1', git: 'https://git-scm.com/download/win', awscli: aws },
+      }
+      const url = pages[tw().platform][tool]
+      if (!url) throw fail(ErrorCode.ErrInvalidInput, 'unknown tool', { field: 'tool' })
+      window.open(url, '_blank', 'noopener,noreferrer')
+    }),
+}

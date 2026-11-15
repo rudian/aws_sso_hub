@@ -369,19 +369,16 @@ func find(name, override string) (string, error) {
 // FindAWS locates the aws binary (override first). The result is not symlink-resolved.
 func FindAWS(override string) (string, error) { return find("aws", override) }
 
-// FindGit locates git. On macOS /usr/bin/git is the CLT shim and is accepted only when xcode-select -p succeeds.
+// FindGit locates git. On macOS /usr/bin/git is the Command Line Tools shim: it is accepted only when
+// `xcode-select -p` prints an existing folder other than "/" (see GuardDevToolStub). The rule also covers a
+// user-chosen path that is, or links to, the shim.
 func FindGit(ctx context.Context, override string) (string, error) {
 	p, err := find("git", override)
 	if err != nil {
 		return "", err
 	}
-	if override == "" && runtime.GOOS == "darwin" && p == "/usr/bin/git" {
-		c, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		res, rerr := Run(Command(c, "xcode-select", "-p"), nil)
-		if rerr != nil || res.ExitCode != 0 {
-			return "", ErrNotFound
-		}
+	if GuardDevToolStub(ctx, p) != nil {
+		return "", ErrNotFound
 	}
 	return p, nil
 }

@@ -9,23 +9,24 @@ import (
 	"testing"
 
 	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
 	"github.com/rudian/codepass/internal/gitx"
 	"github.com/rudian/codepass/internal/gitx/gitxtest"
 )
 
 func TestVersionGate(t *testing.T) {
-	if gitx.MinVersion != "2.39.1" {
+	if gitx.MinVersion != "2.44.0" {
 		t.Errorf("MinVersion = %s", gitx.MinVersion)
 	}
-	old, _ := gitx.ParseVersion("git version 2.39.0")
-	ok, _ := gitx.ParseVersion("git version 2.39.1")
+	old, _ := gitx.ParseVersion("git version 2.43.9")
+	ok, _ := gitx.ParseVersion("git version 2.44.0")
 	newer, _ := gitx.ParseVersion("git version 2.47.1 (Apple Git-999)")
 	err := gitx.CheckVersion(old)
 	if ae, isApp := err.(*api.AppError); !isApp || ae.Code != api.ErrGitTooOld {
-		t.Errorf("2.39.0 must be too old: %v", err)
+		t.Errorf("2.43.9 must be too old: %v", err)
 	}
 	if err := gitx.CheckVersion(ok); err != nil {
-		t.Errorf("2.39.1: %v", err)
+		t.Errorf("2.44.0: %v", err)
 	}
 	if err := gitx.CheckVersion(newer); err != nil {
 		t.Errorf("2.47.1: %v", err)
@@ -83,4 +84,29 @@ func resolved(t *testing.T, p string) string {
 		t.Fatal(err)
 	}
 	return r
+}
+
+// A chosen git path that is the developer-tools stub must not run while the tools are missing (item 10).
+func TestNewRefusesDevToolStubOverride(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("posix")
+	}
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "ran")
+	stub := filepath.Join(dir, "git")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\ntouch "+marker+"\necho 'git version 2.50.0'\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	xs := filepath.Join(dir, "xcode-select")
+	if err := os.WriteFile(xs, []byte("#!/bin/sh\nexit 2\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(execx.SetDevToolStubRoot(dir, xs, "darwin"))
+	_, err := gitx.New(context.Background(), stub, nil)
+	if ae, ok := err.(*api.AppError); !ok || ae.Code != api.ErrGitMissing {
+		t.Fatalf("want E_GIT_MISSING, got %v", err)
+	}
+	if _, e := os.Stat(marker); e == nil {
+		t.Fatal("the stub ran")
+	}
 }

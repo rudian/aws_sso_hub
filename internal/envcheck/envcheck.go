@@ -21,7 +21,7 @@ const (
 	AWSMinBlocking = "2.9.0"
 	AWSMin         = "2.22.0"
 	AWSRecommended = "2.38.2"
-	GitMin         = "2.39.1"
+	GitMin         = "2.44.0" // the first git that honours GIT_NO_LAZY_FETCH (FU-04a); it was 2.39.1
 )
 
 var (
