@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 func portalOf(st api.AccountsState, name string) (api.Portal, bool) {

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
-	"github.com/rudian/aws_sso_hub/internal/gitx/gitxtest"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/gitx/gitxtest"
 )
 
 func TestVersionGate(t *testing.T) {

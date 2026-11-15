@@ -68,7 +68,7 @@ export const zh = {
   'errors.E_SANDBOX': '沙盒模式下不可用',
   'errors.E_UNSUPPORTED_OS': '这个系统暂不支持',
   'errors.E_IMPORT_FORMAT': '无法读取这个文件',
-  'errors.E_IMPORT_FORMAT.body': '它不是 AWS SSO Hub 导出的账号配置，或者来自更新的版本。',
+  'errors.E_IMPORT_FORMAT.body': '它不是 Codepass 导出的账号配置，或者来自更新的版本。',
 } as const
 
 export const en: { [K in keyof typeof zh]: string } = {
@@ -139,5 +139,5 @@ export const en: { [K in keyof typeof zh]: string } = {
   'errors.E_SANDBOX': 'Not available in sandbox mode',
   'errors.E_UNSUPPORTED_OS': 'Not supported on this system',
   'errors.E_IMPORT_FORMAT': 'Can’t read this file',
-  'errors.E_IMPORT_FORMAT.body': 'It isn’t an AWS SSO Hub accounts export, or it comes from a newer version.',
+  'errors.E_IMPORT_FORMAT.body': 'It isn’t a Codepass accounts export, or it comes from a newer version.',
 }

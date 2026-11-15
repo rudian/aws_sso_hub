@@ -34,7 +34,7 @@ const everything = (): ExportRequest => {
 }
 
 const doc = (portals: unknown[], profiles: unknown[]) =>
-  JSON.stringify({ format: 'aws-sso-hub.accounts', version: 1, exportedAt: '2026-11-04T10:00:00Z', exportedBy: 'AWS SSO Hub 0.0.1', portals, profiles })
+  JSON.stringify({ format: 'aws-sso-hub.accounts', version: 1, exportedAt: '2026-11-04T10:00:00Z', exportedBy: 'Codepass 0.0.1', portals, profiles })
 
 describe('mock accounts export and import', () => {
   beforeEach(() => {
@@ -61,7 +61,7 @@ describe('mock accounts export and import', () => {
   it('SaveExport returns the path of the chosen file and refuses an empty selection', async () => {
     resetWorld('fresh')
     const res = await call(mock.accounts.SaveExport(everything()))
-    expect(res.path).toBe('/Users/alex/Desktop/aws-sso-hub-accounts-20261104.json')
+    expect(res.path).toBe('/Users/alex/Desktop/codepass-accounts-20261104.json')
     expect(await code(mock.accounts.SaveExport({ portals: [], profiles: [], includeExtras: true }))).toBe(ErrorCode.ErrInvalidInput)
   })
 

@@ -13,7 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc"
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // requireCLIPython returns the python bundled with an AWS CLI install, taken from AWS_CLI_PYTHON, or skips the test.

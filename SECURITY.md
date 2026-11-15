@@ -13,7 +13,7 @@ Only the latest 0.0.x release receives fixes.
 Please do not report security problems in a public issue or discussion.
 
 Use GitHub's private vulnerability reporting instead: open the **Security** tab of
-https://github.com/rudian/aws_sso_hub, choose **Report a vulnerability**, and describe the problem. Helpful details:
+https://github.com/rudian/codepass, choose **Report a vulnerability**, and describe the problem. Helpful details:
 
 - the AWS SSO Hub version and your operating system,
 - what you expected and what happened, with the smallest steps that reproduce it,

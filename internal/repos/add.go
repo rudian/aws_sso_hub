@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/gitx"
 )
 
 // underScanRoot reports whether a scan of the configured roots would find the repository at path: it lies at

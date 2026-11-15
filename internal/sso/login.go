@@ -18,8 +18,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc"
 	oidctypes "github.com/aws/aws-sdk-go-v2/service/ssooidc/types"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/backup"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/backup"
 )
 
 // registration is the app's own OIDC client registration (never the CLI's file).
@@ -78,9 +78,9 @@ func (m *Manager) registerClient(ctx context.Context, s Session, flow string) (*
 	if r, ok := m.loadRegistration(s, flow); ok {
 		return r, nil
 	}
-	name := "aws-sso-hub-" + s.Name
+	name := "codepass-" + s.Name
 	if s.Name == "" {
-		name = "aws-sso-hub-" + strconv.FormatInt(m.now().Unix(), 10)
+		name = "codepass-" + strconv.FormatInt(m.now().Unix(), 10)
 	}
 	in := &ssooidc.RegisterClientInput{ClientName: aws.String(name), ClientType: aws.String(clientTypePublic)}
 	if flow == "pkce" {

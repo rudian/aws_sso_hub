@@ -2,8 +2,8 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-[![Release](https://img.shields.io/github/v/release/rudian/aws_sso_hub)](https://github.com/rudian/aws_sso_hub/releases)
-[![License](https://img.shields.io/github/license/rudian/aws_sso_hub)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/rudian/codepass)](https://github.com/rudian/codepass/releases)
+[![License](https://img.shields.io/github/license/rudian/codepass)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
 
 A desktop app for macOS and Windows that signs you in to all your AWS IAM Identity Center (SSO) portals with one click, keeps every CodeCommit repository on the right AWS account, and gets long-term access keys off your disk.
@@ -34,7 +34,7 @@ A desktop app for macOS and Windows that signs you in to all your AWS IAM Identi
 
 ## Get started in 5 steps
 
-**0. Install.** Download the zip for your system from [Releases](https://github.com/rudian/aws_sso_hub/releases). On macOS, drag **AWS SSO Hub.app** to Applications; the app is not notarized, so right-click it and choose **Open** the first time. On Windows, run **AWS SSO Hub.exe**; if SmartScreen warns you, choose **More info**, then **Run anyway**.
+**0. Install.** Download the zip for your system from [Releases](https://github.com/rudian/codepass/releases). On macOS, drag **AWS SSO Hub.app** to Applications; the app is not notarized, so right-click it and choose **Open** the first time. On Windows, run **AWS SSO Hub.exe**; if SmartScreen warns you, choose **More info**, then **Run anyway**.
 
 **1. Add your SSO portal.** On **Accounts**, choose **Add SSO portal** and paste the portal URL your administrator gave you (`https://d-xxxxxxxxxx.awsapps.com/start`). Then pick the accounts and roles you want; each one becomes a profile in `~/.aws/config`.
 
@@ -100,11 +100,11 @@ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 ```
 
 ```sh
-# macOS universal app (Apple Silicon + Intel); needs the Xcode command line tools
-wails3 task darwin:package:universal      # -> bin/AWS SSO Hub.app
+# macOS app (Apple silicon, macOS 15 or later); needs the Xcode command line tools
+wails3 task darwin:package   # -> bin/Codepass.app
 
 # Windows x64 (cross-compiles from macOS, or builds on Windows)
-wails3 build GOOS=windows GOARCH=amd64    # -> bin/aws-sso-hub.exe
+wails3 build GOOS=windows GOARCH=amd64    # -> bin/codepass.exe
 
 # development with live reload
 wails3 dev

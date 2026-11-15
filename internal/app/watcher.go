@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // fileWatcher polls the AWS config, the credentials file and the global git config. Changes the app made itself

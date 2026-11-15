@@ -5,7 +5,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // Thin layer over repos.Engine. The engine emits repos:changed and the scan and clone progress events; because

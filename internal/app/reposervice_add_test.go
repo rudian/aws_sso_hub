@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // outsideRepo creates a clone that is not below the default scan root.

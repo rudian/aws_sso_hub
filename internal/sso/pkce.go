@@ -89,18 +89,18 @@ func ShortcutURL(startURL, accountID, role, destination string) string {
 // CallbackPage renders the self-contained browser page shown after the redirect (no JS, no external URLs).
 func CallbackPage(lang string, ok bool, errorValue string) []byte {
 	zh := lang == "zh-CN"
-	title, heading, body, htmlLang := "AWS SSO Hub", "", "", "en"
+	title, heading, body, htmlLang := "Codepass", "", "", "en"
 	switch {
 	case zh && ok:
-		title, htmlLang = "AWS SSO Hub", "zh-CN"
-		heading, body = "登录成功", "AWS SSO Hub 已经收到授权，可以关闭这个页面，回到应用继续。"
+		title, htmlLang = "Codepass", "zh-CN"
+		heading, body = "登录成功", "Codepass 已经收到授权，可以关闭这个页面，回到应用继续。"
 	case zh:
-		title, htmlLang = "AWS SSO Hub", "zh-CN"
-		heading, body = "登录没有完成", "浏览器返回了："+html.EscapeString(errorValue)+"。回到 AWS SSO Hub 重试即可。"
+		title, htmlLang = "Codepass", "zh-CN"
+		heading, body = "登录没有完成", "浏览器返回了："+html.EscapeString(errorValue)+"。回到 Codepass 重试即可。"
 	case ok:
-		heading, body = "You're signed in", "AWS SSO Hub received the authorization. You can close this tab and go back to the app."
+		heading, body = "You're signed in", "Codepass received the authorization. You can close this tab and go back to the app."
 	default:
-		heading, body = "Sign-in didn't finish", "The browser returned: "+html.EscapeString(errorValue)+". Go back to AWS SSO Hub and try again."
+		heading, body = "Sign-in didn't finish", "The browser returned: "+html.EscapeString(errorValue)+". Go back to Codepass and try again."
 	}
 	colour := "#1a7f4b"
 	if !ok {

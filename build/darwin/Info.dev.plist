@@ -4,11 +4,11 @@
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleDisplayName</key>
-            <string>AWS SSO Hub</string>
+            <string>Codepass</string>
         <key>CFBundleName</key>
-            <string>AWS SSO Hub</string>
+            <string>Codepass</string>
         <key>CFBundleExecutable</key>
-            <string>aws-sso-hub</string>
+            <string>codepass</string>
         <key>CFBundleIdentifier</key>
             <string>com.rudian.awsssohub</string>
         <key>CFBundleVersion</key>
@@ -20,9 +20,18 @@
         <key>CFBundleIconFile</key>
             <string>icons</string>
         <key>LSMinimumSystemVersion</key>
-            <string>13.0.0</string>
+            <string>15.0</string>
+        <key>CFBundleDevelopmentRegion</key>
+            <string>en</string>
+        <key>CFBundleLocalizations</key>
+        <array>
+            <string>en</string>
+            <string>zh-Hans</string>
+        </array>
         <key>NSHighResolutionCapable</key>
             <string>true</string>
+        <key>NSAppleEventsUsageDescription</key>
+            <string>Codepass uses Apple Events to open a project folder in Terminal or iTerm when you choose "Open in terminal".</string>
         <key>NSHumanReadableCopyright</key>
             <string>© 2026 rudian</string>
         <key>NSAppTransportSecurity</key>

@@ -8,13 +8,13 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="aws-sso-hub"
+        Path="codepass"
         Arguments=""
-        InstallLocation="C:\Program Files\AWS SSO Hub\AWS SSO Hub">
+        InstallLocation="C:\Program Files\Codepass\Codepass">
     </Installer>
     <PackageInformation
-        PackageName="AWS SSO Hub"
-        PackageDisplayName="AWS SSO Hub"
+        PackageName="Codepass"
+        PackageDisplayName="Codepass"
         PublisherName="CN=rudian"
         PublisherDisplayName="rudian"
         Version="0.0.1.0"
@@ -27,8 +27,8 @@
             <Application
                 Id="com.rudian.awsssohub"
                 Description="AWS IAM Identity Center and CodeCommit helper"
-                DisplayName="AWS SSO Hub"
-                ExecutableName="aws-sso-hub"
+                DisplayName="Codepass"
+                ExecutableName="codepass"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -41,13 +41,13 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>AWS SSO Hub</DisplayName>
+            <DisplayName>Codepass</DisplayName>
             <PublisherDisplayName>rudian</PublisherDisplayName>
             <Description>AWS IAM Identity Center and CodeCommit helper</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="aws-sso-hub.msix" />
+    <SaveLocation PackagePath="codepass.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

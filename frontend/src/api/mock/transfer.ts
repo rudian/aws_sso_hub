@@ -73,12 +73,12 @@ export function buildExport(w: World, req: ExportRequest): ExportResult {
     }
     profiles.push(e)
   }
-  const doc = { format: FORMAT, version: 1, exportedAt: iso(now()), exportedBy: `AWS SSO Hub ${w.appInfo.version}`, portals, profiles }
+  const doc = { format: FORMAT, version: 1, exportedAt: iso(now()), exportedBy: `Codepass ${w.appInfo.version}`, portals, profiles }
   return { json: JSON.stringify(doc, null, 2) + '\n', items }
 }
 
 export function exportFileName(): string {
-  return `aws-sso-hub-accounts-${iso(now()).slice(0, 10).replace(/-/g, '')}.json`
+  return `codepass-accounts-${iso(now()).slice(0, 10).replace(/-/g, '')}.json`
 }
 
 // ------------------------------------------------------------------ sample file for OpenImportFile
@@ -88,7 +88,7 @@ export function sampleImportFile(): ImportSource {
     format: FORMAT,
     version: 1,
     exportedAt: '2026-11-03T09:30:00Z',
-    exportedBy: 'AWS SSO Hub 0.0.1',
+    exportedBy: 'Codepass 0.0.1',
     portals: [
       { name: 'initech', startUrl: 'https://d-1234567890.awsapps.com/start', region: 'us-west-2', scopes: ['sso:account:access'], sessionMinutes: 480 },
       { name: 'globex', startUrl: 'https://d-2222222222.awsapps.com/start', region: 'eu-west-1', scopes: ['sso:account:access'], sessionMinutes: 600 },
@@ -99,7 +99,7 @@ export function sampleImportFile(): ImportSource {
       { name: 'initech-legacy', portal: 'initech', accountId: '777788889999', roleName: 'PowerUserAccess', credential_process: '/usr/local/bin/get-creds --profile initech' },
     ],
   }
-  return { name: 'aws-sso-hub-accounts-20261103.json', json: JSON.stringify(doc, null, 2) + '\n' }
+  return { name: 'codepass-accounts-20261103.json', json: JSON.stringify(doc, null, 2) + '\n' }
 }
 
 // ------------------------------------------------------------------ import: parsing
@@ -132,7 +132,7 @@ interface ProfileEntry {
   rej?: Rej
 }
 
-const formatErr = (reason: string) => fail(ErrorCode.ErrImportFormat, 'not an AWS SSO Hub accounts export', { reason })
+const formatErr = (reason: string) => fail(ErrorCode.ErrImportFormat, 'not a Codepass accounts export', { reason })
 
 function hasSensitive(v: unknown): boolean {
   if (Array.isArray(v)) return v.some(hasSensitive)

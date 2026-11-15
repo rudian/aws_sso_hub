@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/backup"
+	"github.com/rudian/codepass/internal/backup"
 )
 
 // CLITimeLayout is the exact layout botocore writes: strftime('%Y-%m-%dT%H:%M:%SZ'), always UTC.

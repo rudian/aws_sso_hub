@@ -8,9 +8,9 @@
 			"FileVersion": "0.0.1.0",
 			"ProductVersion": "0.0.1.0",
 			"CompanyName": "rudian",
-			"FileDescription": "AWS SSO Hub",
+			"FileDescription": "Codepass",
 			"LegalCopyright": "© 2026 rudian",
-			"ProductName": "AWS SSO Hub",
+			"ProductName": "Codepass",
 			"Comments": "AWS IAM Identity Center and CodeCommit helper"
 		}
 	}

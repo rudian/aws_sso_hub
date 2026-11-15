@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // browser simulates the user's browser: it parses the authorize URL and calls the callback.
@@ -64,7 +64,7 @@ func TestLoginPKCEWritesCLIToken(t *testing.T) {
 	uris, _ := reg["redirectUris"].([]any)
 	grants, _ := reg["grantTypes"].([]any)
 	if len(uris) != 1 || uris[0] != "http://127.0.0.1/oauth/callback" || len(grants) != 2 || reg["issuerUrl"] != e.sess.StartURL ||
-		reg["clientName"] != "aws-sso-hub-initech" || reg["clientType"] != "public" {
+		reg["clientName"] != "codepass-initech" || reg["clientType"] != "public" {
 		t.Fatalf("register body %v", reg)
 	}
 	ct := e.oidc.tokBodies[0]
@@ -423,7 +423,7 @@ func TestCallbackPageEscapes(t *testing.T) {
 			t.Errorf("%s ok=%v: missing %q or external URL", c.lang, c.ok, c.want)
 		}
 	}
-	if !strings.Contains(string(CallbackPage("zh-CN", false, "access_denied")), "浏览器返回了：access_denied。回到 AWS SSO Hub 重试即可。") {
+	if !strings.Contains(string(CallbackPage("zh-CN", false, "access_denied")), "浏览器返回了：access_denied。回到 Codepass 重试即可。") {
 		t.Fatal("zh error body")
 	}
 }

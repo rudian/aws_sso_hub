@@ -1,4 +1,4 @@
-import * as GitGlobalReal from '../../../bindings/github.com/rudian/aws_sso_hub/internal/app/gitglobalservice'
+import * as GitGlobalReal from '../../../bindings/github.com/rudian/codepass/internal/app/gitglobalservice'
 import { BackupKind, BackupReason, BindingSource, DefaultAction, ErrorCode, RemoteKind } from '../models'
 import type { DefaultChangeRequest, DiffLine, FilePreview, GitGlobalState } from '../models'
 import { mockEmit } from '../events'

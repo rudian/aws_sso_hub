@@ -13,7 +13,7 @@ import (
 	cc "github.com/aws/aws-sdk-go-v2/service/codecommit"
 	"github.com/aws/smithy-go"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // RepoMeta is the subset of repository metadata the app shows.
@@ -45,7 +45,7 @@ func NewFactory(endpoint string) Factory {
 			Region:           region,
 			Credentials:      p,
 			RetryMaxAttempts: 2,
-			AppID:            "aws-sso-hub",
+			AppID:            "codepass",
 		}
 		if endpoint != "" {
 			opts.BaseEndpoint = aws.String(endpoint)

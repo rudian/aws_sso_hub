@@ -8,11 +8,11 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/app"
-	"github.com/rudian/aws_sso_hub/internal/logx"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/version"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/app"
+	"github.com/rudian/codepass/internal/logx"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/version"
 )
 
 // Wails embeds the built frontend (frontend/dist) into the binary.

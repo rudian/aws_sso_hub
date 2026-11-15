@@ -15,12 +15,12 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/backup"
-	"github.com/rudian/aws_sso_hub/internal/execx"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
-	"github.com/rudian/aws_sso_hub/internal/migrate"
-	"github.com/rudian/aws_sso_hub/internal/redact"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/backup"
+	"github.com/rudian/codepass/internal/execx"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/migrate"
+	"github.com/rudian/codepass/internal/redact"
 )
 
 const (

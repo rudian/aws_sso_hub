@@ -3,9 +3,9 @@ package transfer
 import (
 	"strings"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/ini"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/ini"
 )
 
 func parseIni(b []byte) (*ini.Doc, error) {

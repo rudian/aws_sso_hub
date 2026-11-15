@@ -1,5 +1,5 @@
 import { CancellablePromise } from '@wailsio/runtime'
-import * as RepoReal from '../../../bindings/github.com/rudian/aws_sso_hub/internal/app/reposervice'
+import * as RepoReal from '../../../bindings/github.com/rudian/codepass/internal/app/reposervice'
 import { BackupKind, BackupReason, BindWarning, BindingSource, ErrorCode, OwnerStatus, ProfileKind, RemoteKind, SessionState, StaticState, TestStatus } from '../models'
 import type { BindOutcome, OwnerResult, Repo, TestResult } from '../models'
 import { mockEmit } from '../events'

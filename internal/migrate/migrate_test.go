@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsapi"
-	"github.com/rudian/aws_sso_hub/internal/awsapi/awsapitest"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/backup"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/sso"
-	"github.com/rudian/aws_sso_hub/internal/sso/ssotest"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsapi"
+	"github.com/rudian/codepass/internal/awsapi/awsapitest"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/backup"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/sso"
+	"github.com/rudian/codepass/internal/sso/ssotest"
 )
 
 const (

@@ -8,9 +8,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/transfer"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/transfer"
 )
 
 // Thin layer over accounts.Engine; the engine emits the accounts:* and session:* events itself.

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/accounts"
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/migrate"
-	"github.com/rudian/aws_sso_hub/internal/repos"
+	"github.com/rudian/codepass/internal/accounts"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/migrate"
+	"github.com/rudian/codepass/internal/repos"
 )
 
 // Compile-time proof that Store implements every port it is wired to.

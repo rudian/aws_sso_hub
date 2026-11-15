@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/sso"
-	"github.com/rudian/aws_sso_hub/internal/sso/ssotest"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/sso"
+	"github.com/rudian/codepass/internal/sso/ssotest"
 )
 
 func (h *harness) login() api.LoginResult {

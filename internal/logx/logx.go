@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/rudian/aws_sso_hub/internal/redact"
+	"github.com/rudian/codepass/internal/redact"
 )
 
 const (

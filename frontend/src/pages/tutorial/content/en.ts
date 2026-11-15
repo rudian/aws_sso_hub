@@ -24,11 +24,11 @@ export const en: TutorialSection[] = [
       },
       {
         title: 'What stays the same',
-        text: 'Profile names, `aws --profile acme ...` commands and repositories that are bound to a profile keep working. When AWS SSO Hub migrates a profile it **keeps the profile name**.',
+        text: 'Profile names, `aws --profile acme ...` commands and repositories that are bound to a profile keep working. When Codepass migrates a profile it **keeps the profile name**.',
       },
       {
         title: 'What the app does to your files',
-        text: 'Before it changes `~/.aws/config`, `~/.aws/credentials` or a repository\'s `.git/config`, AWS SSO Hub saves a backup (Settings, Backups). Backups never contain key values. Every change is shown as a diff first.',
+        text: 'Before it changes `~/.aws/config`, `~/.aws/credentials` or a repository\'s `.git/config`, Codepass saves a backup (Settings, Backups). Backups never contain key values. Every change is shown as a diff first.',
       },
     ],
     callouts: [
@@ -83,7 +83,7 @@ export const en: TutorialSection[] = [
       {
         title: 'Decide how long a sign-in lasts',
         crumbs: ['Settings', 'Authentication', 'Session duration'],
-        text: 'The setting for **user interactive sessions** is how often people have to sign in again. The default is 8 hours; longer means fewer sign-ins, shorter is safer. AWS SSO Hub shows a countdown based on this value. If you change it, set the same length in the app (Accounts, the sign-in details on a portal).',
+        text: 'The setting for **user interactive sessions** is how often people have to sign in again. The default is 8 hours; longer means fewer sign-ins, shorter is safer. Codepass shows a countdown based on this value. If you change it, set the same length in the app (Accounts, the sign-in details on a portal).',
       },
     ],
     callouts: [
@@ -95,7 +95,7 @@ export const en: TutorialSection[] = [
       {
         kind: 'info',
         title: 'Two companies, two portals',
-        body: 'acme and globex each get their own organization and portal, so AWS SSO Hub shows two portals with their own sign-in button and countdown. If the companies merge later, you can move both accounts into one organization and use a single portal.',
+        body: 'acme and globex each get their own organization and portal, so Codepass shows two portals with their own sign-in button and countdown. If the companies merge later, you can move both accounts into one organization and use a single portal.',
       },
     ],
   },
@@ -131,7 +131,7 @@ export const en: TutorialSection[] = [
       {
         title: 'Copy the portal address and region',
         crumbs: ['Dashboard', 'Settings summary'],
-        text: 'On the Identity Center dashboard, in the settings summary, copy the **AWS access portal URL**. Note the region you chose in the enable step: you will enter both in AWS SSO Hub. You can customise the subdomain once; the default looks like this.',
+        text: 'On the Identity Center dashboard, in the settings summary, copy the **AWS access portal URL**. Note the region you chose in the enable step: you will enter both in Codepass. You can customise the subdomain once; the default looks like this.',
         code: { label: 'What the portal address looks like', text: 'https://d-xxxxxxxxxx.awsapps.com/start' },
       },
     ],
@@ -153,7 +153,7 @@ export const en: TutorialSection[] = [
     group: 'dev',
     minutes: 3,
     title: 'Add the portal and sign in',
-    lead: 'A portal is one Identity Center sign-in page. Add it once, sign in, and AWS SSO Hub creates a profile for each account and role you pick. You need the portal URL and region from the previous section.',
+    lead: 'A portal is one Identity Center sign-in page. Add it once, sign in, and Codepass creates a profile for each account and role you pick. You need the portal URL and region from the previous section.',
     steps: [
       {
         title: 'Start the Add SSO portal dialog',
@@ -290,7 +290,7 @@ export const en: TutorialSection[] = [
     steps: [
       {
         title: 'Sign in',
-        text: 'Open AWS SSO Hub and choose **SSO sign-in** on the portal card, or click the portal in the sidebar. One sign-in covers every profile of that portal. Approve it in the browser.',
+        text: 'Open Codepass and choose **SSO sign-in** on the portal card, or click the portal in the sidebar. One sign-in covers every profile of that portal. Approve it in the browser.',
       },
       {
         title: 'Work as usual',
@@ -336,7 +336,7 @@ export const en: TutorialSection[] = [
       {
         title: 'Open the app when the system warns about it',
         text: 'The release builds are not signed. **macOS:** right-click the app and choose **Open**, or remove the quarantine flag. **Windows:** in the SmartScreen dialog choose **More info**, then **Run anyway**.',
-        code: { label: 'macOS, once', text: 'xattr -dr com.apple.quarantine "/Applications/AWS SSO Hub.app"' },
+        code: { label: 'macOS, once', text: 'xattr -dr com.apple.quarantine "/Applications/Codepass.app"' },
       },
     ],
     faq: [
@@ -378,7 +378,7 @@ export const en: TutorialSection[] = [
       },
       {
         q: 'Git still works after I signed out.',
-        a: 'Credentials that were already issued stay valid until they expire. AWS SSO Hub deletes the cached role credentials when you sign out, and AWS expires the rest within the permission set\'s session length.',
+        a: 'Credentials that were already issued stay valid until they expire. Codepass deletes the cached role credentials when you sign out, and AWS expires the rest within the permission set\'s session length.',
       },
       {
         q: 'The AWS CLI is too old.',

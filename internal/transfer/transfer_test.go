@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/backup"
-	"github.com/rudian/aws_sso_hub/internal/paths"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/backup"
+	"github.com/rudian/codepass/internal/paths"
 )
 
 // Fake credentials are assembled at run time so the source never contains a key-shaped literal.
@@ -241,7 +241,7 @@ func item(t *testing.T, p api.ImportPreview, key string) api.ImportItem {
 }
 
 func doc(portals, profiles string) string {
-	return `{"format":"aws-sso-hub.accounts","version":1,"exportedAt":"2026-11-04T10:00:00Z","exportedBy":"AWS SSO Hub 0.0.1","portals":[` + portals + `],"profiles":[` + profiles + `]}`
+	return `{"format":"aws-sso-hub.accounts","version":1,"exportedAt":"2026-11-04T10:00:00Z","exportedBy":"Codepass 0.0.1","portals":[` + portals + `],"profiles":[` + profiles + `]}`
 }
 
 const acmePortal = `{"name":"acme","startUrl":"` + urlAcme + `","region":"us-east-1","scopes":["sso:account:access"],"sessionMinutes":600}`
@@ -272,7 +272,7 @@ func TestExportOnlySSONoSecrets(t *testing.T) {
 	if reasons["acme"] != "export.static" || reasons["globex"] != "export.static" {
 		t.Fatalf("static profiles must be listed as skipped: %v", reasons)
 	}
-	if d.Format != FormatName || d.Version != 1 || d.ExportedAt != "2026-11-04T10:00:00Z" || !strings.HasPrefix(d.ExportedBy, "AWS SSO Hub ") {
+	if d.Format != FormatName || d.Version != 1 || d.ExportedAt != "2026-11-04T10:00:00Z" || !strings.HasPrefix(d.ExportedBy, "Codepass ") {
 		t.Fatalf("%+v", d)
 	}
 }
@@ -352,7 +352,7 @@ func TestWriteExportAndReadImportFile(t *testing.T) {
 	res := f.exportAll(true)
 	dir := t.TempDir()
 	path := filepath.Join(dir, DefaultExportName(f.now))
-	if filepath.Base(path) != "aws-sso-hub-accounts-20261104.json" {
+	if filepath.Base(path) != "codepass-accounts-20261104.json" {
 		t.Fatal(path)
 	}
 	if _, err := f.svc.WriteExport("relative.json", res); err == nil {

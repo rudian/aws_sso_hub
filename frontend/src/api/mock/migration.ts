@@ -1,6 +1,6 @@
 import { CancellablePromise } from '@wailsio/runtime'
 import { initialUI } from '../../lib/initialUI'
-import * as MigrationReal from '../../../bindings/github.com/rudian/aws_sso_hub/internal/app/migrationservice'
+import * as MigrationReal from '../../../bindings/github.com/rudian/codepass/internal/app/migrationservice'
 import { BackupKind, BackupReason, DeactivationMethod, DeactivationStatus, ErrorCode, HealthKind, MigrationItem, MigrationStep, ProgressStatus, ProfileKind, Severity, StaticState } from '../models'
 import type { MigrationAccountChoice, MigrationState, Profile } from '../models'
 import { mockEmit } from '../events'

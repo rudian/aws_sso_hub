@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/execx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
 )
 
 var (

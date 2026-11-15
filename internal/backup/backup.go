@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // Placeholder replaces secret values in backups.

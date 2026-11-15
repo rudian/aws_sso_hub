@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/rudian/aws_sso_hub/internal/redact"
+	"github.com/rudian/codepass/internal/redact"
 )
 
 // ErrorCode is a stable, UI-translatable identifier. Never rename or reuse a value.

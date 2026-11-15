@@ -7,7 +7,7 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as api$0 from "../../../../rudian/aws_sso_hub/internal/api/models.js";
+import type * as api$0 from "../../../../rudian/codepass/internal/api/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {

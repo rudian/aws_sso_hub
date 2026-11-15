@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // ssoSelection picks every SSO profile of the first real portal from the state.
@@ -48,7 +48,7 @@ func TestExportImportServiceDialogs(t *testing.T) {
 	if saved.Path != out || w.read(out) != built.JSON {
 		t.Fatalf("saved %q", saved.Path)
 	}
-	if len(w.rt.dialogs) != 1 || !strings.HasPrefix(w.rt.dialogs[0], "save:aws-sso-hub-accounts-") || !strings.HasSuffix(w.rt.dialogs[0], ".json:*.json") {
+	if len(w.rt.dialogs) != 1 || !strings.HasPrefix(w.rt.dialogs[0], "save:codepass-accounts-") || !strings.HasSuffix(w.rt.dialogs[0], ".json:*.json") {
 		t.Fatalf("dialogs %v", w.rt.dialogs)
 	}
 

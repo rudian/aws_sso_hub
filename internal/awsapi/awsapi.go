@@ -15,9 +15,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/sso"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/sso"
 )
 
 // Endpoints override the AWS defaults (sandbox mode, tests). STS and IAM always use region us-east-1.

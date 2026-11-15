@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/codecommit"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/codecommit"
+	"github.com/rudian/codepass/internal/gitx"
 )
 
 var reRepoName = regexp.MustCompile(`^[\w.-]{1,100}$`)

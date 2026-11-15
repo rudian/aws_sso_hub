@@ -1,4 +1,4 @@
-module github.com/rudian/aws_sso_hub
+module github.com/rudian/codepass
 
 go 1.26.0
 

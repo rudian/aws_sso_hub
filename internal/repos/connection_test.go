@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/gitx"
 )
 
 // proxyToClosedPort sends all https traffic of the git calls to a closed loopback port, so no test traffic

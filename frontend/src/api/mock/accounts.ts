@@ -1,6 +1,6 @@
 import { CancellablePromise } from '@wailsio/runtime'
 import { initialUI } from '../../lib/initialUI'
-import * as AccountReal from '../../../bindings/github.com/rudian/aws_sso_hub/internal/app/accountservice'
+import * as AccountReal from '../../../bindings/github.com/rudian/codepass/internal/app/accountservice'
 import { BackupKind, BackupReason, ErrorCode, LoginMode, LoginPhase, ProfileKind, SessionState } from '../models'
 import type { DiffLine, LoginResult, PortalInputCheck } from '../models'
 import { mockEmit } from '../events'

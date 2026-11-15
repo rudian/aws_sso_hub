@@ -1,7 +1,6 @@
 // Namespace "app": shell, banner and error texts, plus the countdown keys used by shared components.
 export const zh = {
-  'app.name': 'AWS SSO Hub',
-  'app.nameShort': 'SSO Hub',
+  'app.name': 'Codepass',
   'app.subtitle': 'AWS 多账号 SSO 管理',
   'app.sandbox': '沙盒模式',
   'nav.aria': '主导航',
@@ -97,8 +96,7 @@ export const zh = {
 } as const
 
 export const en: { [K in keyof typeof zh]: string } = {
-  'app.name': 'AWS SSO Hub',
-  'app.nameShort': 'SSO Hub',
+  'app.name': 'Codepass',
   'app.subtitle': 'Multi-account AWS SSO',
   'app.sandbox': 'Sandbox',
   'nav.aria': 'Main navigation',

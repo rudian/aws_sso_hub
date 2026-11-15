@@ -15,57 +15,57 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as api$0 from "../api/models.js";
 
 export function Apply(profile: string, baseHash: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(634625818, profile, baseHash);
+    return $Call.ByID(572807095, profile, baseHash);
 }
 
 export function ChooseAccount(profile: string, choice: api$0.MigrationAccountChoice): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1409015494, profile, choice);
+    return $Call.ByID(3806870571, profile, choice);
 }
 
 export function ChoosePortal(profile: string, portal: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(500595473, profile, portal);
+    return $Call.ByID(280885970, profile, portal);
 }
 
 export function Deactivate(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1674422864, profile);
+    return $Call.ByID(3901378255, profile);
 }
 
 export function Discard(profile: string): $CancellablePromise<void> {
-    return $Call.ByID(4100308116, profile);
+    return $Call.ByID(2747368517, profile);
 }
 
 export function Finish(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1381149693, profile);
+    return $Call.ByID(744646910, profile);
 }
 
 export function Get(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(3705430910, profile);
+    return $Call.ByID(1343373731, profile);
 }
 
 export function KeepKey(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(3911970206, profile);
+    return $Call.ByID(1828434755, profile);
 }
 
 export function Preview(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1851702286, profile);
+    return $Call.ByID(3853111179, profile);
 }
 
 export function PreviewKeyRemoval(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(340750071, profile);
+    return $Call.ByID(1769308202, profile);
 }
 
 export function RemoveKey(profile: string, baseHash: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(3868811821, profile, baseHash);
+    return $Call.ByID(1358546664, profile, baseHash);
 }
 
 export function RestoreConfig(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1781311702, profile);
+    return $Call.ByID(3182353671, profile);
 }
 
 export function RetryVerify(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1204812157, profile);
+    return $Call.ByID(2009857020, profile);
 }
 
 export function Start(profile: string): $CancellablePromise<api$0.MigrationState> {
-    return $Call.ByID(1183742666, profile);
+    return $Call.ByID(2200708675, profile);
 }

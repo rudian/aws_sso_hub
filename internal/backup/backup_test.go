@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 const credFixture = "[acme]\naws_access_key_id = AKIAIOSFODNN7EXAMPLE\naws_secret_access_key = fakeSecretValueDoNotUse0000000000000000\n\n[globex]\naws_access_key_id = AKIAI44QH8DHBEXAMPLE\naws_secret_access_key = fakeSecretValueDoNotUse1111111111111111\n"

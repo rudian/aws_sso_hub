@@ -23,11 +23,11 @@ export const zh: TutorialSection[] = [
       },
       {
         title: '什么保持不变',
-        text: '配置文件名、`aws --profile acme ...` 命令，以及绑定到某个配置文件的仓库都照常可用。AWS SSO Hub 迁移配置文件时**保留原来的名字**。',
+        text: '配置文件名、`aws --profile acme ...` 命令，以及绑定到某个配置文件的仓库都照常可用。Codepass 迁移配置文件时**保留原来的名字**。',
       },
       {
         title: '应用会怎么动你的文件',
-        text: '修改 `~/.aws/config`、`~/.aws/credentials` 或仓库的 `.git/config` 之前，AWS SSO Hub 会先做备份（设置里的“备份”）。备份里没有密钥内容。每一处改动都会先以对比的形式给你看。',
+        text: '修改 `~/.aws/config`、`~/.aws/credentials` 或仓库的 `.git/config` 之前，Codepass 会先做备份（设置里的“备份”）。备份里没有密钥内容。每一处改动都会先以对比的形式给你看。',
       },
     ],
     callouts: [
@@ -82,7 +82,7 @@ export const zh: TutorialSection[] = [
       {
         title: '决定一次登录能用多久',
         crumbs: ['Settings', 'Authentication', 'Session duration'],
-        text: '“用户交互式会话”（user interactive sessions）决定大家多久要重新登录一次。默认 8 小时：越长登录越少，越短越安全。AWS SSO Hub 的倒计时就基于这个值。如果你改了它，也要在应用里设成同样的时长（账号页，门户的登录详情）。',
+        text: '“用户交互式会话”（user interactive sessions）决定大家多久要重新登录一次。默认 8 小时：越长登录越少，越短越安全。Codepass 的倒计时就基于这个值。如果你改了它，也要在应用里设成同样的时长（账号页，门户的登录详情）。',
       },
     ],
     callouts: [
@@ -94,7 +94,7 @@ export const zh: TutorialSection[] = [
       {
         kind: 'info',
         title: '两家公司，两个门户',
-        body: 'acme 和 globex 各有自己的组织和门户，所以 AWS SSO Hub 里会有两个门户，各自有登录按钮和倒计时。以后如果两家公司合并，可以把两个账号移到同一个组织里，改用一个门户。',
+        body: 'acme 和 globex 各有自己的组织和门户，所以 Codepass 里会有两个门户，各自有登录按钮和倒计时。以后如果两家公司合并，可以把两个账号移到同一个组织里，改用一个门户。',
       },
     ],
   },
@@ -130,7 +130,7 @@ export const zh: TutorialSection[] = [
       {
         title: '复制门户地址和区域',
         crumbs: ['Dashboard', 'Settings summary'],
-        text: '在 Identity Center 的仪表板上，从设置摘要里复制 **AWS access portal URL**（AWS 访问门户地址），并记下开通时选的区域：这两项都要填进 AWS SSO Hub。子域名可以自定义一次，默认的样子如下。',
+        text: '在 Identity Center 的仪表板上，从设置摘要里复制 **AWS access portal URL**（AWS 访问门户地址），并记下开通时选的区域：这两项都要填进 Codepass。子域名可以自定义一次，默认的样子如下。',
         code: { label: '门户地址的样子', text: 'https://d-xxxxxxxxxx.awsapps.com/start' },
       },
     ],
@@ -152,7 +152,7 @@ export const zh: TutorialSection[] = [
     group: 'dev',
     minutes: 3,
     title: '添加门户并登录',
-    lead: '门户就是一个 Identity Center 登录页。添加一次、登录一次，AWS SSO Hub 就会为你选的每个账号和角色创建配置文件。需要上一节里的门户地址和区域。',
+    lead: '门户就是一个 Identity Center 登录页。添加一次、登录一次，Codepass 就会为你选的每个账号和角色创建配置文件。需要上一节里的门户地址和区域。',
     steps: [
       {
         title: '打开“添加 SSO 门户”',
@@ -289,7 +289,7 @@ export const zh: TutorialSection[] = [
     steps: [
       {
         title: '登录',
-        text: '打开 AWS SSO Hub，在门户卡片上选择 **SSO 登录**，或者点侧边栏里的门户。一次登录覆盖该门户下的所有配置文件，在浏览器里点击允许即可。',
+        text: '打开 Codepass，在门户卡片上选择 **SSO 登录**，或者点侧边栏里的门户。一次登录覆盖该门户下的所有配置文件，在浏览器里点击允许即可。',
       },
       {
         title: '照常工作',
@@ -335,7 +335,7 @@ export const zh: TutorialSection[] = [
       {
         title: '系统提示风险时怎么打开应用',
         text: '发布的安装包没有签名。**macOS：**右键点击应用，选择**打开**，或者去掉隔离标记。**Windows：**在 SmartScreen 提示里选择**更多信息**，再选**仍要运行**。',
-        code: { label: 'macOS，只需一次', text: 'xattr -dr com.apple.quarantine "/Applications/AWS SSO Hub.app"' },
+        code: { label: 'macOS，只需一次', text: 'xattr -dr com.apple.quarantine "/Applications/Codepass.app"' },
       },
     ],
     faq: [
@@ -377,7 +377,7 @@ export const zh: TutorialSection[] = [
       },
       {
         q: '退出登录之后 Git 还能用。',
-        a: '已经签发的凭证在过期前仍然有效。退出登录时 AWS SSO Hub 会删除缓存的角色凭证，AWS 会在权限集的会话时长内让剩下的凭证过期。',
+        a: '已经签发的凭证在过期前仍然有效。退出登录时 Codepass 会删除缓存的角色凭证，AWS 会在权限集的会话时长内让剩下的凭证过期。',
       },
       {
         q: 'AWS CLI 版本太旧。',

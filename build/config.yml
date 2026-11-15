@@ -6,7 +6,7 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "rudian" # The name of the company
-  productName: "AWS SSO Hub" # The name of the application
+  productName: "Codepass" # The name of the application
   productIdentifier: "com.rudian.awsssohub" # The unique product identifier
   description: "AWS IAM Identity Center and CodeCommit helper" # The application description
   copyright: "(c) 2026 rudian" # Copyright text

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // Remote is one configured remote of a repository.

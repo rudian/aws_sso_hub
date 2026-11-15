@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/execx"
+	"github.com/rudian/codepass/internal/execx"
 )
 
 // ErrInvalidURL is returned for anything that is not an absolute https URL with a host.

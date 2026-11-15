@@ -12,9 +12,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/execx"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
+	"github.com/rudian/codepass/internal/gitx"
 )
 
 // Request selects the terminal, directory and profile. GOOS "" means the running OS.

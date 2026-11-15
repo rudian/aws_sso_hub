@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsapi/awsapitest"
-	"github.com/rudian/aws_sso_hub/internal/gitx/gitxtest"
-	"github.com/rudian/aws_sso_hub/internal/logx"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/sso"
-	"github.com/rudian/aws_sso_hub/internal/sso/ssotest"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsapi/awsapitest"
+	"github.com/rudian/codepass/internal/gitx/gitxtest"
+	"github.com/rudian/codepass/internal/logx"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/sso"
+	"github.com/rudian/codepass/internal/sso/ssotest"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

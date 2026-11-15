@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/sso"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/sso"
 )
 
 // TestShutdownKeepsLogin: quitting never signs out. Token file, role cache and the settings
@@ -350,15 +350,15 @@ func TestTrayModel(t *testing.T) {
 	zhItems := buildTrayModel(st, "zh-CN", now)
 	got := labelsOf(zhItems)
 	want := []string{
-		"AWS SSO Hub", "initech  已登录 6:12", "  initech-admin", "  initech-readonly", "acme  已过期", "  acme-admin", "globex  未登录",
-		"acme  访问密钥（待迁移）", "", "登录 acme…", "登录 globex…", "打开 AWS SSO Hub", "退出",
+		"Codepass", "initech  已登录 6:12", "  initech-admin", "  initech-readonly", "acme  已过期", "  acme-admin", "globex  未登录",
+		"acme  访问密钥（待迁移）", "", "登录 acme…", "登录 globex…", "打开 Codepass", "退出",
 	}
 	if got != strings.Join(want, "\n")+"\n" {
 		t.Fatalf("zh menu:\n%s", got)
 	}
 	enItems := buildTrayModel(st, "en", now)
 	en := labelsOf(enItems)
-	for _, s := range []string{"AWS SSO Hub", "initech  Signed in 6:12", "acme  Expired", "globex  Not signed in", "acme  Access key (to migrate)", "Sign in to acme…", "Open AWS SSO Hub", "Quit"} {
+	for _, s := range []string{"Codepass", "initech  Signed in 6:12", "acme  Expired", "globex  Not signed in", "acme  Access key (to migrate)", "Sign in to acme…", "Open Codepass", "Quit"} {
 		if !strings.Contains(en, s) {
 			t.Errorf("en menu lacks %q:\n%s", s, en)
 		}

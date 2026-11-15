@@ -26,7 +26,7 @@ export function injectCsp(html: string): string {
 /** Build-only plugin: adds the Content-Security-Policy meta tag to index.html. */
 export function cspPlugin(): Plugin {
   return {
-    name: 'aws-sso-hub:csp',
+    name: 'codepass:csp',
     apply: 'build',
     transformIndexHtml: { order: 'post', handler: (html) => injectCsp(html) },
   }
@@ -38,7 +38,7 @@ export function cspPlugin(): Plugin {
  */
 export function mockStubPlugin(stub: string): Plugin {
   return {
-    name: 'aws-sso-hub:mock-stub',
+    name: 'codepass:mock-stub',
     apply: 'build',
     enforce: 'pre',
     resolveId(source, importer) {

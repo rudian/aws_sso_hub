@@ -46,7 +46,7 @@ function ThemeAndLanguage({ children }: { children?: ReactNode }) {
   useEffect(() => applyPlatform(info?.platform ?? guessPlatform()), [info?.platform])
   useEffect(() => {
     applyLang(lang)
-    void setWindowTitle('AWS SSO Hub')
+    void setWindowTitle('Codepass')
     if (settings) void System.SetUILanguage(lang).catch(() => undefined)
   }, [lang, settings === null])
 

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/transfer"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/transfer"
 )
 
 func serveThroughGuard(t *testing.T, method, target, body string, header map[string]string) (code int, reached bool, seen string) {

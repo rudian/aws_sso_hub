@@ -1,7 +1,7 @@
 package app
 
 import (
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 

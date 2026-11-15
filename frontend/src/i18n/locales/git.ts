@@ -56,7 +56,7 @@ export const zh = {
   'git.saved.unsupported': '这个系统不支持在这里查看或清除已保存的凭证。',
   'git.other.title': '其他 Git 凭证设置（不受影响）',
   'git.other.empty': '没有其他设置',
-  'git.fallback.message': 'AWS SSO Hub：这个仓库还没有绑定 AWS 账号，或者账号未登录。打开 AWS SSO Hub 完成绑定或登录后再试。',
+  'git.fallback.message': 'Codepass：这个仓库还没有绑定 AWS 账号，或者账号未登录。打开 Codepass 完成绑定或登录后再试。',
 } as const
 
 export const en: { [K in keyof typeof zh]: string } = {
@@ -116,5 +116,5 @@ export const en: { [K in keyof typeof zh]: string } = {
   'git.saved.unsupported': 'This system can’t list or clear saved passwords here.',
   'git.other.title': 'Other Git credential settings (unchanged)',
   'git.other.empty': 'No other settings',
-  'git.fallback.message': 'AWS SSO Hub: this repository isn’t bound to an AWS account, or the account isn’t signed in. Open AWS SSO Hub, bind or sign in, then try again.',
+  'git.fallback.message': 'Codepass: this repository isn’t bound to an AWS account, or the account isn’t signed in. Open Codepass, bind or sign in, then try again.',
 }

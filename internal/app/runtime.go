@@ -9,8 +9,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/execx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
 )
 
 // Runtime is the seam between the engines and the GUI toolkit. Everything that needs Wails goes through it so

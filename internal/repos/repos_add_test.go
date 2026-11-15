@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
-	"github.com/rudian/aws_sso_hub/internal/repos"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/repos"
 )
 
 func (f *fixture) add(path string) api.AddRepoResult {

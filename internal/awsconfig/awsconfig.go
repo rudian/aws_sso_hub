@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/ini"
-	"github.com/rudian/aws_sso_hub/internal/redact"
-	"github.com/rudian/aws_sso_hub/internal/textdiff"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/ini"
+	"github.com/rudian/codepass/internal/redact"
+	"github.com/rudian/codepass/internal/textdiff"
 )
 
 // Files are the two absolute paths.

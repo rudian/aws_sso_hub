@@ -14,9 +14,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/identity"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/identity"
 )
 
 const (
@@ -109,7 +109,7 @@ func marshalDoc(d fileDoc) (string, error) {
 
 // DefaultExportName is the suggested file name in the save dialog.
 func DefaultExportName(t time.Time) string {
-	return "aws-sso-hub-accounts-" + t.Format("20060102") + ".json"
+	return "codepass-accounts-" + t.Format("20060102") + ".json"
 }
 
 // ---- parsed document (import) ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ type Parsed struct {
 }
 
 func formatErr(reason string) *api.AppError {
-	return api.NewError(api.ErrImportFormat, "not an AWS SSO Hub accounts export").WithParam("reason", reason)
+	return api.NewError(api.ErrImportFormat, "not a Codepass accounts export").WithParam("reason", reason)
 }
 
 // Parse reads and validates the document. A malformed or foreign document is an E_IMPORT_FORMAT error; single

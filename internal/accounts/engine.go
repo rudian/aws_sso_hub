@@ -13,14 +13,14 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsapi"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/backup"
-	"github.com/rudian/aws_sso_hub/internal/identity"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/redact"
-	"github.com/rudian/aws_sso_hub/internal/sso"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsapi"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/backup"
+	"github.com/rudian/codepass/internal/identity"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/redact"
+	"github.com/rudian/codepass/internal/sso"
 )
 
 // Store is the persistence the engine needs (implemented by internal/settings).

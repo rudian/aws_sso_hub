@@ -19,76 +19,76 @@ import * as api$0 from "../api/models.js";
  * profile fits, binds it.
  */
 export function AddExisting(path: string): $CancellablePromise<api$0.AddRepoResult> {
-    return $Call.ByID(3110651098, path);
+    return $Call.ByID(2783431241, path);
 }
 
 export function Bind(repoID: string, profile: string): $CancellablePromise<api$0.BindOutcome> {
-    return $Call.ByID(4049199195, repoID, profile);
+    return $Call.ByID(714380670, repoID, profile);
 }
 
 export function BindMany(items: api$0.BindItem[] | null): $CancellablePromise<api$0.BindOutcome[] | null> {
-    return $Call.ByID(783265828, items);
+    return $Call.ByID(2309609025, items);
 }
 
 export function Clone(req: api$0.CloneRequest): $CancellablePromise<api$0.BindOutcome> {
-    return $Call.ByID(2039789305, req);
+    return $Call.ByID(3283670130, req);
 }
 
 export function CompareCommits(repoID: string): $CancellablePromise<api$0.Repo> {
-    return $Call.ByID(2381981995, repoID);
+    return $Call.ByID(384173830, repoID);
 }
 
 export function ConvertToHTTPS(repoID: string, profile: string): $CancellablePromise<api$0.BindOutcome> {
-    return $Call.ByID(2185254063, repoID, profile);
+    return $Call.ByID(1908925286, repoID, profile);
 }
 
 export function DetectOwners(repoIDs: string[] | null): $CancellablePromise<api$0.ReposState> {
-    return $Call.ByID(3392928407, repoIDs);
+    return $Call.ByID(4019471978, repoIDs);
 }
 
 export function GetState(): $CancellablePromise<api$0.ReposState> {
-    return $Call.ByID(1711742613);
+    return $Call.ByID(4090076232);
 }
 
 export function ListRemoteRepos(profile: string, region: string): $CancellablePromise<api$0.RemoteRepo[] | null> {
-    return $Call.ByID(1512419799, profile, region);
+    return $Call.ByID(1416567940, profile, region);
 }
 
 export function OpenFolder(repoID: string): $CancellablePromise<void> {
-    return $Call.ByID(2513375120, repoID);
+    return $Call.ByID(3814803353, repoID);
 }
 
 export function PreviewBind(repoID: string, profile: string): $CancellablePromise<api$0.BindPreview> {
-    return $Call.ByID(1952137687, repoID, profile);
+    return $Call.ByID(2285682336, repoID, profile);
 }
 
 export function PreviewClone(req: api$0.CloneRequest): $CancellablePromise<api$0.ClonePreview> {
-    return $Call.ByID(1560937917, req);
+    return $Call.ByID(1826674308, req);
 }
 
 /**
  * RemoveExtra stops listing a repository that was added by hand. The folder is not touched.
  */
 export function RemoveExtra(repoID: string): $CancellablePromise<api$0.ReposState> {
-    return $Call.ByID(1749176274, repoID);
+    return $Call.ByID(1166117873, repoID);
 }
 
 export function RepairBindings(): $CancellablePromise<api$0.BindOutcome[] | null> {
-    return $Call.ByID(1619160319);
+    return $Call.ByID(165983338);
 }
 
 export function Scan(): $CancellablePromise<api$0.ReposState> {
-    return $Call.ByID(1849243317);
+    return $Call.ByID(3909291160);
 }
 
 export function TestConnection(repoID: string): $CancellablePromise<api$0.TestResult> {
-    return $Call.ByID(3306263096, repoID);
+    return $Call.ByID(496311529, repoID);
 }
 
 export function TestMany(repoIDs: string[] | null): $CancellablePromise<api$0.TestResult[] | null> {
-    return $Call.ByID(2376034791, repoIDs);
+    return $Call.ByID(2994766450, repoIDs);
 }
 
 export function Unbind(repoID: string): $CancellablePromise<api$0.BindOutcome> {
-    return $Call.ByID(1111809168, repoID);
+    return $Call.ByID(1351625609, repoID);
 }

@@ -15,78 +15,78 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as api$0 from "../api/models.js";
 
 export function CheckEnvironment(): $CancellablePromise<api$0.EnvReport> {
-    return $Call.ByID(3956385284);
+    return $Call.ByID(165586301);
 }
 
 export function CheckHealth(): $CancellablePromise<api$0.HealthReport> {
-    return $Call.ByID(3157552861);
+    return $Call.ByID(286311994);
 }
 
 /**
  * ChooseFolder: "" when cancelled
  */
 export function ChooseFolder(title: string): $CancellablePromise<string> {
-    return $Call.ByID(3037357240, title);
+    return $Call.ByID(2915128493, title);
 }
 
 export function CompleteFirstRun(): $CancellablePromise<void> {
-    return $Call.ByID(1089684977);
+    return $Call.ByID(2835461512);
 }
 
 export function FirstRunSummary(): $CancellablePromise<api$0.FirstRunSummary> {
-    return $Call.ByID(2211236142);
+    return $Call.ByID(519690533);
 }
 
 export function GetAppInfo(): $CancellablePromise<api$0.AppInfo> {
-    return $Call.ByID(2001939598);
+    return $Call.ByID(2952606079);
 }
 
 export function GetSettings(): $CancellablePromise<api$0.Settings> {
-    return $Call.ByID(489680502);
+    return $Call.ByID(1203778877);
 }
 
 export function ListBackups(): $CancellablePromise<api$0.BackupEntry[] | null> {
-    return $Call.ByID(4113151188);
+    return $Call.ByID(4041155299);
 }
 
 /**
  * OpenAWSConfig: opens ~/.aws/config in the default text editor
  */
 export function OpenAWSConfig(): $CancellablePromise<void> {
-    return $Call.ByID(2198708704);
+    return $Call.ByID(3465268323);
 }
 
 export function OpenBackupFolder(): $CancellablePromise<void> {
-    return $Call.ByID(1202158939);
+    return $Call.ByID(3924147730);
 }
 
 /**
  * OpenTerminal: P1
  */
 export function OpenTerminal(profile: string, dir: string): $CancellablePromise<void> {
-    return $Call.ByID(1905109953, profile, dir);
+    return $Call.ByID(289732948, profile, dir);
 }
 
 /**
  * OpenURL: https:// only, else E_INVALID_INPUT
  */
 export function OpenURL(url: string): $CancellablePromise<void> {
-    return $Call.ByID(1443982606, url);
+    return $Call.ByID(192830669, url);
 }
 
 export function PreviewRestore(id: string): $CancellablePromise<api$0.RestorePreview> {
-    return $Call.ByID(868722643, id);
+    return $Call.ByID(3907417874, id);
 }
 
 /**
  * RestoreBackup: returns the safety backup taken first
  */
 export function RestoreBackup(id: string, confirmLoss: boolean): $CancellablePromise<api$0.BackupEntry> {
-    return $Call.ByID(1379954887, id, confirmLoss);
+    return $Call.ByID(947209688, id, confirmLoss);
 }
 
 export function RevealBackup(id: string): $CancellablePromise<void> {
-    return $Call.ByID(844408970, id);
+    return $Call.ByID(2100945003, id);
 }
 
 /**
@@ -94,16 +94,16 @@ export function RevealBackup(id: string): $CancellablePromise<void> {
  * findings) is expanded first.
  */
 export function RevealPath(path: string): $CancellablePromise<void> {
-    return $Call.ByID(2580503875, path);
+    return $Call.ByID(2938028162, path);
 }
 
 /**
  * SetUILanguage: "zh-CN" | "en"; used for fallback helper text, callback page, tray
  */
 export function SetUILanguage(lang: string): $CancellablePromise<void> {
-    return $Call.ByID(3614734763, lang);
+    return $Call.ByID(3589695396, lang);
 }
 
 export function UpdateSettings(p: api$0.SettingsPatch): $CancellablePromise<api$0.Settings> {
-    return $Call.ByID(1987530197, p);
+    return $Call.ByID(4269206392, p);
 }

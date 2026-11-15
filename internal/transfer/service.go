@@ -11,12 +11,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
-	"github.com/rudian/aws_sso_hub/internal/backup"
-	"github.com/rudian/aws_sso_hub/internal/ini"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/version"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/backup"
+	"github.com/rudian/codepass/internal/ini"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/version"
 )
 
 // Store is the part of the settings the transfer reads and writes (implemented by internal/settings).

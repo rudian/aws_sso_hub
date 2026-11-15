@@ -5,13 +5,13 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "aws-sso-hub"
+    !define INFO_PROJECTNAME "codepass"
 !endif
 !ifndef INFO_COMPANYNAME
     !define INFO_COMPANYNAME "rudian"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "AWS SSO Hub"
+    !define INFO_PRODUCTNAME "Codepass"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "0.0.1"

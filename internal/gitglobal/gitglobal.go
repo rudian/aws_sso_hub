@@ -14,13 +14,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/credstore"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/redact"
-	"github.com/rudian/aws_sso_hub/internal/repos"
-	"github.com/rudian/aws_sso_hub/internal/textdiff"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/credstore"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/redact"
+	"github.com/rudian/codepass/internal/repos"
+	"github.com/rudian/codepass/internal/textdiff"
 )
 
 // Deps wires the engine.

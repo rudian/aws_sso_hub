@@ -9,7 +9,6 @@ tasks:
     cmds:
       - task: build:native
         vars:
-          ARCH: '{{.ARCH}}'
           DEV: '{{.DEV}}'
           OUTPUT: '{{.OUTPUT}}'
           EXTRA_TAGS: '{{.EXTRA_TAGS}}'
@@ -48,43 +47,15 @@ tasks:
     env:
       GOOS: darwin
       CGO_ENABLED: "1"
-      GOARCH: '{{.ARCH | default ARCH}}'
-      CGO_CFLAGS: "-mmacosx-version-min=13.0"
-      CGO_LDFLAGS: "-mmacosx-version-min=13.0"
-      MACOSX_DEPLOYMENT_TARGET: "13.0"
-
-  build:universal:
-    summary: Builds darwin universal binary (arm64 + amd64)
-    deps:
-      - task: build
-        vars:
-          ARCH: amd64
-          OUTPUT: "{{.BIN_DIR}}/{{.APP_NAME}}-amd64"
-      - task: build
-        vars:
-          ARCH: arm64
-          OUTPUT: "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
-    cmds:
-      - task: build:universal:lipo:native
-
-  build:universal:lipo:native:
-    summary: Creates universal binary using native lipo (macOS)
-    internal: true
-    cmds:
-      - lipo -create -output "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
-      - rm "{{.BIN_DIR}}/{{.APP_NAME}}-amd64" "{{.BIN_DIR}}/{{.APP_NAME}}-arm64"
+      GOARCH: arm64
+      CGO_CFLAGS: "-mmacosx-version-min=15.0"
+      CGO_LDFLAGS: "-mmacosx-version-min=15.0"
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
 
   package:
     summary: Packages the application into a `.app` bundle
     deps:
       - task: build
-    cmds:
-      - task: create:app:bundle
-
-  package:universal:
-    summary: Packages darwin universal binary (arm64 + amd64)
-    deps:
-      - task: build:universal
     cmds:
       - task: create:app:bundle
 
@@ -131,6 +102,7 @@ tasks:
         fi
       - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_BUNDLE}}.app/Contents/MacOS"
       - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.APP_BUNDLE}}.app/Contents"
+      - cp -R build/darwin/en.lproj build/darwin/zh-Hans.lproj "{{.BIN_DIR}}/{{.APP_BUNDLE}}.app/Contents/Resources"
       - task: '{{if eq OS "darwin"}}codesign:adhoc{{else}}codesign:skip{{end}}'
 
   codesign:adhoc:
@@ -160,6 +132,7 @@ tasks:
         fi
       - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
       - cp "build/darwin/Info.dev.plist" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
+      - cp -R build/darwin/en.lproj build/darwin/zh-Hans.lproj "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
       - xattr -cr "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
       - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
       - codesign --verify --deep --strict "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"

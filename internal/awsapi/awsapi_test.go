@@ -11,10 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/awsapi"
-	"github.com/rudian/aws_sso_hub/internal/awsapi/awsapitest"
-	"github.com/rudian/aws_sso_hub/internal/awsconfig"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsapi"
+	"github.com/rudian/codepass/internal/awsapi/awsapitest"
+	"github.com/rudian/codepass/internal/awsconfig"
 )
 
 const (

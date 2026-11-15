@@ -15,14 +15,14 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as api$0 from "../api/models.js";
 
 export function AddPortalDraft($in: api$0.PortalInput): $CancellablePromise<api$0.Portal> {
-    return $Call.ByID(2200408801, $in);
+    return $Call.ByID(2002426122, $in);
 }
 
 /**
  * ApplyImport writes the planned changes with one backup, guarded by baseHash.
  */
 export function ApplyImport(req: api$0.ImportRequest, baseHash: string): $CancellablePromise<api$0.ImportResult> {
-    return $Call.ByID(3278671362, req, baseHash);
+    return $Call.ByID(1398219103, req, baseHash);
 }
 
 /**
@@ -30,50 +30,50 @@ export function ApplyImport(req: api$0.ImportRequest, baseHash: string): $Cancel
  * The file never contains keys, tokens or anything outside the allow-list.
  */
 export function BuildExport(req: api$0.ExportRequest): $CancellablePromise<api$0.ExportResult> {
-    return $Call.ByID(3302537785, req);
+    return $Call.ByID(1132600400, req);
 }
 
 export function CheckPortalInput($in: api$0.PortalInput): $CancellablePromise<api$0.PortalInputCheck> {
-    return $Call.ByID(2062856563, $in);
+    return $Call.ByID(3163568436, $in);
 }
 
 export function CreateProfiles(req: api$0.CreateProfilesRequest, baseHash: string): $CancellablePromise<api$0.CreateProfilesResult> {
-    return $Call.ByID(1791896175, req, baseHash);
+    return $Call.ByID(2340518032, req, baseHash);
 }
 
 export function DiscardPortalDraft(name: string): $CancellablePromise<void> {
-    return $Call.ByID(2639772954, name);
+    return $Call.ByID(880436553, name);
 }
 
 export function DiscoverAccounts(portal: string): $CancellablePromise<api$0.DiscoveredAccount[] | null> {
-    return $Call.ByID(2947714438, portal);
+    return $Call.ByID(1705337077, portal);
 }
 
 export function GetState(): $CancellablePromise<api$0.AccountsState> {
-    return $Call.ByID(3117889944);
+    return $Call.ByID(67915195);
 }
 
 export function IdentifyStatic(profile: string): $CancellablePromise<api$0.StaticIdentity> {
-    return $Call.ByID(3898650691, profile);
+    return $Call.ByID(3126747068, profile);
 }
 
 export function LoadAccountRoles(portal: string, accountID: string): $CancellablePromise<api$0.DiscoveredAccount> {
-    return $Call.ByID(2987264097, portal, accountID);
+    return $Call.ByID(2264201622, portal, accountID);
 }
 
 export function Login(portal: string, mode: api$0.LoginMode): $CancellablePromise<api$0.LoginResult> {
-    return $Call.ByID(2125321106, portal, mode);
+    return $Call.ByID(2537703359, portal, mode);
 }
 
 export function Logout(portal: string): $CancellablePromise<api$0.LogoutResult> {
-    return $Call.ByID(3944390091, portal);
+    return $Call.ByID(1882738244, portal);
 }
 
 /**
  * OpenConsole: P1
  */
 export function OpenConsole(profile: string): $CancellablePromise<void> {
-    return $Call.ByID(3962406718, profile);
+    return $Call.ByID(2353117259, profile);
 }
 
 /**
@@ -81,11 +81,11 @@ export function OpenConsole(profile: string): $CancellablePromise<void> {
  * E_CANCELLED.
  */
 export function OpenImportFile(): $CancellablePromise<api$0.ImportSource> {
-    return $Call.ByID(1864797062);
+    return $Call.ByID(3023288705);
 }
 
 export function OpenPortal(portal: string): $CancellablePromise<void> {
-    return $Call.ByID(500210039, portal);
+    return $Call.ByID(3889045544, portal);
 }
 
 /**
@@ -95,62 +95,62 @@ export function OpenPortal(portal: string): $CancellablePromise<void> {
  * (including dual-stack portals) or an Identity Center device host are accepted.
  */
 export function OpenSignInPage(url: string): $CancellablePromise<boolean> {
-    return $Call.ByID(227800348, url);
+    return $Call.ByID(1407768191, url);
 }
 
 export function PreviewCreateProfiles(req: api$0.CreateProfilesRequest): $CancellablePromise<api$0.FilePreview> {
-    return $Call.ByID(3077210585, req);
+    return $Call.ByID(3784791716, req);
 }
 
 /**
  * PreviewImport validates the JSON and plans the import. It never writes.
  */
 export function PreviewImport(req: api$0.ImportRequest): $CancellablePromise<api$0.ImportPreview> {
-    return $Call.ByID(1496998230, req);
+    return $Call.ByID(812932715, req);
 }
 
 /**
  * PreviewRemovePortal: P1
  */
 export function PreviewRemovePortal(name: string): $CancellablePromise<api$0.FilePreview> {
-    return $Call.ByID(3767815945, name);
+    return $Call.ByID(3479037016, name);
 }
 
 export function PreviewRemoveProfile(name: string): $CancellablePromise<api$0.FilePreview> {
-    return $Call.ByID(3696961668, name);
+    return $Call.ByID(2105066911, name);
 }
 
 /**
  * PreviewRenamePortal: P1
  */
 export function PreviewRenamePortal(oldName: string, newName: string): $CancellablePromise<api$0.FilePreview> {
-    return $Call.ByID(2233758291, oldName, newName);
+    return $Call.ByID(1358578182, oldName, newName);
 }
 
 export function RefreshSession(portal: string): $CancellablePromise<api$0.SessionStatus> {
-    return $Call.ByID(137537552, portal);
+    return $Call.ByID(1123754019, portal);
 }
 
 export function Reload(): $CancellablePromise<api$0.AccountsState> {
-    return $Call.ByID(3278871660);
+    return $Call.ByID(2673750479);
 }
 
 /**
  * RemovePortal: P1
  */
 export function RemovePortal(name: string, baseHash: string): $CancellablePromise<api$0.WriteResult> {
-    return $Call.ByID(3219350339, name, baseHash);
+    return $Call.ByID(573579388, name, baseHash);
 }
 
 export function RemoveProfile(name: string, baseHash: string): $CancellablePromise<api$0.WriteResult> {
-    return $Call.ByID(3636941478, name, baseHash);
+    return $Call.ByID(4246623379, name, baseHash);
 }
 
 /**
  * RenamePortal: P1
  */
 export function RenamePortal(oldName: string, newName: string, baseHash: string): $CancellablePromise<api$0.WriteResult> {
-    return $Call.ByID(4004662977, oldName, newName, baseHash);
+    return $Call.ByID(2359257538, oldName, newName, baseHash);
 }
 
 /**
@@ -158,11 +158,11 @@ export function RenamePortal(oldName: string, newName: string, baseHash: string)
  * E_CANCELLED.
  */
 export function SaveExport(req: api$0.ExportRequest): $CancellablePromise<api$0.ExportResult> {
-    return $Call.ByID(3502890638, req);
+    return $Call.ByID(2278796837, req);
 }
 
 export function SetProfileIdentity(u: api$0.IdentityUpdate): $CancellablePromise<api$0.AccountsState> {
-    return $Call.ByID(1541353382, u);
+    return $Call.ByID(716110969, u);
 }
 
 /**
@@ -170,5 +170,5 @@ export function SetProfileIdentity(u: api$0.IdentityUpdate): $CancellablePromise
  * E_INVALID_INPUT.
  */
 export function SetSessionLength(portal: string, minutes: number): $CancellablePromise<api$0.SessionStatus> {
-    return $Call.ByID(3391538061, portal, minutes);
+    return $Call.ByID(3990645098, portal, minutes);
 }

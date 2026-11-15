@@ -12,9 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/execx"
-	"github.com/rudian/aws_sso_hub/internal/redact"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
+	"github.com/rudian/codepass/internal/redact"
 )
 
 // MinVersion is the oldest supported git. Older releases have known code-execution flaws in repository and

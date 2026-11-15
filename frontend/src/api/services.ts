@@ -1,8 +1,8 @@
-import * as AccountReal from '../../bindings/github.com/rudian/aws_sso_hub/internal/app/accountservice'
-import * as MigrationReal from '../../bindings/github.com/rudian/aws_sso_hub/internal/app/migrationservice'
-import * as RepoReal from '../../bindings/github.com/rudian/aws_sso_hub/internal/app/reposervice'
-import * as GitGlobalReal from '../../bindings/github.com/rudian/aws_sso_hub/internal/app/gitglobalservice'
-import * as SystemReal from '../../bindings/github.com/rudian/aws_sso_hub/internal/app/systemservice'
+import * as AccountReal from '../../bindings/github.com/rudian/codepass/internal/app/accountservice'
+import * as MigrationReal from '../../bindings/github.com/rudian/codepass/internal/app/migrationservice'
+import * as RepoReal from '../../bindings/github.com/rudian/codepass/internal/app/reposervice'
+import * as GitGlobalReal from '../../bindings/github.com/rudian/codepass/internal/app/gitglobalservice'
+import * as SystemReal from '../../bindings/github.com/rudian/codepass/internal/app/systemservice'
 import { useMocks } from './env'
 import { mock } from './mock'
 

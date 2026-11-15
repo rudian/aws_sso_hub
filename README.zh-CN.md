@@ -2,8 +2,8 @@
 
 [English](README.md) | **简体中文**
 
-[![Release](https://img.shields.io/github/v/release/rudian/aws_sso_hub)](https://github.com/rudian/aws_sso_hub/releases)
-[![License](https://img.shields.io/github/license/rudian/aws_sso_hub)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/rudian/codepass)](https://github.com/rudian/codepass/releases)
+[![License](https://img.shields.io/github/license/rudian/codepass)](LICENSE)
 ![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-lightgrey)
 
 一个 macOS 和 Windows 桌面应用：一键登录你所有的 AWS IAM Identity Center（SSO）门户，让每个 CodeCommit 仓库自动用对 AWS 账号，并把长期访问密钥从电脑上清掉。
@@ -34,7 +34,7 @@
 
 ## 5 步上手
 
-**0. 安装。** 到 [Releases](https://github.com/rudian/aws_sso_hub/releases) 下载对应系统的 zip 包。macOS：把 **AWS SSO Hub.app** 拖进「应用程序」；这个 app 没有经过 Apple 公证，第一次打开时请右键点击，选「打开」。Windows：运行 **AWS SSO Hub.exe**；如果 SmartScreen 弹出警告，点「更多信息」，再点「仍要运行」。
+**0. 安装。** 到 [Releases](https://github.com/rudian/codepass/releases) 下载对应系统的 zip 包。macOS：把 **AWS SSO Hub.app** 拖进「应用程序」；这个 app 没有经过 Apple 公证，第一次打开时请右键点击，选「打开」。Windows：运行 **AWS SSO Hub.exe**；如果 SmartScreen 弹出警告，点「更多信息」，再点「仍要运行」。
 
 **1. 添加 SSO 门户。** 在 **账号** 页面点 **添加 SSO 门户**，粘贴管理员给你的门户地址（`https://d-xxxxxxxxxx.awsapps.com/start`）。然后选择需要的账号和角色，每一个都会成为 `~/.aws/config` 里的一个配置文件。
 
@@ -100,11 +100,11 @@ go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
 ```
 
 ```sh
-# macOS 通用版（Apple 芯片 + Intel），需要 Xcode 命令行工具
-wails3 task darwin:package:universal      # -> bin/AWS SSO Hub.app
+# macOS 版（Apple 芯片，macOS 15 及以上），需要 Xcode 命令行工具
+wails3 task darwin:package   # -> bin/Codepass.app
 
 # Windows x64（可以在 macOS 上交叉编译，也可以在 Windows 上构建）
-wails3 build GOOS=windows GOARCH=amd64    # -> bin/aws-sso-hub.exe
+wails3 build GOOS=windows GOARCH=amd64    # -> bin/codepass.exe
 
 # 开发模式（自动热更新）
 wails3 dev

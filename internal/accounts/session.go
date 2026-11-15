@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/sso"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/sso"
 )
 
 var recMu sync.Mutex // serialises read-modify-write of session records

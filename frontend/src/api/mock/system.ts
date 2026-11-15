@@ -1,4 +1,4 @@
-import * as SystemReal from '../../../bindings/github.com/rudian/aws_sso_hub/internal/app/systemservice'
+import * as SystemReal from '../../../bindings/github.com/rudian/codepass/internal/app/systemservice'
 import { initialUI } from '../../lib/initialUI'
 import { BackupKind, BackupReason, ErrorCode, ProfileKind } from '../models'
 import type { BackupEntry, DiffLine, Settings } from '../models'

@@ -15,13 +15,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/codecommit"
-	"github.com/rudian/aws_sso_hub/internal/gitglobal"
-	"github.com/rudian/aws_sso_hub/internal/gitx"
-	"github.com/rudian/aws_sso_hub/internal/gitx/gitxtest"
-	"github.com/rudian/aws_sso_hub/internal/paths"
-	"github.com/rudian/aws_sso_hub/internal/repos"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/codecommit"
+	"github.com/rudian/codepass/internal/gitglobal"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/gitx/gitxtest"
+	"github.com/rudian/codepass/internal/paths"
+	"github.com/rudian/codepass/internal/repos"
 )
 
 const (

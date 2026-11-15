@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/gitx"
+	"github.com/rudian/codepass/internal/gitx"
 )
 
 // StartLoops starts the background work: the 30 s accounts ticker, the 3 s file watcher, the initial

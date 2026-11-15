@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/execx"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
 )
 
 // revealCommand builds the file-manager command that shows path selected in its parent folder. Revealing

@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/execx"
-	"github.com/rudian/aws_sso_hub/internal/redact"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/execx"
+	"github.com/rudian/codepass/internal/redact"
 )
 
 // BindSpec describes one repository binding. Hosts are bare CodeCommit host names

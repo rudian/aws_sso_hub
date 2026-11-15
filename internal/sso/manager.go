@@ -20,7 +20,7 @@ import (
 	oidctypes "github.com/aws/aws-sdk-go-v2/service/ssooidc/types"
 	"github.com/aws/smithy-go"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/codepass/internal/api"
 )
 
 // Session identifies an sso-session (or a legacy profile when Name is empty).

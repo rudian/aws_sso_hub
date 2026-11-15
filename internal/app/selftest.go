@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/backup"
-	"github.com/rudian/aws_sso_hub/internal/version"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/backup"
+	"github.com/rudian/codepass/internal/version"
 )
 
 type selfTestTool struct {

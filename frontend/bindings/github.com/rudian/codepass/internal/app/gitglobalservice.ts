@@ -15,32 +15,32 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as api$0 from "../api/models.js";
 
 export function ApplyDefaultChange(req: api$0.DefaultChangeRequest, baseHash: string): $CancellablePromise<api$0.GlobalChangeResult> {
-    return $Call.ByID(1513109824, req, baseHash);
+    return $Call.ByID(1430287883, req, baseHash);
 }
 
 /**
  * ClearSavedCredentials: empty ids = all listed
  */
 export function ClearSavedCredentials(ids: string[] | null): $CancellablePromise<number> {
-    return $Call.ByID(1576005369, ids);
+    return $Call.ByID(3462379256, ids);
 }
 
 export function GetState(): $CancellablePromise<api$0.GitGlobalState> {
-    return $Call.ByID(3566830764);
+    return $Call.ByID(1183129147);
 }
 
 export function ListSavedCredentials(): $CancellablePromise<api$0.SavedCredential[] | null> {
-    return $Call.ByID(517620130);
+    return $Call.ByID(818176657);
 }
 
 export function MigrateURLRule(m: api$0.URLRuleMigration, baseHash: string): $CancellablePromise<api$0.URLRuleMigrationResult> {
-    return $Call.ByID(2983647725, m, baseHash);
+    return $Call.ByID(2171731714, m, baseHash);
 }
 
 export function PreviewDefaultChange(req: api$0.DefaultChangeRequest): $CancellablePromise<api$0.DefaultChangePreview> {
-    return $Call.ByID(3977654948, req);
+    return $Call.ByID(4049912655, req);
 }
 
 export function PreviewURLRuleMigration(pattern: string): $CancellablePromise<api$0.URLRulePlan> {
-    return $Call.ByID(1969233594, pattern);
+    return $Call.ByID(2669763647, pattern);
 }

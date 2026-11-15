@@ -1,9 +1,9 @@
 version: '3'
 
 vars:
-  APP_NAME: "aws-sso-hub"
+  APP_NAME: "codepass"
   # Folder name of the macOS bundle (the executable inside keeps APP_NAME).
-  APP_BUNDLE: "AWS SSO Hub"
+  APP_BUNDLE: "Codepass"
   BIN_DIR: "bin"
   VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
   # Target OS for build/package/run. Defaults to the host OS, and is overridden

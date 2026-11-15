@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/api"
-	"github.com/rudian/aws_sso_hub/internal/ini"
-	"github.com/rudian/aws_sso_hub/internal/sso/ssotest"
+	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/ini"
+	"github.com/rudian/codepass/internal/sso/ssotest"
 )
 
 func profileByName(st api.AccountsState, n string) api.Profile {

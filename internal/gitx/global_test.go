@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudian/aws_sso_hub/internal/gitx"
-	"github.com/rudian/aws_sso_hub/internal/gitx/gitxtest"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/gitx/gitxtest"
 )
 
 const realLayout = "[credential]\n\thelper = \n\thelper = !aws codecommit credential-helper $@ --profile acme\n\tusehttppath = true\n" +
