@@ -242,10 +242,10 @@ func TestAccountColorsNoopDoesNotWrite(t *testing.T) {
 	if s.AccountColors()["777788889999"] != 3 {
 		t.Fatal("colour lost")
 	}
-	if err := s.MergeAccountNames(map[string]string{"777788889999": "initech-platform"}); err != nil {
+	if err := s.MergeAccountNames(map[string]string{"777788889999": "initech"}); err != nil {
 		t.Fatal(err)
 	}
-	if s.AccountNames()["777788889999"] != "initech-platform" {
+	if s.AccountNames()["777788889999"] != "initech" {
 		t.Fatal("name lost")
 	}
 }

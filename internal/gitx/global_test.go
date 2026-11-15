@@ -13,7 +13,7 @@ import (
 
 const realLayout = "[credential]\n\thelper = \n\thelper = !aws codecommit credential-helper $@ --profile acme\n\tusehttppath = true\n" +
 	"[credential \"https://github.com\"]\n\thelper = \n\thelper = !gh auth git-credential\n" +
-	"[credential \"https://git-codecommit.us-west-2.amazonaws.com/v1/repos/infra-terraform\"]\n\thelper = \n\thelper = !aws --profile initech-admin codecommit credential-helper $@\n"
+	"[credential \"https://git-codecommit.us-west-2.amazonaws.com/v1/repos/initech_infra\"]\n\thelper = \n\thelper = !aws --profile initech-admin codecommit credential-helper $@\n"
 
 func readGlobal(t *testing.T, sb *gitxtest.Sandbox) string {
 	t.Helper()
@@ -74,11 +74,11 @@ func TestAddGlobalDefaultAndRemoveURLRule(t *testing.T) {
 	if !strings.Contains(g, "--profile 'initech-admin'") || strings.Count(g, "usehttppath") != 1 {
 		t.Errorf("default:\n%s", g)
 	}
-	pattern := "https://git-codecommit.us-west-2.amazonaws.com/v1/repos/infra-terraform"
+	pattern := "https://git-codecommit.us-west-2.amazonaws.com/v1/repos/initech_infra"
 	if err := sb.Git.RemoveURLRule(ctx, pattern, false); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(readGlobal(t, sb), "infra-terraform") {
+	if strings.Contains(readGlobal(t, sb), "initech_infra") {
 		t.Errorf("rule not removed:\n%s", readGlobal(t, sb))
 	}
 	// keepOtherKeys only removes helpers

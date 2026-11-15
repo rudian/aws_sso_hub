@@ -418,16 +418,16 @@ func TestDetectOwnersMapsResults(t *testing.T) {
 
 func TestDetectAmbiguousAcrossAccounts(t *testing.T) {
 	f := newFixture(t)
-	f.newRepo("web-app", ccURL("web-app"))
-	f.newRepo("web-app_copy", ccURL("web-app"))
-	f.ccAPIs["ACME"].repos["web-app"] = "rid-acme"
-	f.ccAPIs["INITECH"].repos["web-app"] = "rid-initech"
+	f.newRepo("acme_cs_portal", ccURL("acme_cs_portal"))
+	f.newRepo("acme_cs_portal_copy", ccURL("acme_cs_portal"))
+	f.ccAPIs["ACME"].repos["acme_cs_portal"] = "rid-acme"
+	f.ccAPIs["INITECH"].repos["acme_cs_portal"] = "rid-initech"
 	f.state()
 	st, err := f.eng.DetectOwners(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, d := range []string{"web-app", "web-app_copy"} {
+	for _, d := range []string{"acme_cs_portal", "acme_cs_portal_copy"} {
 		o := f.byName(st, d).Owner
 		if o.Status != api.OwnerAmbiguous || len(o.Candidates) != 2 {
 			t.Errorf("%s: %+v", d, o)
@@ -655,9 +655,9 @@ func TestTestConnectionRecordsResult(t *testing.T) {
 
 func TestConvertToHTTPS(t *testing.T) {
 	f := newFixture(t)
-	repo := f.newRepo("design-system", "ssh://"+hostAP+"/v1/repos/design-system")
-	appendFile(t, filepath.Join(repo, ".git", "config"), "[remote \"origin\"]\n\tpushurl = ssh://"+hostAP+"/v1/repos/design-system\n")
-	id := f.byName(f.state(), "design-system").ID
+	repo := f.newRepo("acme_design", "ssh://"+hostAP+"/v1/repos/acme_design")
+	appendFile(t, filepath.Join(repo, ".git", "config"), "[remote \"origin\"]\n\tpushurl = ssh://"+hostAP+"/v1/repos/acme_design\n")
+	id := f.byName(f.state(), "acme_design").ID
 	o, err := f.eng.ConvertToHTTPS(context.Background(), id, "acme")
 	if err != nil {
 		t.Fatal(err)
@@ -857,18 +857,18 @@ func TestCompareCommitsHeadMatch(t *testing.T) {
 	if res, err := f.sb.Git.Run(context.Background(), work, nil, "push", "-q", "--force", bareB, "HEAD:refs/heads/main"); err != nil || res.ExitCode != 0 {
 		t.Fatalf("push: %v %s", err, res.Stderr)
 	}
-	repo := f.newRepo("web-app", ccURL("web-app"))
+	repo := f.newRepo("acme_cs_portal", ccURL("acme_cs_portal"))
 	if res, err := f.sb.Git.Run(context.Background(), repo, nil, "fetch", "-q", bareA, "main:refs/remotes/origin/main"); err != nil || res.ExitCode != 0 {
 		t.Fatalf("fetch: %v %s", err, res.Stderr)
 	}
-	f.ccAPIs["ACME"].repos["web-app"] = "rid-acme"       // account 111122223333 sorts first -> bare A
-	f.ccAPIs["INITECH"].repos["web-app"] = "rid-initech" // 777788889999 -> bare B
+	f.ccAPIs["ACME"].repos["acme_cs_portal"] = "rid-acme"       // account 111122223333 sorts first -> bare A
+	f.ccAPIs["INITECH"].repos["acme_cs_portal"] = "rid-initech" // 777788889999 -> bare B
 	calls := 0
 	*f.remote = func(region, name string) string {
 		calls++
 		return []string{bareA, bareB}[calls-1]
 	}
-	id := f.byName(f.state(), "web-app").ID
+	id := f.byName(f.state(), "acme_cs_portal").ID
 	// fewer than two candidates: unchanged
 	r0, err := f.eng.CompareCommits(context.Background(), id)
 	if err != nil || r0.Owner.Status != api.OwnerUnknown || calls != 0 {

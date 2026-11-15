@@ -135,20 +135,20 @@ func runScenario(w *world) {
 	}
 
 	// --- repositories
-	w.gitRepo("web-app", ccURL("web-app"))
-	w.gitRepo("infra-terraform", ccURL("infra-terraform"))
+	w.gitRepo("acme_cs_portal", ccURL("acme_cs_portal"))
+	w.gitRepo("initech_infra", ccURL("initech_infra"))
 	w.gitRepo("orphan_tool", ccURL("orphan_tool"))
 	rs := ok(w.repo.Scan(bg))
 	if rs.Counts.All != 3 || !rs.AWSCLIReady {
 		t.Fatalf("scan: counts %+v ready %v", rs.Counts, rs.AWSCLIReady)
 	}
 	rs = ok(w.repo.DetectOwners(bg, nil))
-	ba := repoNamed(rs, "web-app")
+	ba := repoNamed(rs, "acme_cs_portal")
 	if ba.Owner.Status != api.OwnerSingle || len(ba.Owner.Candidates) != 1 || ba.Owner.Candidates[0].AccountID != acctAcme || ba.Owner.Candidates[0].Profile != "acme" {
-		t.Fatalf("owner of web-app: %+v", ba.Owner)
+		t.Fatalf("owner of acme_cs_portal: %+v", ba.Owner)
 	}
-	if o := repoNamed(rs, "infra-terraform").Owner; o.Status != api.OwnerSingle || o.Candidates[0].AccountID != acctInitech {
-		t.Fatalf("owner of infra-terraform: %+v", o)
+	if o := repoNamed(rs, "initech_infra").Owner; o.Status != api.OwnerSingle || o.Candidates[0].AccountID != acctInitech {
+		t.Fatalf("owner of initech_infra: %+v", o)
 	}
 	if o := repoNamed(rs, "orphan_tool").Owner; o.Status != api.OwnerNone {
 		t.Fatalf("owner of orphan_tool: %+v", o)
@@ -180,7 +180,7 @@ func runScenario(w *world) {
 	if ae := fails(w.glob.PreviewDefaultChange(bg, remove)); ae.Code != api.ErrURLRulesFirst {
 		t.Fatalf("remove before migrating the rule: %v", ae)
 	}
-	wl := repoNamed(rs, "infra-terraform")
+	wl := repoNamed(rs, "initech_infra")
 	plan := ok(w.glob.PreviewURLRuleMigration(bg, gs.URLRules[0].Pattern))
 	mr := ok(w.glob.MigrateURLRule(bg, api.URLRuleMigration{Pattern: gs.URLRules[0].Pattern, Assignments: []api.BindItem{{RepoID: wl.ID, Profile: "initech-admin"}}}, plan.Preview.BaseHash))
 	if !mr.RuleRemoved || len(mr.Outcomes) != 1 || !mr.Outcomes[0].OK {

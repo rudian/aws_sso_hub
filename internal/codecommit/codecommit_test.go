@@ -204,12 +204,12 @@ func TestDetectSingleAmbiguousPartial(t *testing.T) {
 }
 
 func TestDetectAmbiguousAcrossAccounts(t *testing.T) {
-	// Two local clones (two query keys) of web-app; two accounts own a repository of that name.
+	// Two local clones (two query keys) of acme_cs_portal; two accounts own a repository of that name.
 	apis := map[string]*fakeAPI{
-		"A": {account: "111111111111", repos: map[string]string{"web-app": "ida"}},
-		"B": {account: "222222222222", repos: map[string]string{"web-app": "idb"}},
+		"A": {account: "111111111111", repos: map[string]string{"acme_cs_portal": "ida"}},
+		"B": {account: "222222222222", repos: map[string]string{"acme_cs_portal": "idb"}},
 	}
-	qs := []Query{{"clone1", "us-east-1", "web-app"}, {"clone2", "us-east-1", "web-app"}}
+	qs := []Query{{"clone1", "us-east-1", "acme_cs_portal"}, {"clone2", "us-east-1", "acme_cs_portal"}}
 	res := Detect(context.Background(), qs, []Account{acct("A", "", true), acct("B", "", true)}, factoryFor(apis, nil))
 	for _, k := range []string{"clone1", "clone2"} {
 		r := res[k]

@@ -246,7 +246,7 @@ export interface Binding {
     "urlRule"?: string;
 
     /**
-     * local plain [credential] block (e.g. design-system)
+     * local plain [credential] block (e.g. acme_design)
      */
     "legacyPlain": boolean;
 
@@ -1413,7 +1413,7 @@ export interface Repo {
     "path": string;
 
     /**
-     * "~/code/web-app"
+     * "~/Documents/code/acme_cs_portal"
      */
     "displayPath": string;
 

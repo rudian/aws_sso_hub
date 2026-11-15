@@ -15,7 +15,7 @@ import (
 
 const (
 	host   = "git-codecommit.us-east-1.amazonaws.com"
-	ccURL  = "https://" + host + "/v1/repos/web-app"
+	ccURL  = "https://" + host + "/v1/repos/acme_cs_portal"
 	fillCC = ccURL
 )
 
@@ -75,7 +75,7 @@ func TestBindIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := readConfig(t, repo)
-	if strings.Contains(cfg, "acme") || strings.Count(cfg, "[credential") != 1 {
+	if strings.Contains(cfg, "'acme'") || strings.Contains(cfg, "profile = acme") || strings.Count(cfg, "[credential") != 1 {
 		t.Errorf("rebind left old data:\n%s", cfg)
 	}
 }
@@ -84,7 +84,7 @@ func TestBindMigratesLegacyPlain(t *testing.T) {
 	ctx := context.Background()
 	t.Run("legacy plain helper, only aws", func(t *testing.T) {
 		sb := gitxtest.New(t)
-		repo := sb.InitRepo(t, "design-system", map[string]string{"origin": ccURL})
+		repo := sb.InitRepo(t, "acme_design", map[string]string{"origin": ccURL})
 		appendConfig(t, repo, "[credential]\n\thelper = \n\thelper = !aws codecommit credential-helper $@ --profile acme\n\tUseHttpPath = true\n")
 		es, _ := sb.Git.CredentialEntries(ctx, repo)
 		eff := gitx.Resolve(es, mustCred(t, ccURL))
@@ -220,7 +220,7 @@ func TestResolveAgainstRealGit(t *testing.T) {
 	// Experiments c0/c1/c3/g2: Resolve must predict the helper sequence git really runs.
 	ctx := context.Background()
 	sb := gitxtest.New(t)
-	url := "https://" + host + "/v1/repos/infra-terraform"
+	url := "https://" + host + "/v1/repos/initech_infra"
 	other := "https://" + host + "/v1/repos/other"
 	spy := func(l string) string { return sb.SpyHelper(t, l) }
 	global := "[credential]\n\thelper = \n\thelper = " + spy("GLOBAL-DEFAULT") + "\n\tUseHttpPath = true\n" +
@@ -366,7 +366,7 @@ func TestTestRemoteRefusesNonHTTPSWithoutRunningGit(t *testing.T) {
 	}
 	g := &gitx.Git{Bin: fake, Env: sb.Env}
 	for _, url := range []string{
-		"ssh://" + host + "/v1/repos/web-app", "codecommit://acme@web-app", filepath.Join(sb.Root, "remote.git"),
+		"ssh://" + host + "/v1/repos/acme_cs_portal", "codecommit://acme@acme_cs_portal", filepath.Join(sb.Root, "remote.git"),
 		"ext::sh -c touch% " + marker, "https://github.com/acme/x", "origin",
 	} {
 		st, detail := g.TestRemote(context.Background(), url, "acme", "/opt/homebrew/bin/aws", "darwin", 5*time.Second)
@@ -469,11 +469,11 @@ func TestConfigPathWorktree(t *testing.T) {
 func TestSetRemoteURL(t *testing.T) {
 	ctx := context.Background()
 	sb := gitxtest.New(t)
-	repo := sb.InitRepo(t, "r", map[string]string{"origin": "ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/design-system"})
-	if err := sb.Git.SetRemoteURL(ctx, repo, "origin", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/design-system", false); err != nil {
+	repo := sb.InitRepo(t, "r", map[string]string{"origin": "ssh://git-codecommit.us-east-1.amazonaws.com/v1/repos/acme_design"})
+	if err := sb.Git.SetRemoteURL(ctx, repo, "origin", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/acme_design", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := sb.Git.SetRemoteURL(ctx, repo, "origin", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/design-system", true); err != nil {
+	if err := sb.Git.SetRemoteURL(ctx, repo, "origin", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/acme_design", true); err != nil {
 		t.Fatal(err)
 	}
 	cfg := readConfig(t, repo)
@@ -561,7 +561,7 @@ func lastTwo(argv []string) []string {
 
 func TestLsRemotePutsDoubleDashBeforeTarget(t *testing.T) {
 	g, argv := fakeArgvGit(t)
-	for _, target := range []string{"--upload-pack=touch /tmp/x", "-oProxyCommand=x", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/design-system"} {
+	for _, target := range []string{"--upload-pack=touch /tmp/x", "-oProxyCommand=x", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/acme_design"} {
 		if _, _, err := g.LsRemote(context.Background(), target, []string{"credential.interactive=false"}, 5*time.Second); err != nil {
 			t.Fatal(err)
 		}
@@ -604,7 +604,7 @@ func TestValidRemoteName(t *testing.T) {
 func TestSetRemoteURLRejectsOptionLikeRemoteWithoutRunningGit(t *testing.T) {
 	g, _ := fakeArgvGit(t)
 	for _, name := range []string{"-x", "--upload-pack=x", "a b", "a\nb"} {
-		err := g.SetRemoteURL(context.Background(), t.TempDir(), name, "https://"+host+"/v1/repos/design-system", false)
+		err := g.SetRemoteURL(context.Background(), t.TempDir(), name, "https://"+host+"/v1/repos/acme_design", false)
 		ae, ok := err.(*api.AppError)
 		if !ok || ae.Code != api.ErrInvalidInput || ae.Params["field"] != "remote" {
 			t.Errorf("%q: %v", name, err)
@@ -614,7 +614,7 @@ func TestSetRemoteURLRejectsOptionLikeRemoteWithoutRunningGit(t *testing.T) {
 
 func TestSetRemoteURLPassesDoubleDash(t *testing.T) {
 	g, argv := fakeArgvGit(t)
-	url := "https://" + host + "/v1/repos/design-system"
+	url := "https://" + host + "/v1/repos/acme_design"
 	if err := g.SetRemoteURL(context.Background(), t.TempDir(), "origin", url, true); err != nil {
 		t.Fatal(err)
 	}

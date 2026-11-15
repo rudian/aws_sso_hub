@@ -57,8 +57,8 @@ import { HOUR, MIN, ago, deepCopy, iso, now } from './clock'
 
 // ------------------------------------------------------------------ constants
 
-export const SCAN_ROOT = '/Users/alex/code'
-export const SCAN_ROOT_DISPLAY = '~/code'
+export const SCAN_ROOT = '/Users/alex/Documents/code'
+export const SCAN_ROOT_DISPLAY = '~/Documents/code'
 export const HOME = '/Users/alex'
 /** Home region of each fictional organisation (Identity Center instance and profiles). */
 export const REGION_ACME = 'us-east-1'
@@ -71,8 +71,8 @@ export const CC_HOST = ccHost()
 
 // Fictional organisations. Account e-mail addresses are left empty on purpose.
 export const ACCT = {
-  initech: { id: '777788889999', name: 'initech-platform', slot: 3, email: '' },
-  acme: { id: '111122223333', name: 'acme', slot: 1, email: '' },
+  initech: { id: '777788889999', name: 'initech', slot: 3, email: '' },
+  acme: { id: '111122223333', name: 'acme-prod', slot: 1, email: '' },
   globex: { id: '444455556666', name: 'globex', slot: 6, email: '' },
 } as const
 export type AcctKey = keyof typeof ACCT
@@ -509,22 +509,22 @@ export interface RepoDef {
 }
 
 export const REPO_DEFS: RepoDef[] = [
-  { n: 1, name: 'web-app', owners: ['acme'] },
-  { n: 2, name: 'web-app', dir: 'archive/web-app', owners: ['acme', 'globex'], headMatch: 'globex' }, // placeholder path
-  { n: 3, name: 'api-server', owners: ['acme'] },
-  { n: 4, name: 'web-app-v2', owners: ['acme'] },
-  { n: 5, name: 'mobile-app', owners: ['acme'] },
-  { n: 6, name: 'auth-service', owners: ['acme'] },
-  { n: 7, name: 'search-service', owners: ['acme'] },
-  { n: 8, name: 'data-pipeline', owners: ['acme'] },
-  { n: 9, name: 'notification-service', owners: ['globex'] },
-  { n: 10, name: 'analytics-dashboard', owners: ['initech'] },
-  { n: 11, name: 'design-system', owners: ['acme'] },
-  { n: 12, name: 'infra-terraform', owners: ['initech'] },
-  { n: 13, name: 'docs-site', owners: ['acme'] },
-  { n: 14, name: 'team-handbook', owners: ['acme'] },
-  { n: 15, name: 'marketing-site', owners: ['initech'] },
-  { n: 16, name: 'release-notes', owners: ['acme'] },
+  { n: 1, name: 'acme_cs_portal', owners: ['acme'] },
+  { n: 2, name: 'acme_cs_portal', dir: 'archive/acme_cs_portal', owners: ['acme', 'globex'], headMatch: 'globex' }, // placeholder path
+  { n: 3, name: 'acme_api', owners: ['acme'] },
+  { n: 4, name: 'acme_cs_portal_v2', owners: ['acme'] },
+  { n: 5, name: 'acme_agent_portal', owners: ['acme'] },
+  { n: 6, name: 'acme_auth', owners: ['acme'] },
+  { n: 7, name: 'acme_search', owners: ['acme'] },
+  { n: 8, name: 'acme_data', owners: ['acme'] },
+  { n: 9, name: 'globex_backend', owners: ['globex'] },
+  { n: 10, name: 'initech_dashboard', owners: ['initech'] },
+  { n: 11, name: 'acme_design', owners: ['acme'] },
+  { n: 12, name: 'initech_infra', owners: ['initech'] },
+  { n: 13, name: 'acme_docs', owners: ['acme'] },
+  { n: 14, name: 'acme_handbook', owners: ['acme'] },
+  { n: 15, name: 'initech_site', owners: ['initech'] },
+  { n: 16, name: 'acme_changelog', owners: ['acme'] },
 ]
 
 export function httpsUrl(name: string, region = CC_REGION): string {
@@ -767,14 +767,14 @@ function addRemote(w: World): void {
   const owned = (k: AcctKey) => REPO_DEFS.filter((d) => d.owners.includes(k)).map((d) => d.name)
   const uniq = (xs: string[]) => [...new Set(xs)]
   const mk = (names: string[], region: string) => names.map((n, i) => remoteRepoFor(n, 1 + ((i * 3) % 28), '', region))
-  w.remote[ACCT.acme.id] = mk([...uniq(owned('acme')), 'usage-reports'], REGION_ACME).map((r) => (r.name === 'usage-reports' ? { ...r, description: 'Monthly usage reports' } : r))
-  w.remote[ACCT.globex.id] = mk(['notification-service', 'web-app', 'mobile-api'], REGION_GLOBEX)
-  w.remote[ACCT.initech.id] = mk(['infra-terraform', 'analytics-dashboard', 'marketing-site', 'cfn-templates'], REGION_INITECH)
+  w.remote[ACCT.acme.id] = mk([...uniq(owned('acme')), 'acme_usage'], REGION_ACME).map((r) => (r.name === 'acme_usage' ? { ...r, description: 'Monthly usage reports' } : r))
+  w.remote[ACCT.globex.id] = mk(['globex_backend', 'acme_cs_portal', 'mobile-api'], REGION_GLOBEX)
+  w.remote[ACCT.initech.id] = mk(['initech_infra', 'initech_dashboard', 'initech_site', 'initech_cfn'], REGION_INITECH)
 }
 
 function addGitBase(w: World): void {
   w.git.globalDefault = { profile: 'acme' }
-  w.git.urlRules = [{ pattern: httpsUrl('infra-terraform', REGION_INITECH), profile: 'initech-admin' }]
+  w.git.urlRules = [{ pattern: httpsUrl('initech_infra', REGION_INITECH), profile: 'initech-admin' }]
   w.git.guardInstalled = false
   w.git.saved = [{ id: `keychain:${CC_HOST}`, host: CC_HOST, store: SavedCredentialStore.StoreKeychain }]
 }
@@ -811,7 +811,7 @@ export function buildFresh(): World {
   const legacyRepo = repoByDefN(w, 11)
   legacyRepo.binding = { ...emptyBinding(BindingSource.BindingLocal, 'acme'), legacyPlain: true }
   const ruleRepo = repoByDefN(w, 12)
-  ruleRepo.binding = { ...emptyBinding(BindingSource.BindingGlobalURL, 'initech-admin'), urlRule: httpsUrl('infra-terraform', REGION_INITECH) }
+  ruleRepo.binding = { ...emptyBinding(BindingSource.BindingGlobalURL, 'initech-admin'), urlRule: httpsUrl('initech_infra', REGION_INITECH) }
   w.discovery[PORTAL_INITECH.name] = [
     {
       accountId: ACCT.initech.id,
@@ -821,7 +821,7 @@ export function buildFresh(): World {
       roles: [
         { name: 'AdministratorAccess', existingProfile: 'initech-admin', suggestedProfile: 'initech-admin' },
         { name: 'ReadOnlyAccess', existingProfile: 'initech-readonly', suggestedProfile: 'initech-readonly' },
-        { name: 'PowerUserAccess', suggestedProfile: 'initech-platform-poweruser' },
+        { name: 'PowerUserAccess', suggestedProfile: 'initech-poweruser' },
       ],
     },
   ]
@@ -888,14 +888,14 @@ export function buildMid(): World {
   for (const n of [1, 3, 4, 5, 6, 7, 8, 11, 13]) localBind(repoByDefN(w, n), 'acme')
   for (const n of [10, 15]) localBind(repoByDefN(w, n), 'initech-admin')
   const ruleRepo = repoByDefN(w, 12)
-  ruleRepo.binding = { ...emptyBinding(BindingSource.BindingGlobalURL, 'initech-admin'), urlRule: httpsUrl('infra-terraform', REGION_INITECH) }
+  ruleRepo.binding = { ...emptyBinding(BindingSource.BindingGlobalURL, 'initech-admin'), urlRule: httpsUrl('initech_infra', REGION_INITECH) }
   repoByDefN(w, 10).lastTest = { repoId: repoByDefN(w, 10).id, status: TestStatus.TestOK, at: ago(2 * MIN), profile: 'initech-admin' }
   for (const r of w.repos) if (r.binding.source === BindingSource.BindingLocal) presetSingleOwner(w, r)
   w.discovery = discoveryPerPortal(w)
   w.backups = []
   addBackup(w, BackupKind.BackupAWSConfig, BackupReason.ReasonMigrate, { profile: 'acme' }, { createdAt: ago(3 * HOUR), redacted: false })
   addBackup(w, BackupKind.BackupAWSCredentials, BackupReason.ReasonRemoveKey, { profile: 'acme' }, { createdAt: ago(2 * HOUR + 40 * MIN), redacted: true })
-  addBackup(w, BackupKind.BackupGitLocal, BackupReason.ReasonBind, { repo: 'web-app' }, { createdAt: ago(35 * MIN) })
+  addBackup(w, BackupKind.BackupGitLocal, BackupReason.ReasonBind, { repo: 'acme_cs_portal' }, { createdAt: ago(35 * MIN) })
   w.health.findings = [
     { id: 'pending-deactivation:acme', kind: HealthKind.HealthPendingKey, severity: Severity.SeverityInfo, profile: 'acme', params: { maskedKeyId: STATIC_TRUTH.acme.masked, days: '0' } },
   ]
@@ -1017,8 +1017,8 @@ export function buildDone(): World {
     [BackupKind.BackupAWSCredentials, BackupReason.ReasonRemoveKey, { profile: 'acme' }, true],
     [BackupKind.BackupAWSConfig, BackupReason.ReasonMigrate, { profile: 'globex' }, false],
     [BackupKind.BackupAWSCredentials, BackupReason.ReasonRemoveKey, { profile: 'globex' }, true],
-    [BackupKind.BackupGitLocal, BackupReason.ReasonBind, { repo: 'web-app' }, false],
-    [BackupKind.BackupGitLocal, BackupReason.ReasonBind, { repo: 'notification-service' }, false],
+    [BackupKind.BackupGitLocal, BackupReason.ReasonBind, { repo: 'acme_cs_portal' }, false],
+    [BackupKind.BackupGitLocal, BackupReason.ReasonBind, { repo: 'globex_backend' }, false],
     [BackupKind.BackupGitGlobal, BackupReason.ReasonGlobalDefault, {}, false],
   ]
   kinds.forEach(([k, r, p, red], i) => addBackup(w, k, r, p, { createdAt: ago((8 - i) * 3 * HOUR), redacted: red }))
@@ -1046,11 +1046,11 @@ export function buildEdge(): World {
   globex.staticError = 'InvalidClientTokenId'
   // row 8: SSH remote, row 11: GRC remote, row 16: owner none, row 10: needs repair, row 14: owner partial
   const r8 = repoByDefN(w, 8)
-  r8.remoteUrl = `ssh://${CC_HOST}/v1/repos/data-pipeline`
+  r8.remoteUrl = `ssh://${CC_HOST}/v1/repos/acme_data`
   r8.remoteKind = RemoteKind.RemoteSSH
   r8.binding = emptyBinding(BindingSource.BindingNone)
   const r11 = repoByDefN(w, 11)
-  r11.remoteUrl = `codecommit::${CC_REGION}://acme@design-system`
+  r11.remoteUrl = `codecommit::${CC_REGION}://acme@acme_design`
   r11.remoteKind = RemoteKind.RemoteGRC
   r11.host = undefined
   r11.binding = emptyBinding(BindingSource.BindingRemoteURL, 'acme')
@@ -1065,13 +1065,13 @@ export function buildEdge(): World {
   r15.hasUserinfo = false
   const r16u = repoByDefN(w, 16)
   r16u.hasUserinfo = true
-  r16u.remoteUrl = `https://alex@${CC_HOST}/v1/repos/release-notes`
+  r16u.remoteUrl = `https://alex@${CC_HOST}/v1/repos/acme_changelog`
   w.health.findings = [
     { id: 'shell-export:~/.zshrc:42', kind: HealthKind.HealthShellExport, severity: Severity.SeverityDanger, file: '~/.zshrc', line: 42 },
     { id: 'env-var:AWS_ACCESS_KEY_ID', kind: HealthKind.HealthEnvVar, severity: Severity.SeverityDanger, params: { name: 'AWS_ACCESS_KEY_ID' } },
     { id: 'default-keys', kind: HealthKind.HealthDefaultKeys, severity: Severity.SeverityWarn },
     { id: 'leftover-keys:initech-admin', kind: HealthKind.HealthLeftoverKeys, severity: Severity.SeverityWarn, profile: 'initech-admin' },
-    { id: 'url-userinfo:release-notes', kind: HealthKind.HealthURLUserinfo, severity: Severity.SeverityWarn, params: { repo: 'release-notes' } },
+    { id: 'url-userinfo:acme_changelog', kind: HealthKind.HealthURLUserinfo, severity: Severity.SeverityWarn, params: { repo: 'acme_changelog' } },
   ]
   return w
 }

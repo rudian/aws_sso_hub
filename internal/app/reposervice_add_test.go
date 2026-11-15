@@ -21,14 +21,14 @@ func (w *world) outsideRepo(name, remote string) string {
 func TestAddExistingService(t *testing.T) {
 	w := newWorld(t)
 	ok(w.acc.Login(bg, "initech", api.LoginModeBrowser))
-	repo := w.outsideRepo("infra-terraform", ccURL("infra-terraform"))
+	repo := w.outsideRepo("initech_infra", ccURL("initech_infra"))
 
 	before := w.rt.count(api.EventAccountsChanged)
 	res := ok(w.repo.AddExisting(bg, repo))
 	if !res.Added || !res.AutoBound || res.Outcome == nil || !res.Outcome.OK || res.RepoID == "" {
 		t.Fatalf("%+v", res)
 	}
-	r := repoNamed(res.State, "infra-terraform")
+	r := repoNamed(res.State, "initech_infra")
 	if !r.Extra || r.Binding.Source != api.BindingLocal || r.Binding.Profile != "initech-admin" {
 		t.Fatalf("repo: %+v", r)
 	}
@@ -70,7 +70,7 @@ func TestAddExistingServiceSettingOffAndErrors(t *testing.T) {
 	if s := ok(w.sys.UpdateSettings(api.SettingsPatch{AutoBindOnAdd: &off})); s.AutoBindOnAdd {
 		t.Fatal("setting not stored")
 	}
-	repo := w.outsideRepo("infra-terraform", ccURL("infra-terraform"))
+	repo := w.outsideRepo("initech_infra", ccURL("initech_infra"))
 	res := ok(w.repo.AddExisting(bg, repo))
 	if !res.Added || res.AutoBound {
 		t.Fatalf("%+v", res)

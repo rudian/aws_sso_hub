@@ -74,7 +74,7 @@ aws_secret_access_key = fakeSecretValueDoNotUse1111111111111111
 `
 
 const globalGit = "[credential]\n\thelper = \n\thelper = !aws codecommit credential-helper $@ --profile acme\n\tusehttppath = true\n" +
-	"[credential \"https://" + hostAP + "/v1/repos/infra-terraform\"]\n\thelper = \n\thelper = !aws --profile initech-admin codecommit credential-helper $@\n"
+	"[credential \"https://" + hostAP + "/v1/repos/initech_infra\"]\n\thelper = \n\thelper = !aws --profile initech-admin codecommit credential-helper $@\n"
 
 // world is a complete sandbox: files, fake AWS servers, a fake browser and a container wired to them.
 type world struct {
@@ -179,7 +179,7 @@ func newWorld(t *testing.T, opts ...func(*ContainerOptions)) *world {
 }
 
 // serveCodeCommit answers BatchGetRepositories: every repository lives in the account named in repoOwners.
-var repoOwners = map[string]string{"web-app": acctAcme, "infra-terraform": acctInitech}
+var repoOwners = map[string]string{"acme_cs_portal": acctAcme, "initech_infra": acctInitech}
 
 func (w *world) serveCodeCommit(rw http.ResponseWriter, r *http.Request) {
 	raw, _ := io.ReadAll(r.Body)

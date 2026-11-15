@@ -62,7 +62,7 @@ describe('mock worlds', () => {
       it('slices are never null and ids are unique', () => {
         const s = reposState(buildScenario(id))
         expect(new Set(s.repos?.map((r) => r.id)).size).toBe(s.repos?.length)
-        expect(s.rootsDisplay).toEqual(['~/code'])
+        expect(s.rootsDisplay).toEqual(['~/Documents/code'])
       })
     })
   }
@@ -173,9 +173,9 @@ describe('mock worlds', () => {
     expect(w.appInfo.firstRun).toBe(true)
   })
 
-  it('the two web-app clones are ambiguous in the mock truth', () => {
+  it('the two acme_cs_portal clones are ambiguous in the mock truth', () => {
     const w = buildScenario('fresh')
-    const dup = w.repos.filter((r) => r.name === 'web-app')
+    const dup = w.repos.filter((r) => r.name === 'acme_cs_portal')
     expect(dup).toHaveLength(2)
     expect(w.truth[dup.find((r) => r.path.includes('archive'))!.id].accounts).toHaveLength(2)
   })

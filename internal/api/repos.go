@@ -80,7 +80,7 @@ type Binding struct {
 	ColorSlot     int           `json:"colorSlot"` // 0 when the profile is unknown
 	Monogram      string        `json:"monogram"`
 	URLRule       string        `json:"urlRule,omitempty"`
-	LegacyPlain   bool          `json:"legacyPlain"`   // local plain [credential] block (e.g. design-system)
+	LegacyPlain   bool          `json:"legacyPlain"`   // local plain [credential] block (e.g. acme_design)
 	NeedsRepair   bool          `json:"needsRepair"`   // managed binding with missing aws path/fallback/reset, or bare "aws"
 	NoProfileFlag bool          `json:"noProfileFlag"` // aws helper without --profile
 }
@@ -88,7 +88,7 @@ type Binding struct {
 type Repo struct {
 	ID          string      `json:"id"`          // first 16 hex chars of sha1(absolute path)
 	Path        string      `json:"path"`        // absolute
-	DisplayPath string      `json:"displayPath"` // "~/code/web-app"
+	DisplayPath string      `json:"displayPath"` // "~/Documents/code/acme_cs_portal"
 	Name        string      `json:"name"`        // CodeCommit repository name
 	Remote      string      `json:"remote"`      // remote name, usually "origin"
 	RemoteURL   string      `json:"remoteUrl"`   // redacted

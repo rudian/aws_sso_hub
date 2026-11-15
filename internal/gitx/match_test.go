@@ -5,7 +5,7 @@ import "testing"
 const ccHost = "git-codecommit.us-east-1.amazonaws.com"
 
 func TestMatchesTable(t *testing.T) {
-	base := CredURL{Protocol: "https", Host: ccHost, Path: "v1/repos/web-app"}
+	base := CredURL{Protocol: "https", Host: ccHost, Path: "v1/repos/acme_cs_portal"}
 	withUser := base
 	withUser.User = "user"
 	cases := []struct {
@@ -17,10 +17,10 @@ func TestMatchesTable(t *testing.T) {
 		{"P2", "https://" + ccHost + "/", base, true},
 		{"P3", "https://" + ccHost + "/v1/repos", base, true},
 		{"P4", "https://" + ccHost + "/v1/repos/", base, true},
-		{"P5", "https://" + ccHost + "/v1/repos/web-app", base, true},
-		{"P5b", "https://" + ccHost + "/v1/repos/web-app", CredURL{Protocol: "https", Host: ccHost, Path: "v1/repos/web-app-v4"}, false},
-		{"P6", "https://" + ccHost + "/v1/repos/web-app/", base, true},
-		{"P7", "https://" + ccHost + "/v1/repos/web-app.git", base, false},
+		{"P5", "https://" + ccHost + "/v1/repos/acme_cs_portal", base, true},
+		{"P5b", "https://" + ccHost + "/v1/repos/acme_cs_portal", CredURL{Protocol: "https", Host: ccHost, Path: "v1/repos/acme_cs_portal-v4"}, false},
+		{"P6", "https://" + ccHost + "/v1/repos/acme_cs_portal/", base, true},
+		{"P7", "https://" + ccHost + "/v1/repos/acme_cs_portal.git", base, false},
 		{"P8", "https://" + ccHost + "/v1/repos/web-ap", base, false},
 		{"P9", "https://*.us-east-1.amazonaws.com", base, true},
 		{"P10", "https://git-codecommit.*.amazonaws.com", base, true},
@@ -35,11 +35,11 @@ func TestMatchesTable(t *testing.T) {
 		{"P18", "https://GIT-CODECOMMIT.us-east-1.amazonaws.com", base, true},
 		{"P19", "https://" + ccHost + "/V1/repos", base, false},
 		{"P20", "https://", base, true},
-		{"P21", "https://" + ccHost + "/v1/repos/web-app?x=1", base, false},
+		{"P21", "https://" + ccHost + "/v1/repos/acme_cs_portal?x=1", base, false},
 		{"P22", "https://" + ccHost + "/v1/%72epos", base, true},
 		// partial (scheme-less) patterns: exact equality of every field present
 		{"partial path prefix no", ccHost + "/v1/repos", base, false},
-		{"partial path exact", ccHost + "/v1/repos/web-app", base, true},
+		{"partial path exact", ccHost + "/v1/repos/acme_cs_portal", base, true},
 		{"partial wildcard no", "*.us-east-1.amazonaws.com", base, false},
 		{"partial host:port no", ccHost + ":443", base, false},
 		{"partial user matches", "user@" + ccHost, withUser, true},
@@ -105,7 +105,7 @@ func TestParseNullConfig(t *testing.T) {
 }
 
 func TestResolveResetSemantics(t *testing.T) {
-	u := CredURL{Protocol: "https", Host: ccHost, Path: "v1/repos/infra-terraform"}
+	u := CredURL{Protocol: "https", Host: ccHost, Path: "v1/repos/initech_infra"}
 	mk := func(scope, sub, v string, val string) Entry {
 		key := "credential." + v
 		if sub != "" {
@@ -118,8 +118,8 @@ func TestResolveResetSemantics(t *testing.T) {
 		mk("global", "", "helper", ""),
 		mk("global", "", "helper", "!aws codecommit credential-helper $@ --profile acme"),
 		mk("global", "", "usehttppath", "true"),
-		mk("global", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/infra-terraform", "helper", ""),
-		mk("global", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/infra-terraform", "helper", "!aws --profile initech-admin codecommit credential-helper $@"),
+		mk("global", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/initech_infra", "helper", ""),
+		mk("global", "https://git-codecommit.us-east-1.amazonaws.com/v1/repos/initech_infra", "helper", "!aws --profile initech-admin codecommit credential-helper $@"),
 		mk("global", "https://github.com", "helper", "gh"),
 	}
 	eff := Resolve(entries, u)

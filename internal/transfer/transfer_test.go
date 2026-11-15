@@ -855,7 +855,7 @@ func TestImportExtrasMerge(t *testing.T) {
 	f := newFixture(t, readFixture(t, "config.fixture"))
 	// existing user choices
 	f.store.colors[idInitech] = 2
-	f.store.names[idInitech] = "initech-platform"
+	f.store.names[idInitech] = "initech"
 	f.store.monograms["initech-admin"] = "IA"
 	f.store.sessions["initech"] = api.SessionRecord{SessionMinutes: 240, LoginAt: "2026-11-04T08:00:00Z"}
 
@@ -873,7 +873,7 @@ func TestImportExtrasMerge(t *testing.T) {
 	if f.store.colors["111122223333"] != 4 || f.store.names["111122223333"] != "acme" || f.store.monograms["acme-admin"] != "AA" || f.store.sessions["acme"].SessionMinutes != 600 {
 		t.Fatalf("%+v %+v %+v %+v", f.store.colors, f.store.names, f.store.monograms, f.store.sessions)
 	}
-	if f.store.colors[idInitech] != 2 || f.store.names[idInitech] != "initech-platform" || f.store.monograms["initech-admin"] != "IA" || f.store.sessions["initech"].SessionMinutes != 240 {
+	if f.store.colors[idInitech] != 2 || f.store.names[idInitech] != "initech" || f.store.monograms["initech-admin"] != "IA" || f.store.sessions["initech"].SessionMinutes != 240 {
 		t.Fatalf("existing choices were overwritten: %+v %+v %+v %+v", f.store.colors, f.store.names, f.store.monograms, f.store.sessions)
 	}
 	if f.store.sessions["initech"].LoginAt == "" {

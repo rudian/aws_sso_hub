@@ -27,7 +27,7 @@ vi.mock('../../state/settings', () => ({
 let host: HTMLDivElement
 let root: Root
 
-// acme (us-east-1) lists, in order: api-server, auth-service, data-pipeline, design-system, docs-site, ...
+// acme (us-east-1) lists, in order: acme_api, acme_auth, acme_data, acme_design, acme_docs, ...
 
 function ui(props: Partial<Parameters<typeof CloneModal>[0]> = {}): ReactElement {
   return createElement(
@@ -117,12 +117,12 @@ afterEach(() => {
 describe('CloneModal selection', () => {
   it('a row click with 0 or 1 selected picks only that repository, and shows the single form', async () => {
     await mount({ initialProfile: 'acme' })
-    await click(rowPick('api-server'))
-    expect(selected()).toEqual(['api-server'])
-    await click(rowPick('auth-service'))
-    expect(selected()).toEqual(['auth-service'])
+    await click(rowPick('acme_api'))
+    expect(selected()).toEqual(['acme_api'])
+    await click(rowPick('acme_auth'))
+    expect(selected()).toEqual(['acme_auth'])
     await settle()
-    expect(Array.from(document.querySelectorAll<HTMLInputElement>('.modal input')).some((i) => i.type === 'text' && i.value === 'auth-service' && !i.disabled)).toBe(true)
+    expect(Array.from(document.querySelectorAll<HTMLInputElement>('.modal input')).some((i) => i.type === 'text' && i.value === 'acme_auth' && !i.disabled)).toBe(true)
     expect(text()).toContain('git clone')
     expect(cloneBtn().textContent).toBe('Clone')
   })
@@ -132,7 +132,7 @@ describe('CloneModal selection', () => {
       throw { code: ErrorCode.ErrDestExists, message: 'exists' }
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => !!document.querySelector('.clone-sum'))
     expect(document.querySelector('.clone-sum__icon--neutral')).not.toBeNull()
     expect(document.querySelector('.clone-sum__icon--ok')).toBeNull()
@@ -141,9 +141,9 @@ describe('CloneModal selection', () => {
 
   it('keeps focus inside the dialog while cloning, also after Stop is pressed', async () => {
     let release: (() => void) | undefined
-    spyClone((n) => (n === 'api-server' ? new Promise((res) => (release = () => res(ok(n)))) : Promise.resolve(ok(n))))
+    spyClone((n) => (n === 'acme_api' ? new Promise((res) => (release = () => res(ok(n)))) : Promise.resolve(ok(n))))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'auth-service')
+    await pickAndStart('acme_api', 'acme_auth')
     await waitFor(() => !!button('Stop after this one'))
     expect(document.activeElement).toBe(button('Stop after this one'))
     await click(button('Stop after this one'))
@@ -154,13 +154,13 @@ describe('CloneModal selection', () => {
 
   it('checkboxes build a multi selection; with 2+ selected a row click toggles that row', async () => {
     await mount({ initialProfile: 'acme' })
-    await click(rowCheck('api-server'))
-    await click(rowCheck('docs-site'))
-    expect(selected()).toEqual(['api-server', 'docs-site'])
-    await click(rowPick('auth-service'))
-    expect(selected()).toEqual(['api-server', 'auth-service', 'docs-site'])
-    await click(rowPick('auth-service'))
-    expect(selected()).toEqual(['api-server', 'docs-site'])
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_docs'))
+    expect(selected()).toEqual(['acme_api', 'acme_docs'])
+    await click(rowPick('acme_auth'))
+    expect(selected()).toEqual(['acme_api', 'acme_auth', 'acme_docs'])
+    await click(rowPick('acme_auth'))
+    expect(selected()).toEqual(['acme_api', 'acme_docs'])
     await settle()
     expect(text()).toContain('named after it')
     expect(cloneBtn().textContent).toBe('Clone 2 repositories')
@@ -168,40 +168,40 @@ describe('CloneModal selection', () => {
 
   it('select all acts on the filtered rows only', async () => {
     await mount({ initialProfile: 'acme' })
-    await click(rowCheck('api-server'))
+    await click(rowCheck('acme_api'))
     await setInput(document.querySelector<HTMLInputElement>('input[aria-label="Search repositories"]') as HTMLInputElement, 'doc')
     expect(document.querySelectorAll('.clone-row').length).toBe(1)
     expect(text()).toContain('1 not in results')
     await click(bar())
-    expect(selected()).toEqual(['docs-site'])
+    expect(selected()).toEqual(['acme_docs'])
     await setInput(document.querySelector<HTMLInputElement>('input[aria-label="Search repositories"]') as HTMLInputElement, '')
-    expect(selected()).toEqual(['api-server', 'docs-site'])
+    expect(selected()).toEqual(['acme_api', 'acme_docs'])
     await setInput(document.querySelector<HTMLInputElement>('input[aria-label="Search repositories"]') as HTMLInputElement, 'doc')
     await click(bar())
     await setInput(document.querySelector<HTMLInputElement>('input[aria-label="Search repositories"]') as HTMLInputElement, '')
-    expect(selected()).toEqual(['api-server'])
+    expect(selected()).toEqual(['acme_api'])
   })
 
   it('changing the account or the region clears the selection', async () => {
     await mount({ initialProfile: 'acme' })
-    await click(rowCheck('api-server'))
-    await click(rowCheck('docs-site'))
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_docs'))
     await setSelect(regionSelect(), 'eu-west-1')
     await waitFor(() => selected().length === 0)
     await setSelect(regionSelect(), 'us-east-1')
     await waitFor(() => !!document.querySelector('.clone-row'))
-    await click(rowCheck('api-server'))
-    expect(selected()).toEqual(['api-server'])
+    await click(rowCheck('acme_api'))
+    expect(selected()).toEqual(['acme_api'])
     await setSelect(accountSelect(), 'initech-admin')
     await waitFor(() => !!document.querySelector('.clone-row') && selected().length === 0)
     expect(selected()).toEqual([])
   })
 
   it('existing folders are skipped and not counted', async () => {
-    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/code' })
-    await click(rowCheck('api-server'))
-    await click(rowCheck('auth-service'))
-    await click(rowCheck('usage-reports'))
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_auth'))
+    await click(rowCheck('acme_usage'))
     await settle()
     expect(text()).toContain('already exist')
     expect(cloneBtn().textContent).toBe('Clone 1 repository')
@@ -212,45 +212,45 @@ describe('CloneModal multi clone', () => {
   it('runs one Clone per repository in list order and ends on the summary', async () => {
     const spy = spyClone(async (n) => ok(n))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('docs-site', 'api-server', 'auth-service')
+    await pickAndStart('acme_docs', 'acme_api', 'acme_auth')
     await waitFor(() => text().includes('Cloned 3 repositories'))
-    expect(names(spy)).toEqual(['api-server', 'auth-service', 'docs-site'])
+    expect(names(spy)).toEqual(['acme_api', 'acme_auth', 'acme_docs'])
     expect(document.querySelectorAll('.clone-result .icon-btn').length).toBe(3)
   })
 
   it('a failure continues with the rest and the summary lists the failure first', async () => {
     const spy = spyClone(async (n) => {
-      if (n === 'auth-service') throw appErr(ErrorCode.ErrInternal, 'disk full')
+      if (n === 'acme_auth') throw appErr(ErrorCode.ErrInternal, 'disk full')
       return ok(n)
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'auth-service', 'docs-site')
+    await pickAndStart('acme_api', 'acme_auth', 'acme_docs')
     await waitFor(() => text().includes('Cloned 2 of 3'))
-    expect(names(spy)).toEqual(['api-server', 'auth-service', 'docs-site'])
+    expect(names(spy)).toEqual(['acme_api', 'acme_auth', 'acme_docs'])
     expect(document.querySelector('.clone-result .clone-q')?.className).toContain('clone-q--failed')
     expect(text()).toContain('Try 1 again')
   })
 
   it.each([ErrorCode.ErrSessionExpired, ErrorCode.ErrNotSignedIn])('%s marks the rest not started without calling Clone', async (code) => {
     const spy = spyClone(async (n) => {
-      if (n === 'auth-service') throw appErr(code)
+      if (n === 'acme_auth') throw appErr(code)
       return ok(n)
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'auth-service', 'data-pipeline', 'docs-site')
+    await pickAndStart('acme_api', 'acme_auth', 'acme_data', 'acme_docs')
     await waitFor(() => text().includes('Cloned 1 of 4'))
-    expect(names(spy)).toEqual(['api-server', 'auth-service'])
+    expect(names(spy)).toEqual(['acme_api', 'acme_auth'])
     expect(document.querySelectorAll('.clone-q--stopped').length).toBe(2)
     expect(document.querySelectorAll('.clone-q--failed').length).toBe(1)
   })
 
   it('E_DEST_EXISTS counts as skipped, not failed', async () => {
     spyClone(async (n) => {
-      if (n === 'auth-service') throw appErr(ErrorCode.ErrDestExists)
+      if (n === 'acme_auth') throw appErr(ErrorCode.ErrDestExists)
       return ok(n)
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'auth-service')
+    await pickAndStart('acme_api', 'acme_auth')
     await waitFor(() => !!document.querySelector('.clone-result'))
     expect(document.querySelectorAll('.clone-q--exists').length).toBe(1)
     expect(document.querySelectorAll('.clone-q--failed').length).toBe(0)
@@ -260,47 +260,47 @@ describe('CloneModal multi clone', () => {
 
   it('Stop after this one finishes the current repository, skips the rest, and retry runs only those', async () => {
     let release: (() => void) | undefined
-    const spy = spyClone((n) => (n === 'api-server' ? new Promise((res) => (release = () => res(ok(n)))) : Promise.resolve(ok(n))))
+    const spy = spyClone((n) => (n === 'acme_api' ? new Promise((res) => (release = () => res(ok(n)))) : Promise.resolve(ok(n))))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'auth-service', 'docs-site')
+    await pickAndStart('acme_api', 'acme_auth', 'acme_docs')
     await waitFor(() => !!button('Stop after this one'))
     await click(button('Stop after this one'))
     expect(button('Stopping…')?.disabled).toBe(true)
     await act(async () => release?.())
     await waitFor(() => text().includes('Cloned 1 of 3'))
-    expect(names(spy)).toEqual(['api-server'])
+    expect(names(spy)).toEqual(['acme_api'])
     expect(document.querySelectorAll('.clone-q--stopped').length).toBe(2)
     await click(button('Try 2 again'))
     await waitFor(() => text().includes('Cloned 3 repositories'))
-    expect(names(spy)).toEqual(['api-server', 'auth-service', 'docs-site'])
+    expect(names(spy)).toEqual(['acme_api', 'acme_auth', 'acme_docs'])
   })
 
   it('unmounting during a multi clone stops the queue after the in-flight repository', async () => {
     let release: (() => void) | undefined
-    const spy = spyClone((n) => (n === 'api-server' ? new Promise((res) => (release = () => res(ok(n)))) : Promise.resolve(ok(n))))
+    const spy = spyClone((n) => (n === 'acme_api' ? new Promise((res) => (release = () => res(ok(n)))) : Promise.resolve(ok(n))))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'auth-service', 'docs-site')
+    await pickAndStart('acme_api', 'acme_auth', 'acme_docs')
     await waitFor(() => !!button('Stop after this one'))
     act(() => root.unmount())
     root = createRoot(host)
     await act(async () => release?.())
     await act(async () => new Promise((r) => realSetTimeout(r, 60)))
-    expect(names(spy)).toEqual(['api-server'])
+    expect(names(spy)).toEqual(['acme_api'])
     expect(settingsState.update).toHaveBeenCalledTimes(1)
   })
 
   it('the account becoming unusable mid-run marks the rest not started and disables retry', async () => {
     const spy = spyClone(async (n) => {
-      if (n === 'analytics-dashboard') {
+      if (n === 'initech_cfn') {
         await Accounts.Logout('initech')
         await new Promise((r) => realSetTimeout(r, 60)) // let the signed-out state reach the modal
       }
       return ok(n)
     })
     await mount({ initialProfile: 'initech-admin' })
-    await pickAndStart('analytics-dashboard', 'cfn-templates', 'infra-terraform')
+    await pickAndStart('initech_cfn', 'initech_dashboard', 'initech_infra')
     await waitFor(() => text().includes('Cloned 1 of 3'))
-    expect(names(spy)).toEqual(['analytics-dashboard'])
+    expect(names(spy)).toEqual(['initech_cfn'])
     expect(document.querySelectorAll('.clone-q--stopped').length).toBe(2)
     expect(button('Try 2 again')?.disabled).toBe(true)
     expect(text()).toContain('Sign in')
@@ -308,11 +308,11 @@ describe('CloneModal multi clone', () => {
 
   it('a failed row shows the error detail in the Details block', async () => {
     spyClone(async (n) => {
-      if (n === 'docs-site') throw { code: ErrorCode.ErrInternal, message: 'boom', detail: 'fatal: disk quota exceeded' }
+      if (n === 'acme_docs') throw { code: ErrorCode.ErrInternal, message: 'boom', detail: 'fatal: disk quota exceeded' }
       return ok(n)
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => !!document.querySelector('.clone-result'))
     const details = document.querySelector('.clone-q--failed details')
     expect(details?.querySelector('summary')?.textContent).toBe('Details')
@@ -322,16 +322,16 @@ describe('CloneModal multi clone', () => {
   it('a successful multi run labels the folder buttons with the repository name and focuses Done', async () => {
     spyClone(async (n) => ok(n))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => text().includes('Cloned 2 repositories'))
-    expect(document.querySelector('.clone-result button[aria-label="Open folder of api-server"]')).not.toBeNull()
+    expect(document.querySelector('.clone-result button[aria-label="Open folder of acme_api"]')).not.toBeNull()
     expect(document.activeElement).toBe(button('Done'))
   })
 
   it('every selected folder existing shows the plain Clone label', async () => {
-    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/code' })
-    await click(rowCheck('api-server'))
-    await click(rowCheck('auth-service'))
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_auth'))
     await settle()
     expect(text()).toContain('already has a folder')
     expect(cloneBtn().textContent).toBe('Clone')
@@ -340,16 +340,16 @@ describe('CloneModal multi clone', () => {
   it('retry re-runs only the failed rows', async () => {
     let fail = true
     const spy = spyClone(async (n) => {
-      if (n === 'docs-site' && fail) throw appErr(ErrorCode.ErrInternal)
+      if (n === 'acme_docs' && fail) throw appErr(ErrorCode.ErrInternal)
       return ok(n)
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => !!button('Try 1 again'))
     fail = false
     await click(button('Try 1 again'))
     await waitFor(() => text().includes('Cloned 2 repositories'))
-    expect(names(spy)).toEqual(['api-server', 'docs-site', 'docs-site'])
+    expect(names(spy)).toEqual(['acme_api', 'acme_docs', 'acme_docs'])
   })
 
   it('a single failed repository returns to the form with the error and the selection', async () => {
@@ -357,16 +357,16 @@ describe('CloneModal multi clone', () => {
       throw appErr(ErrorCode.ErrInternal, 'disk full')
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server')
+    await pickAndStart('acme_api')
     await waitFor(() => !!document.querySelector('.banner'))
-    expect(selected()).toEqual(['api-server'])
+    expect(selected()).toEqual(['acme_api'])
     expect(document.querySelector('.clone-q-list')).toBeNull()
   })
 
   it('a single success shows the one-repository screen with Open folder', async () => {
     spyClone(async (n) => ok(n))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server')
+    await pickAndStart('acme_api')
     await waitFor(() => text().includes('Cloned and bound to acme'))
     expect(button('Open folder')).toBeDefined()
   })
@@ -376,7 +376,7 @@ describe('CloneModal remembers the last account', () => {
   it('saves profile and region after a run with a success', async () => {
     spyClone(async (n) => ok(n))
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => text().includes('Cloned 2'))
     expect(settingsState.update).toHaveBeenCalledTimes(1)
     expect(settingsState.update).toHaveBeenCalledWith({ lastCloneProfile: 'acme', lastCloneRegion: 'us-east-1' })
@@ -387,7 +387,7 @@ describe('CloneModal remembers the last account', () => {
       throw appErr(ErrorCode.ErrInternal)
     })
     await mount({ initialProfile: 'acme' })
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => text().includes('No repositories were cloned'))
     expect(settingsState.update).not.toHaveBeenCalled()
   })
@@ -396,7 +396,7 @@ describe('CloneModal remembers the last account', () => {
     settingsState.settings = { lastCloneProfile: 'acme', lastCloneRegion: 'us-east-1' }
     spyClone(async (n) => ok(n))
     await mount()
-    await pickAndStart('api-server', 'docs-site')
+    await pickAndStart('acme_api', 'acme_docs')
     await waitFor(() => text().includes('Cloned 2'))
     expect(settingsState.update).not.toHaveBeenCalled()
   })
@@ -448,14 +448,14 @@ describe('CloneModal remembers the last account', () => {
   it('a sign-in does not switch the account once a row is ticked', async () => {
     settingsState.settings = { lastCloneProfile: 'globex', lastCloneRegion: 'eu-west-1' }
     await mount()
-    await click(rowCheck('api-server'))
+    await click(rowCheck('acme_api'))
     await act(async () => {
       await Accounts.Login('globex', LoginMode.LoginModeBrowser)
     })
     await settle()
     expect(accountSelect().value).toBe('acme')
     expect(regionSelect().value).toBe('us-east-1')
-    expect(selected()).toEqual(['api-server'])
+    expect(selected()).toEqual(['acme_api'])
   })
 
   it('signing another portal in does not switch an auto-picked account when nothing is remembered', async () => {
@@ -474,11 +474,11 @@ describe('CloneModal remembers the last account', () => {
 
   it('does not apply late once the user touched something', async () => {
     await mount()
-    await click(rowCheck('api-server'))
+    await click(rowCheck('acme_api'))
     settingsState.settings = { lastCloneProfile: 'initech-admin', lastCloneRegion: 'us-west-2' }
     await act(async () => root.render(ui()))
     await settle()
     expect(accountSelect().value).toBe('acme')
-    expect(selected()).toEqual(['api-server'])
+    expect(selected()).toEqual(['acme_api'])
   })
 })

@@ -19,7 +19,7 @@ describe('git global model', () => {
     expect(lines2.map(formatEntry)).toEqual([
       'credential.helper = !aws codecommit credential-helper $@ --profile acme',
       'credential.usehttppath = true',
-      'credential.https://git-codecommit.us-west-2.amazonaws.com/v1/repos/infra-terraform.helper = !aws codecommit credential-helper $@ --profile initech-admin',
+      'credential.https://git-codecommit.us-west-2.amazonaws.com/v1/repos/initech_infra.helper = !aws codecommit credential-helper $@ --profile initech-admin',
     ])
   })
 })

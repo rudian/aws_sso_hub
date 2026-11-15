@@ -82,7 +82,7 @@ func TestInspectPrimaryAndEntries(t *testing.T) {
 	sb := gitxtest.New(t)
 	repo := sb.InitRepo(t, "r", map[string]string{
 		"origin": "https://github.com/o/r.git",
-		"cc":     "https://u:pw@" + host + "/v1/repos/web-app",
+		"cc":     "https://u:pw@" + host + "/v1/repos/acme_cs_portal",
 		"cc2":    "ssh://" + host + "/v1/repos/other",
 	})
 	appendConfig(t, repo, "[remote \"cc2\"]\n\tpushurl = https://"+host+"/v1/repos/other\n")
@@ -93,7 +93,7 @@ func TestInspectPrimaryAndEntries(t *testing.T) {
 	if len(sr.Remotes) != 3 || sr.Remotes[sr.Primary].Name != "cc" {
 		t.Fatalf("remotes %+v primary %d", sr.Remotes, sr.Primary)
 	}
-	if r := sr.Remotes[sr.Primary]; r.Info.Repo != "web-app" || r.Info.User != "u" || r.Info.Kind != api.RemoteHTTPS {
+	if r := sr.Remotes[sr.Primary]; r.Info.Repo != "acme_cs_portal" || r.Info.User != "u" || r.Info.Kind != api.RemoteHTTPS {
 		t.Errorf("primary %+v", r)
 	}
 	for _, r := range sr.Remotes {
@@ -115,13 +115,13 @@ func TestInspectPrimaryAndEntries(t *testing.T) {
 func TestInspectInsteadOf(t *testing.T) {
 	sb := gitxtest.New(t)
 	sb.WriteGlobal(t, "[url \"https://"+host+"/v1/repos/\"]\n\tinsteadOf = cc:\n")
-	repo := sb.InitRepo(t, "r", map[string]string{"origin": "cc:web-app"})
+	repo := sb.InitRepo(t, "r", map[string]string{"origin": "cc:acme_cs_portal"})
 	sr, ok, err := sb.Git.Inspect(context.Background(), repo)
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}
 	r := sr.Remotes[sr.Primary]
-	if r.URL != ccURL || r.Info.Repo != "web-app" {
+	if r.URL != ccURL || r.Info.Repo != "acme_cs_portal" {
 		t.Errorf("insteadOf not applied: %+v", r)
 	}
 }
@@ -152,7 +152,7 @@ func TestInspectWorktreeGitFile(t *testing.T) {
 		t.Errorf("worktree not found by the walker: %v", dirs)
 	}
 	sr, ok, err := sb.Git.Inspect(ctx, wt)
-	if err != nil || !ok || sr.Remotes[sr.Primary].Info.Repo != "web-app" {
+	if err != nil || !ok || sr.Remotes[sr.Primary].Info.Repo != "acme_cs_portal" {
 		t.Errorf("inspect worktree: %+v %v %v", sr, ok, err)
 	}
 }

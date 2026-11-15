@@ -66,7 +66,7 @@ func TestAddExistingNotARepo(t *testing.T) {
 
 func TestAddExistingResolvesTopLevel(t *testing.T) {
 	f := newFixture(t)
-	repo := f.outside("web-app", ccURL("web-app"))
+	repo := f.outside("acme_cs_portal", ccURL("acme_cs_portal"))
 	sub := filepath.Join(repo, "src", "deep")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestAddExistingResolvesTopLevel(t *testing.T) {
 	if !res.Added || res.RepoID == "" {
 		t.Fatalf("%+v", res)
 	}
-	r := f.byName(res.State, "web-app")
+	r := f.byName(res.State, "acme_cs_portal")
 	if r.ID != res.RepoID || r.Path != repo {
 		t.Errorf("top level not resolved: %s vs %s", r.Path, repo)
 	}
@@ -161,13 +161,13 @@ func TestAddExistingAddsExtraOutsideRoots(t *testing.T) {
 
 func TestAddExistingAutoBindsSingleSSO(t *testing.T) {
 	f := newFixture(t)
-	repo := f.outside("web-app", ccURL("web-app"))
-	f.ccAPIs["INITECH"].repos["web-app"] = "rid-initech"
+	repo := f.outside("acme_cs_portal", ccURL("acme_cs_portal"))
+	f.ccAPIs["INITECH"].repos["acme_cs_portal"] = "rid-initech"
 	res := f.add(repo)
 	if !res.Added || !res.AutoBound || res.Outcome == nil || !res.Outcome.OK || res.Outcome.Repo == nil {
 		t.Fatalf("%+v", res)
 	}
-	r := f.byName(res.State, "web-app")
+	r := f.byName(res.State, "acme_cs_portal")
 	if r.Binding.Source != api.BindingLocal || r.Binding.Profile != "initech-admin" || r.ToFix || r.Owner.Status != api.OwnerSingle {
 		t.Errorf("binding: %+v owner %+v", r.Binding, r.Owner)
 	}
@@ -189,8 +189,8 @@ func TestAddExistingAutoBindsSingleSSO(t *testing.T) {
 
 func TestAddExistingNoAutoBindWhenLocallyBound(t *testing.T) {
 	f := newFixture(t)
-	repo := f.newRepo("web-app", ccURL("web-app"))
-	f.ccAPIs["INITECH"].repos["web-app"] = "rid-initech"
+	repo := f.newRepo("acme_cs_portal", ccURL("acme_cs_portal"))
+	f.ccAPIs["INITECH"].repos["acme_cs_portal"] = "rid-initech"
 	if err := f.sb.Git.Bind(context.Background(), gitx.BindSpec{RepoDir: repo, Hosts: []string{hostAP}, Profile: "initech-readonly", AccountID: acctInitech, AWSPath: f.aws, Lang: "en", GOOS: "darwin"}); err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestAddExistingNoAutoBindWhenLocallyBound(t *testing.T) {
 	if res.AutoBound || res.Outcome != nil {
 		t.Fatalf("a locally bound repo must not be re-bound: %+v", res)
 	}
-	r := f.byName(res.State, "web-app")
+	r := f.byName(res.State, "acme_cs_portal")
 	if r.Binding.Profile != "initech-readonly" || r.Owner.Candidates[0].Profile != "initech-readonly" {
 		t.Errorf("%+v / %+v", r.Binding, r.Owner.Candidates)
 	}
@@ -209,13 +209,13 @@ func TestAddExistingNoAutoBindWhenLocallyBound(t *testing.T) {
 
 func TestAddExistingNoAutoBindForStaticSuggestion(t *testing.T) {
 	f := newFixture(t)
-	repo := f.outside("web-app", ccURL("web-app"))
-	f.ccAPIs["ACME"].repos["web-app"] = "rid-acme"
+	repo := f.outside("acme_cs_portal", ccURL("acme_cs_portal"))
+	f.ccAPIs["ACME"].repos["acme_cs_portal"] = "rid-acme"
 	res := f.add(repo)
 	if !res.Added || res.AutoBound {
 		t.Fatalf("%+v", res)
 	}
-	o := f.byName(res.State, "web-app").Owner
+	o := f.byName(res.State, "acme_cs_portal").Owner
 	if o.Status != api.OwnerSingle || o.Candidates[0].Profile != "acme" {
 		t.Errorf("the suggestion is still shown: %+v", o)
 	}
@@ -227,13 +227,13 @@ func TestAddExistingNoAutoBindForStaticSuggestion(t *testing.T) {
 func TestAddExistingNoAutoBindWhenSettingOff(t *testing.T) {
 	f := newFixture(t)
 	f.store.noAutoBind = true
-	repo := f.outside("web-app", ccURL("web-app"))
-	f.ccAPIs["INITECH"].repos["web-app"] = "rid-initech"
+	repo := f.outside("acme_cs_portal", ccURL("acme_cs_portal"))
+	f.ccAPIs["INITECH"].repos["acme_cs_portal"] = "rid-initech"
 	res := f.add(repo)
 	if res.AutoBound || !res.Added {
 		t.Fatalf("%+v", res)
 	}
-	if o := f.byName(res.State, "web-app").Owner; o.Status != api.OwnerSingle || o.Candidates[0].Profile != "initech-admin" {
+	if o := f.byName(res.State, "acme_cs_portal").Owner; o.Status != api.OwnerSingle || o.Candidates[0].Profile != "initech-admin" {
 		t.Errorf("owner: %+v", o)
 	}
 	// AWS CLI missing: same
@@ -267,12 +267,12 @@ func (f *fixture) ambiguousSetup() (repo string, matchSecond func(bool)) {
 	if res, err := f.sb.Git.Run(context.Background(), work, nil, "push", "-q", "--force", bareB, "HEAD:refs/heads/main"); err != nil || res.ExitCode != 0 {
 		f.t.Fatalf("push: %v %s", err, res.Stderr)
 	}
-	repo = f.outside("web-app", ccURL("web-app"))
+	repo = f.outside("acme_cs_portal", ccURL("acme_cs_portal"))
 	if res, err := f.sb.Git.Run(context.Background(), repo, nil, "fetch", "-q", bareA, "main:refs/remotes/origin/main"); err != nil || res.ExitCode != 0 {
 		f.t.Fatalf("fetch: %v %s", err, res.Stderr)
 	}
-	f.ccAPIs["ACME"].repos["web-app"] = "rid-acme"       // 111122223333 is compared first
-	f.ccAPIs["INITECH"].repos["web-app"] = "rid-initech" // 777788889999 second
+	f.ccAPIs["ACME"].repos["acme_cs_portal"] = "rid-acme"       // 111122223333 is compared first
+	f.ccAPIs["INITECH"].repos["acme_cs_portal"] = "rid-initech" // 777788889999 second
 	calls := 0
 	matchSecond = func(second bool) {
 		calls = 0
@@ -292,14 +292,14 @@ func TestAddExistingAmbiguousResolvedByHeadMatch(t *testing.T) {
 	repo, match := f.ambiguousSetup()
 	match(true)
 	res := f.add(repo)
-	o := f.byName(res.State, "web-app").Owner
+	o := f.byName(res.State, "acme_cs_portal").Owner
 	if o.Status != api.OwnerAmbiguous || len(o.Candidates) != 2 || o.Candidates[0].HeadMatch || !o.Candidates[1].HeadMatch {
 		t.Fatalf("owner: %+v", o)
 	}
 	if !res.AutoBound || res.Outcome == nil {
 		t.Fatalf("a unique head match must bind: %+v", res)
 	}
-	if b := f.byName(res.State, "web-app").Binding; b.Profile != "initech-admin" || b.Source != api.BindingLocal {
+	if b := f.byName(res.State, "acme_cs_portal").Binding; b.Profile != "initech-admin" || b.Source != api.BindingLocal {
 		t.Errorf("binding: %+v", b)
 	}
 }
@@ -309,7 +309,7 @@ func TestAddExistingAmbiguousTieStaysUnbound(t *testing.T) {
 	repo, match := f.ambiguousSetup()
 	match(false)
 	res := f.add(repo)
-	o := f.byName(res.State, "web-app").Owner
+	o := f.byName(res.State, "acme_cs_portal").Owner
 	if o.Status != api.OwnerAmbiguous || res.AutoBound {
 		t.Fatalf("a tie needs the user's choice: %+v / %+v", res, o)
 	}

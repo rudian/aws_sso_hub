@@ -233,7 +233,7 @@ func TestListAccountsPaginates(t *testing.T) {
 	e.writeToken(t, goodToken(time.Hour))
 	e.por.accounts = [][]map[string]string{
 		{{"accountId": "111122223333", "accountName": "acme", "emailAddress": "a@x@example.com"}},
-		{{"accountId": "777788889999", "accountName": "initech-platform", "emailAddress": "b@x@example.com"}},
+		{{"accountId": "777788889999", "accountName": "initech", "emailAddress": "b@x@example.com"}},
 	}
 	e.por.roles["777788889999"] = []string{"AdministratorAccess", "ReadOnlyAccess"}
 	accts, err := e.m.ListAccounts(context.Background(), e.sess)

@@ -30,27 +30,27 @@ describe('rowKind', () => {
   it('fresh: legacy binding, URL rule and global defaults before detection', () => {
     const w = buildScenario('fresh')
     const list = repos(w)
-    expect(rowKind(byName(list, 'design-system'))).toBe('legacy')
-    expect(rowKind(byName(list, 'infra-terraform'))).toBe('url-rule')
-    expect(rowKind(byName(list, 'docs-site'))).toBe('global-default')
+    expect(rowKind(byName(list, 'acme_design'))).toBe('legacy')
+    expect(rowKind(byName(list, 'initech_infra'))).toBe('url-rule')
+    expect(rowKind(byName(list, 'acme_docs'))).toBe('global-default')
   })
 
   it('fresh: after detection the duplicate clone is ambiguous and the signed-out portal leaves a partial row', () => {
     const w = buildScenario('fresh')
     detectAll(w)
     const list = repos(w)
-    expect(rowKind(byName(list, 'web-app', 'archive'))).toBe('ambiguous')
-    expect(rowKind(byName(list, 'web-app', '~/code/web-app'))).toBe('global-default')
-    // analytics-dashboard lives in the initech account, whose portal is not usable: nothing found, one account skipped
-    expect(rowKind(byName(list, 'analytics-dashboard'))).toBe('partial')
+    expect(rowKind(byName(list, 'acme_cs_portal', 'archive'))).toBe('ambiguous')
+    expect(rowKind(byName(list, 'acme_cs_portal', '~/Documents/code/acme_cs_portal'))).toBe('global-default')
+    // initech_dashboard lives in the initech account, whose portal is not usable: nothing found, one account skipped
+    expect(rowKind(byName(list, 'initech_dashboard'))).toBe('partial')
   })
 
   it('edge: ssh, grc and repair rows', () => {
     const w = buildScenario('edge')
     const list = repos(w)
-    expect(rowKind(byName(list, 'data-pipeline'))).toBe('ssh')
-    expect(rowKind(byName(list, 'design-system'))).toBe('grc')
-    expect(rowKind(byName(list, 'analytics-dashboard'))).toBe('repair')
+    expect(rowKind(byName(list, 'acme_data'))).toBe('ssh')
+    expect(rowKind(byName(list, 'acme_design'))).toBe('grc')
+    expect(rowKind(byName(list, 'initech_dashboard'))).toBe('repair')
   })
 
   it('done: every row is bound', () => {
@@ -60,7 +60,7 @@ describe('rowKind', () => {
 
   it('precedence', () => {
     const w = buildScenario('done')
-    const r = mkRepo('/Users/alex/code/x', 'x', emptyBinding(BindingSource.BindingLocal, 'acme'))
+    const r = mkRepo('/Users/alex/Documents/code/x', 'x', emptyBinding(BindingSource.BindingLocal, 'acme'))
     r.binding = { ...r.binding, needsRepair: true, legacyPlain: true }
     r.owner = { ...r.owner, status: OwnerStatus.OwnerAmbiguous }
     expect(rowKind(r)).toBe('repair')
@@ -109,8 +109,8 @@ describe('filters', () => {
     expect(filterRepos(list, 'todo', undefined, '')).toHaveLength(list.filter((r) => r.toFix).length)
     expect(filterRepos(list, 'bound', undefined, '').every((r) => !r.toFix)).toBe(true)
     const initech = filterRepos(list, 'all', 'initech-admin', '')
-    expect(initech.map((r) => r.name).sort()).toEqual(['analytics-dashboard', 'infra-terraform', 'marketing-site'])
-    expect(filterRepos(list, 'all', undefined, 'WEB-APP').map((r) => r.name)).toEqual(['web-app', 'web-app', 'web-app-v2'])
+    expect(initech.map((r) => r.name).sort()).toEqual(['initech_dashboard', 'initech_infra', 'initech_site'])
+    expect(filterRepos(list, 'all', undefined, 'ACME_CS_PORTAL').map((r) => r.name)).toEqual(['acme_cs_portal', 'acme_cs_portal', 'acme_cs_portal_v2'])
     expect(filterRepos(list, 'all', undefined, 'archive/')).toHaveLength(1)
     expect(filterRepos(list, 'all', undefined, 'no-such-thing')).toHaveLength(0)
   })
@@ -141,17 +141,17 @@ describe('bulk bind', () => {
     detectAll(w)
     const plan = bindAllPlan(repos(w), w.accounts.profiles ?? [])
     const names = plan.items.map((i) => repos(w).find((r) => r.id === i.repoId)?.name).sort()
-    // team-handbook and release-notes belong to acme (SSO) and infra-terraform to initech (SSO);
-    // notification-service belongs to globex, which is still an access-key profile, so it is not suggested
-    expect(names).toEqual(['infra-terraform', 'release-notes', 'team-handbook'])
+    // acme_handbook and acme_changelog belong to acme (SSO) and initech_infra to initech (SSO);
+    // globex_backend belongs to globex, which is still an access-key profile, so it is not suggested
+    expect(names).toEqual(['acme_changelog', 'acme_handbook', 'initech_infra'])
     expect(plan.items.map((i) => i.profile).sort()).toEqual(['acme', 'acme', 'initech-admin'])
-    expect(plan.ambiguous.map((r) => r.displayPath)).toEqual(['~/code/archive/web-app'])
+    expect(plan.ambiguous.map((r) => r.displayPath)).toEqual(['~/Documents/code/archive/acme_cs_portal'])
   })
 
   it('a unique HEAD match resolves an ambiguous owner', () => {
     const w = buildScenario('mid')
     detectAll(w)
-    const dup = byName(repos(w), 'web-app', 'archive')
+    const dup = byName(repos(w), 'acme_cs_portal', 'archive')
     expect(suggestedProfile(dup)).toBeUndefined()
     dup.owner = { ...dup.owner, candidates: (dup.owner.candidates ?? []).map((c) => ({ ...c, headMatch: c.accountId === '444455556666' })) }
     expect(suggestedProfile(dup)).toBe('globex')
@@ -160,9 +160,9 @@ describe('bulk bind', () => {
   it('suggestedProfile keeps the profile of a URL rule, a legacy binding or a repair', () => {
     const w = buildScenario('fresh')
     const list = repos(w)
-    expect(suggestedProfile(byName(list, 'infra-terraform'))).toBe('initech-admin')
-    expect(suggestedProfile(byName(list, 'design-system'))).toBe('acme')
-    expect(suggestedProfile(byName(list, 'docs-site'))).toBeUndefined()
+    expect(suggestedProfile(byName(list, 'initech_infra'))).toBe('initech-admin')
+    expect(suggestedProfile(byName(list, 'acme_design'))).toBe('acme')
+    expect(suggestedProfile(byName(list, 'acme_docs'))).toBeUndefined()
   })
 })
 
@@ -200,15 +200,15 @@ describe('profiles and test text', () => {
 
 describe('splitMiddle', () => {
   it('keeps short values whole', () => {
-    expect(splitMiddle('~/code/api')).toEqual({ head: '', tail: '~/code/api' })
+    expect(splitMiddle('~/Documents/api')).toEqual({ head: '', tail: '~/Documents/api' })
   })
   it('keeps the last path segment as the tail', () => {
-    expect(splitMiddle('~/code/archive/web-app')).toEqual({ head: '~/code/archive', tail: '/web-app' })
+    expect(splitMiddle('~/Documents/code/archive/acme_cs_portal')).toEqual({ head: '~/Documents/code/archive', tail: '/acme_cs_portal' })
   })
   it('keeps the host-and-path tail of a remote', () => {
-    const { head, tail } = splitMiddle('ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/infra-terraform')
-    expect(head + tail).toBe('ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/infra-terraform')
-    expect(tail).toBe('/infra-terraform')
+    const { head, tail } = splitMiddle('ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/initech_infra')
+    expect(head + tail).toBe('ssh://git-codecommit.us-west-2.amazonaws.com/v1/repos/initech_infra')
+    expect(tail).toBe('/initech_infra')
   })
   it('falls back to a character tail when the last segment is long', () => {
     const v = '/a/b/' + 'x'.repeat(60)

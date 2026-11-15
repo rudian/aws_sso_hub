@@ -128,7 +128,7 @@ func TestUpdateSettingsHooksAndRescan(t *testing.T) {
 	langs := []string{}
 	w.c.OnUILanguage(func(l string) { langs = append(langs, l) })
 
-	w.gitRepo("web-app", ccURL("web-app"))
+	w.gitRepo("acme_cs_portal", ccURL("acme_cs_portal"))
 	root := t.TempDir()
 	tray := api.TraySettings{Enabled: true, KeepRunning: true}
 	got, err := w.sys.UpdateSettings(api.SettingsPatch{Tray: &tray, ScanRoots: []string{root}})
@@ -282,7 +282,7 @@ func TestSelfTestReport(t *testing.T) {
 	if _, err := w.sys.UpdateSettings(api.SettingsPatch{AWSCLIPath: &awsPath}); err != nil {
 		t.Fatal(err)
 	}
-	w.gitRepo("web-app", ccURL("web-app"))
+	w.gitRepo("acme_cs_portal", ccURL("acme_cs_portal"))
 	out := filepath.Join(t.TempDir(), "selftest.json")
 	if err := RunSelfTest(w.c, out); err != nil {
 		t.Fatal(err)

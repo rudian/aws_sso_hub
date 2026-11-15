@@ -172,7 +172,7 @@ func TestDiscoverPartialRoles(t *testing.T) {
 	h := newHarness(t, true)
 	h.writeToken(2*60*60*1e9, "CID-x")
 	h.por.SetAccounts(
-		[]ssotest.Account{{ID: "777788889999", Name: "initech-platform", Email: "a@x@example.com"}, {ID: "111122223333", Name: "acme", Email: "b@x@example.com"}},
+		[]ssotest.Account{{ID: "777788889999", Name: "initech", Email: "a@x@example.com"}, {ID: "111122223333", Name: "acme", Email: "b@x@example.com"}},
 		[]ssotest.Account{{ID: "444455556666", Name: "globex", Email: "c@x@example.com"}},
 	)
 	h.por.SetRoles("777788889999", "ReadOnlyAccess", "AdministratorAccess")
@@ -182,7 +182,7 @@ func TestDiscoverPartialRoles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res) != 3 || res[0].AccountName != "acme" || res[1].AccountName != "globex" || res[2].AccountName != "initech-platform" {
+	if len(res) != 3 || res[0].AccountName != "acme" || res[1].AccountName != "globex" || res[2].AccountName != "initech" {
 		t.Fatalf("order: %v", jsonOf(res))
 	}
 	if res[1].RolesError == nil || len(res[1].Roles) != 0 || res[1].Roles == nil {
@@ -194,7 +194,7 @@ func TestDiscoverPartialRoles(t *testing.T) {
 	if res[0].Roles[0].SuggestedProfile != "acme-admin" || res[0].Roles[1].SuggestedProfile != "acme-poweruser" {
 		t.Fatalf("%+v", res[0].Roles)
 	}
-	// existing profile: initech-platform/AdministratorAccess == initech-admin
+	// existing profile: initech/AdministratorAccess == initech-admin
 	if res[2].Roles[0].ExistingProfile != "initech-admin" || res[2].Roles[1].ExistingProfile != "initech-readonly" {
 		t.Fatalf("%+v", res[2].Roles)
 	}
@@ -222,7 +222,7 @@ func TestDiscoverPartialRoles(t *testing.T) {
 	// LoadRoles
 	h.por.SetUnauthorized(false)
 	da, err := h.eng.LoadRoles(bg, "initech", "777788889999")
-	if err != nil || len(da.Roles) != 2 || da.Roles[0].ExistingProfile != "initech-admin" || da.AccountName != "initech-platform" {
+	if err != nil || len(da.Roles) != 2 || da.Roles[0].ExistingProfile != "initech-admin" || da.AccountName != "initech" {
 		t.Fatalf("%+v %v", da, err)
 	}
 }
@@ -231,8 +231,8 @@ func TestCreateProfilesWritesAndBacksUp(t *testing.T) {
 	h := newHarness(t, true)
 	before, _ := os.ReadFile(h.p.AWSConfigFile)
 	req := api.CreateProfilesRequest{Portal: "initech", Profiles: []api.NewProfileSpec{
-		{Name: "initech-prod", AccountID: "777788889999", AccountName: "initech-platform", Role: "ReadOnlyAccess"},
-		{Name: "initech-dev", AccountID: "777788889999", AccountName: "initech-platform", Role: "PowerUserAccess", Region: "us-west-2"},
+		{Name: "initech-prod", AccountID: "777788889999", AccountName: "initech", Role: "ReadOnlyAccess"},
+		{Name: "initech-dev", AccountID: "777788889999", AccountName: "initech", Role: "PowerUserAccess", Region: "us-west-2"},
 	}}
 	pv, err := h.eng.PreviewCreate(req)
 	if err != nil {

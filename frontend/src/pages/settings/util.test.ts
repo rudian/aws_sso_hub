@@ -25,7 +25,7 @@ describe('backup reasons', () => {
   })
   it('fills in the parameters', () => {
     expect(backupReasonText(entry(BackupReason.ReasonMigrate, { profile: 'acme' }), makeT('en'))).toBe('Migrated acme')
-    expect(backupReasonText(entry(BackupReason.ReasonBind, { repo: 'web-app' }), makeT('zh-CN'))).toBe('绑定 web-app')
+    expect(backupReasonText(entry(BackupReason.ReasonBind, { repo: 'acme_cs_portal' }), makeT('zh-CN'))).toBe('绑定 acme_cs_portal')
     expect(backupReasonText(entry(BackupReason.ReasonAddProfiles, { n: '3' }), makeT('en'))).toBe('Added 3 profiles')
     expect(backupReasonText(entry(BackupReason.ReasonImport, { n: '1' }), makeT('en'))).toBe('Imported 1 account item')
   })

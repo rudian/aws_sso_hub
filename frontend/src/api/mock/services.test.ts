@@ -40,14 +40,14 @@ describe('mock services', () => {
     resetWorld('fresh')
     const s = await call(mock.repos.DetectOwners(null))
     const byPath = (p: string) => s.repos?.find((r) => r.displayPath === p) as Repo
-    const acmeRow = byPath('~/code/api-server')
+    const acmeRow = byPath('~/Documents/code/acme_api')
     expect(acmeRow.owner.status).toBe(OwnerStatus.OwnerSingle)
     expect(acmeRow.owner.candidates?.[0].profile).toBe('acme')
     expect(acmeRow.owner.checkedWith).toBe(2)
     expect(acmeRow.owner.skippedPortals).toEqual(['initech'])
-    expect(byPath('~/code/archive/web-app').owner.status).toBe(OwnerStatus.OwnerAmbiguous)
-    expect(byPath('~/code/notification-service').owner.candidates?.[0].profile).toBe('globex')
-    expect(byPath('~/code/analytics-dashboard').owner.status).toBe(OwnerStatus.OwnerPartial)
+    expect(byPath('~/Documents/code/archive/acme_cs_portal').owner.status).toBe(OwnerStatus.OwnerAmbiguous)
+    expect(byPath('~/Documents/code/globex_backend').owner.candidates?.[0].profile).toBe('globex')
+    expect(byPath('~/Documents/code/initech_dashboard').owner.status).toBe(OwnerStatus.OwnerPartial)
   })
 
   it('CompareCommits marks the account whose HEAD matches', async () => {
@@ -60,12 +60,12 @@ describe('mock services', () => {
 
   it('Bind updates the row, counts and backups; Unbind returns to the global default', async () => {
     resetWorld('fresh')
-    const id = getWorld().repos.find((r) => r.name === 'notification-service')!.id
+    const id = getWorld().repos.find((r) => r.name === 'globex_backend')!.id
     const out = await call(mock.repos.Bind(id, 'globex'))
     expect(out.ok).toBe(true)
     expect(out.repo?.binding).toMatchObject({ source: BindingSource.BindingLocal, profile: 'globex', profileKnown: true, colorSlot: 6 })
     expect((await call(mock.repos.GetState())).counts).toEqual({ all: 16, toFix: 15, bound: 1 })
-    expect(getWorld().backups.at(-1)).toMatchObject({ kind: 'git-local', reason: 'bind', reasonParams: { repo: 'notification-service' } })
+    expect(getWorld().backups.at(-1)).toMatchObject({ kind: 'git-local', reason: 'bind', reasonParams: { repo: 'globex_backend' } })
     const un = await call(mock.repos.Unbind(id))
     expect(un.repo?.binding.source).toBe(BindingSource.BindingGlobalDefault)
     expect(un.repo?.binding.profile).toBe('acme')
@@ -74,18 +74,18 @@ describe('mock services', () => {
   it('Bind rejects SSH and GRC remotes and a missing CLI', async () => {
     resetWorld('edge')
     const w = getWorld()
-    expect(await code(mock.repos.Bind(w.repos.find((r) => r.name === 'data-pipeline')!.id, 'acme'))).toBe(ErrorCode.ErrAWSCLIMissing)
+    expect(await code(mock.repos.Bind(w.repos.find((r) => r.name === 'acme_data')!.id, 'acme'))).toBe(ErrorCode.ErrAWSCLIMissing)
     w.awsCliReady = true
-    expect(await code(mock.repos.Bind(w.repos.find((r) => r.name === 'data-pipeline')!.id, 'acme'))).toBe(ErrorCode.ErrRemoteSSH)
-    expect(await code(mock.repos.Bind(w.repos.find((r) => r.name === 'design-system')!.id, 'acme'))).toBe(ErrorCode.ErrRemoteGRC)
+    expect(await code(mock.repos.Bind(w.repos.find((r) => r.name === 'acme_data')!.id, 'acme'))).toBe(ErrorCode.ErrRemoteSSH)
+    expect(await code(mock.repos.Bind(w.repos.find((r) => r.name === 'acme_design')!.id, 'acme'))).toBe(ErrorCode.ErrRemoteGRC)
   })
 
   it('TestConnection is ok for static profiles and signed-out for an expired portal', async () => {
     resetWorld('fresh')
     const w = getWorld()
-    const legacyRepo = w.repos.find((r) => r.name === 'design-system')!
+    const legacyRepo = w.repos.find((r) => r.name === 'acme_design')!
     expect((await call(mock.repos.TestConnection(legacyRepo.id))).status).toBe('ok')
-    const wl = w.repos.find((r) => r.name === 'infra-terraform')!
+    const wl = w.repos.find((r) => r.name === 'initech_infra')!
     await call(mock.repos.Bind(wl.id, 'initech-admin'))
     const r = await call(mock.repos.TestConnection(wl.id))
     expect(r).toMatchObject({ status: 'signed-out', portal: 'initech' })
@@ -96,12 +96,12 @@ describe('mock services', () => {
     const { onEvent } = await import('../events')
     const lines: string[] = []
     const off = onEvent('clone:progress', (p) => lines.push(p.line))
-    const out = await call(mock.repos.Clone({ profile: 'initech-admin', region: 'us-west-2', repoName: 'cfn-templates', parentDir: '/Users/alex/code', folderName: 'cfn-templates' }))
+    const out = await call(mock.repos.Clone({ profile: 'initech-admin', region: 'us-west-2', repoName: 'initech_cfn', parentDir: '/Users/alex/Documents/code', folderName: 'initech_cfn' }))
     off()
     expect(lines).toHaveLength(5)
-    expect(lines[0]).toBe("Cloning into 'cfn-templates'...")
+    expect(lines[0]).toBe("Cloning into 'initech_cfn'...")
     expect(out.repo?.binding).toMatchObject({ source: 'local', profile: 'initech-admin' })
-    expect(await code(mock.repos.Clone({ profile: 'initech-admin', region: 'us-west-2', repoName: 'x', parentDir: '/Users/alex/code', folderName: 'cfn-templates' }))).toBe(ErrorCode.ErrDestExists)
+    expect(await code(mock.repos.Clone({ profile: 'initech-admin', region: 'us-west-2', repoName: 'x', parentDir: '/Users/alex/Documents/code', folderName: 'initech_cfn' }))).toBe(ErrorCode.ErrDestExists)
   })
 
   it('GitGlobal: removing the default is blocked while a URL rule exists, then works after migrating the rule', async () => {
@@ -232,14 +232,14 @@ describe('mock services', () => {
 
   it('CreateProfiles adds profiles, makes a draft portal real, and rejects duplicates', async () => {
     resetWorld('mid')
-    const req = { portal: 'initech', profiles: [{ name: 'initech-platform-poweruser', accountId: '777788889999', accountName: 'initech-platform', role: 'PowerUserAccess', region: 'us-west-2' }] }
+    const req = { portal: 'initech', profiles: [{ name: 'initech-poweruser', accountId: '777788889999', accountName: 'initech', role: 'PowerUserAccess', region: 'us-west-2' }] }
     const prev = await call(mock.accounts.PreviewCreateProfiles(req))
     expect(prev.added).toBeGreaterThan(0)
     const res = await call(mock.accounts.CreateProfiles(req, prev.baseHash))
-    expect(res.profiles).toEqual(['initech-platform-poweruser'])
+    expect(res.profiles).toEqual(['initech-poweruser'])
     const st = await call(mock.accounts.GetState())
-    expect(st.profiles?.find((p) => p.name === 'initech-platform-poweruser')).toMatchObject({ colorSlot: 3, kind: 'sso' })
-    expect(st.portals?.[0].profiles).toContain('initech-platform-poweruser')
+    expect(st.profiles?.find((p) => p.name === 'initech-poweruser')).toMatchObject({ colorSlot: 3, kind: 'sso' })
+    expect(st.portals?.[0].profiles).toContain('initech-poweruser')
     expect(await code(mock.accounts.CreateProfiles(req, prev.baseHash))).toBe(ErrorCode.ErrProfileExists)
   })
 
@@ -302,7 +302,7 @@ describe('mock services', () => {
   it('RepairBindings repairs needsRepair and legacy-plain bindings', async () => {
     resetWorld('fresh')
     const w = getWorld()
-    const legacyRepo = w.repos.find((r) => r.name === 'design-system')!
+    const legacyRepo = w.repos.find((r) => r.name === 'acme_design')!
     expect(legacyRepo.binding.legacyPlain).toBe(true)
     const out = await call(mock.repos.RepairBindings())
     expect(out).toHaveLength(1)
@@ -313,7 +313,7 @@ describe('mock services', () => {
     resetWorld('fresh')
     const w = getWorld()
     w.portalModels['initech'].refreshFailed = true
-    const r = w.repos.find((x) => x.name === 'infra-terraform')!
+    const r = w.repos.find((x) => x.name === 'initech_infra')!
     const p = await call(mock.repos.PreviewBind(r.id, 'initech-admin'))
     expect(p.commands?.[0]).toContain("credential.https://git-codecommit.us-west-2.amazonaws.com.helper")
     expect(p.commands?.some((c) => c.includes('awsssohub.accountId') && c.includes('777788889999'))).toBe(true)
@@ -334,7 +334,7 @@ describe('mock services', () => {
   it('done: owner detection reports the signed-out portal', async () => {
     resetWorld('done')
     const w = getWorld()
-    const row = w.repos.find((r) => r.name === 'notification-service')!
+    const row = w.repos.find((r) => r.name === 'globex_backend')!
     const st = await call(mock.repos.DetectOwners([row.id]))
     const owner = st.repos!.find((r) => r.id === row.id)!.owner
     expect(owner.status).toBe(OwnerStatus.OwnerPartial)
@@ -416,18 +416,18 @@ describe('mock services', () => {
 
   it('suggested profile order: bound first, SSO before static, most bound repos, then the name', async () => {
     const w = resetWorld('mid')
-    const acctRepo = w.repos.find((r) => r.name === 'web-app')!
+    const acctRepo = w.repos.find((r) => r.name === 'acme_cs_portal')!
     // a second SSO profile for the acme account that carries more bound repositories than acme
     const base = w.accounts.profiles!.find((p) => p.name === 'acme')!
     w.accounts.profiles!.push({ ...base, name: 'acme-ops' })
-    const before = (await call(mock.repos.DetectOwners([w.repos.find((r) => r.name === 'team-handbook')!.id]))).repos!.find((r) => r.name === 'team-handbook')!
+    const before = (await call(mock.repos.DetectOwners([w.repos.find((r) => r.name === 'acme_handbook')!.id]))).repos!.find((r) => r.name === 'acme_handbook')!
     // acme has 9 bound repos, acme-ops none: the busier profile wins
     expect(before.owner.candidates?.[0].profile).toBe('acme')
-    for (const n of ['api-server', 'web-app-v2', 'mobile-app', 'auth-service', 'search-service', 'data-pipeline', 'design-system', 'docs-site']) {
+    for (const n of ['acme_api', 'acme_cs_portal_v2', 'acme_agent_portal', 'acme_auth', 'acme_search', 'acme_data', 'acme_design', 'acme_docs']) {
       const r = w.repos.find((x) => x.name === n)!
       r.binding = { ...r.binding, profile: 'acme-ops' }
     }
-    const after = (await call(mock.repos.DetectOwners([w.repos.find((r) => r.name === 'team-handbook')!.id]))).repos!.find((r) => r.name === 'team-handbook')!
+    const after = (await call(mock.repos.DetectOwners([w.repos.find((r) => r.name === 'acme_handbook')!.id]))).repos!.find((r) => r.name === 'acme_handbook')!
     expect(after.owner.candidates?.[0].profile).toBe('acme-ops')
     // the repository that is bound to acme keeps acme even though acme-ops has more bound repositories
     const mine = (await call(mock.repos.DetectOwners([acctRepo.id]))).repos!.find((r) => r.id === acctRepo.id)!

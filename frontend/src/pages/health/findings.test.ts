@@ -21,7 +21,7 @@ describe('describeFinding', () => {
   it('default keys, global static, url userinfo, pending deactivation point at the right place', () => {
     expect(describeFinding({ ...base, kind: HealthKind.HealthDefaultKeys } as HealthFinding, t).action).toEqual({ kind: 'tutorial', section: 'faq' })
     expect(describeFinding({ ...base, kind: HealthKind.HealthGlobalStatic, profile: 'acme' } as HealthFinding, t).action).toEqual({ kind: 'git' })
-    expect(describeFinding({ ...base, kind: HealthKind.HealthURLUserinfo, params: { repo: 'design-system' } } as HealthFinding, t).action).toEqual({ kind: 'repos' })
+    expect(describeFinding({ ...base, kind: HealthKind.HealthURLUserinfo, params: { repo: 'acme_design' } } as HealthFinding, t).action).toEqual({ kind: 'repos' })
     const p = describeFinding({ ...base, kind: HealthKind.HealthPendingKey, severity: Severity.SeverityInfo, profile: 'acme', params: { maskedKeyId: 'AKIA••••••••••••3F2A' } } as HealthFinding, t)
     expect(p.status).toBe('info')
     expect(p.action).toEqual({ kind: 'tutorial', section: 'migrate' })

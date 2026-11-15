@@ -170,14 +170,14 @@ const (
 	ghHelper    = "!gh auth git-credential"
 	defaultOnly = "[credential]\n\thelper = \n\thelper = !aws codecommit credential-helper $@ --profile acme\n\tusehttppath = true\n" +
 		"[credential \"https://github.com\"]\n\thelper = \n\thelper = " + ghHelper + "\n"
-	urlRule = "[credential \"https://" + hostAP + "/v1/repos/infra-terraform\"]\n\thelper = \n\thelper = !aws --profile initech-admin codecommit credential-helper $@\n"
+	urlRule = "[credential \"https://" + hostAP + "/v1/repos/initech_infra\"]\n\thelper = \n\thelper = !aws --profile initech-admin codecommit credential-helper $@\n"
 )
 
 func TestStateParsesRealLayout(t *testing.T) {
 	f := newFx(t)
 	f.sb.WriteGlobal(t, defaultOnly+urlRule)
 	f.repo("a", ccURL("a_repo"))
-	f.repo("infra-terraform", ccURL("infra-terraform"))
+	f.repo("initech_infra", ccURL("initech_infra"))
 	st := f.scan()
 	gs, err := f.eng.State(context.Background())
 	if err != nil {
@@ -193,8 +193,8 @@ func TestStateParsesRealLayout(t *testing.T) {
 		t.Fatalf("rules: %+v", gs.URLRules)
 	}
 	r := gs.URLRules[0]
-	if r.Pattern != ccURL("infra-terraform") || r.Profile != "initech-admin" || !r.ProfileKnown || r.ColorSlot != 3 || r.Monogram != "IA" || r.ExtraKeys ||
-		len(r.MatchedRepoIDs) != 1 || r.MatchedRepoIDs[0] != f.id(st, "infra-terraform") {
+	if r.Pattern != ccURL("initech_infra") || r.Profile != "initech-admin" || !r.ProfileKnown || r.ColorSlot != 3 || r.Monogram != "IA" || r.ExtraKeys ||
+		len(r.MatchedRepoIDs) != 1 || r.MatchedRepoIDs[0] != f.id(st, "initech_infra") {
 		t.Errorf("rule: %+v", r)
 	}
 	if gs.Guard.Installed || len(gs.Guard.Patterns) != 0 || !gs.SavedCredentialsSupported {
@@ -398,14 +398,14 @@ func TestApplyRejectsStaleBaseHash(t *testing.T) {
 func dupFixture(t *testing.T) (*fx, api.ReposState) {
 	f := newFx(t)
 	f.sb.WriteGlobal(t, defaultOnly+urlRule)
-	f.repo("infra-terraform-one", ccURL("infra-terraform"))
-	f.repo("infra-terraform-two", ccURL("infra-terraform"))
+	f.repo("initech_infra-one", ccURL("initech_infra"))
+	f.repo("initech_infra-two", ccURL("initech_infra"))
 	return f, f.scan()
 }
 
 func TestURLRuleMigrationDuplicateNeedsAssignment(t *testing.T) {
 	f, st := dupFixture(t)
-	pattern := ccURL("infra-terraform")
+	pattern := ccURL("initech_infra")
 	plan, err := f.eng.PreviewURLRule(context.Background(), pattern)
 	if err != nil {
 		t.Fatal(err)
@@ -413,7 +413,7 @@ func TestURLRuleMigrationDuplicateNeedsAssignment(t *testing.T) {
 	if !plan.DuplicateURLs || len(plan.Repos) != 2 || plan.Profile != "initech-admin" || plan.Preview.Removed == 0 || plan.Preview.BaseHash == "" {
 		t.Errorf("plan: %+v", plan)
 	}
-	one, two := f.id(st, "infra-terraform-one"), f.id(st, "infra-terraform-two")
+	one, two := f.id(st, "initech_infra-one"), f.id(st, "initech_infra-two")
 	before := f.global()
 	hash := sha(before)
 	for name, m := range map[string]api.URLRuleMigration{
@@ -446,7 +446,7 @@ func TestURLRuleMigrationDuplicateNeedsAssignment(t *testing.T) {
 	if byID[one] != "initech-admin" || byID[two] != "acme" {
 		t.Errorf("each clone keeps its own assignment: %v", byID)
 	}
-	if strings.Contains(f.global(), "infra-terraform") {
+	if strings.Contains(f.global(), "initech_infra") {
 		t.Errorf("rule not removed:\n%s", f.global())
 	}
 	// the global-file backup was taken with the original content
@@ -464,19 +464,19 @@ func TestURLRuleMigrationDuplicateNeedsAssignment(t *testing.T) {
 func TestMigrateURLRuleRemovesSection(t *testing.T) {
 	f := newFx(t)
 	f.sb.WriteGlobal(t, defaultOnly+urlRule+"[credential \""+ccURL("other_rule")+"\"]\n\thelper = \n\thelper = !aws --profile acme codecommit credential-helper $@\n\tinteractive = false\n")
-	f.repo("infra-terraform", ccURL("infra-terraform"))
+	f.repo("initech_infra", ccURL("initech_infra"))
 	f.repo("other", ccURL("other_rule"))
 	st := f.scan()
 	gs, _ := f.eng.State(context.Background())
 	if len(gs.URLRules) != 2 || gs.URLRules[1].ExtraKeys != true || gs.URLRules[0].ExtraKeys {
 		t.Fatalf("rules: %+v", gs.URLRules)
 	}
-	res, err := f.eng.MigrateURLRule(context.Background(), api2(ccURL("infra-terraform"), f.id(st, "infra-terraform"), "initech-admin"), gs.BaseHash)
+	res, err := f.eng.MigrateURLRule(context.Background(), api2(ccURL("initech_infra"), f.id(st, "initech_infra"), "initech-admin"), gs.BaseHash)
 	if err != nil || !res.RuleRemoved {
 		t.Fatalf("%+v %v", res, err)
 	}
 	g := f.global()
-	if strings.Contains(g, "infra-terraform") || !strings.Contains(g, ccURL("other_rule")) {
+	if strings.Contains(g, "initech_infra") || !strings.Contains(g, ccURL("other_rule")) {
 		t.Errorf("only the migrated rule must go:\n%s", g)
 	}
 	// extra keys: only the helper values go
@@ -491,14 +491,14 @@ func TestMigrateURLRuleRemovesSection(t *testing.T) {
 	// a failing bind keeps the rule
 	f2 := newFx(t)
 	f2.sb.WriteGlobal(t, defaultOnly+urlRule)
-	f2.repo("infra-terraform", ccURL("infra-terraform"))
+	f2.repo("initech_infra", ccURL("initech_infra"))
 	st2 := f2.scan()
 	gs2, _ := f2.eng.State(context.Background())
-	res, err = f2.eng.MigrateURLRule(context.Background(), api2(ccURL("infra-terraform"), f2.id(st2, "infra-terraform"), "no-such-profile"), gs2.BaseHash)
+	res, err = f2.eng.MigrateURLRule(context.Background(), api2(ccURL("initech_infra"), f2.id(st2, "initech_infra"), "no-such-profile"), gs2.BaseHash)
 	if err != nil || res.RuleRemoved || len(res.Outcomes) != 1 || res.Outcomes[0].OK || res.Outcomes[0].Error == nil {
 		t.Errorf("failed bind: %+v %v", res, err)
 	}
-	if !strings.Contains(f2.global(), "infra-terraform") {
+	if !strings.Contains(f2.global(), "initech_infra") {
 		t.Error("rule must stay when a bind failed")
 	}
 	// unknown pattern

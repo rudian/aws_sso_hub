@@ -152,7 +152,7 @@ func TestRestoreRejectsTargetsOutsideTheAppsFiles(t *testing.T) {
 
 func TestRestoreAcceptsKnownRepositoryConfig(t *testing.T) {
 	w := newWorld(t)
-	dir := w.gitRepo("web-app", ccURL("web-app"))
+	dir := w.gitRepo("acme_cs_portal", ccURL("acme_cs_portal"))
 	if _, err := w.c.Repos.Scan(context.Background()); err != nil {
 		t.Fatal(err)
 	}
