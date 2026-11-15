@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/rudian/codepass/internal/api"
@@ -79,35 +78,45 @@ func ctxErr(err error) error {
 }
 
 func (e *Engine) cloneTarget(req api.CloneRequest) (dest, url string, err error) {
+	dest, url, _, err = e.cloneTargetNamed(req)
+	return dest, url, err
+}
+
+// cloneTargetNamed is cloneTarget that also returns the folder name used: the request's, or the remote name when
+// it was left empty.
+func (e *Engine) cloneTargetNamed(req api.CloneRequest) (dest, url, folder string, err error) {
 	if !gitx.RegionRE.MatchString(req.Region) {
-		return "", "", api.NewError(api.ErrInvalidRegion, "invalid region")
+		return "", "", "", api.NewError(api.ErrInvalidRegion, "invalid region")
 	}
 	if !reRepoName.MatchString(req.RepoName) {
-		return "", "", api.NewError(api.ErrInvalidInput, "invalid repository name").WithParam("field", "repoName")
+		return "", "", "", api.NewError(api.ErrInvalidInput, "invalid repository name").WithParam("field", "repoName")
 	}
 	f := req.FolderName
-	if f == "" || f == "." || f == ".." || strings.ContainsAny(f, `/\`) {
-		return "", "", api.NewError(api.ErrInvalidInput, "invalid folder name").WithParam("field", "folderName")
+	if f == "" {
+		f = req.RepoName // the optional folder name: the remote's own name
+	}
+	if verr := ValidateFolderName(f); verr != nil {
+		return "", "", "", verr
 	}
 	if !filepath.IsAbs(req.ParentDir) {
-		return "", "", api.NewError(api.ErrInvalidInput, "parent folder must be an absolute path").WithParam("field", "parentDir")
+		return "", "", "", api.NewError(api.ErrInvalidInput, "parent folder must be an absolute path").WithParam("field", "parentDir")
 	}
 	if st, serr := os.Stat(req.ParentDir); serr != nil || !st.IsDir() {
-		return "", "", api.NewError(api.ErrInvalidInput, "parent folder does not exist").WithParam("field", "parentDir")
+		return "", "", "", api.NewError(api.ErrInvalidInput, "parent folder does not exist").WithParam("field", "parentDir")
 	}
 	dest = filepath.Join(req.ParentDir, f)
 	url = "https://" + hostFor(req.Region) + "/v1/repos/" + req.RepoName
-	return dest, url, nil
+	return dest, url, f, nil
 }
 
 // PreviewClone validates a clone request and shows the destination and command.
 func (e *Engine) PreviewClone(ctx context.Context, req api.CloneRequest) (api.ClonePreview, error) {
-	dest, url, err := e.cloneTarget(req)
+	dest, url, folder, err := e.cloneTargetNamed(req)
 	if err != nil {
 		return api.ClonePreview{}, err
 	}
 	_, statErr := os.Lstat(dest)
-	return api.ClonePreview{Dest: dest, Exists: statErr == nil, Command: "git clone " + url, HTTPSURL: url}, nil
+	return api.ClonePreview{Dest: dest, Exists: statErr == nil, FolderName: folder, Command: "git clone " + url, HTTPSURL: url}, nil
 }
 
 // Clone clones a CodeCommit repository with the binding already applied.

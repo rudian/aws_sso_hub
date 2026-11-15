@@ -285,9 +285,18 @@ func (r *RepoRecord) hasOwnData() bool {
 }
 
 // movedFrom is the match rule for MovedFrom and Reattach, applied to d.
-func movedFrom(d *Data, id string) (RepoRecord, bool) {
+func movedFrom(d *Data, id string) (RepoRecord, bool) { return movedMatch(d, id, false) }
+
+// movedMatch is movedFrom; withData true also matches a found record that has data of its own, which Reattach
+// needs to refuse it with ErrHasData instead of ErrNotFound.
+func movedMatch(d *Data, id string, withData bool) (RepoRecord, bool) {
 	cur := d.FindRepo(id)
 	if cur == nil || cur.FirstCommit == "" || cur.MissingSince != nil || cur.FirstSeen == nil {
+		return RepoRecord{}, false
+	}
+	// A found record that already has data of its own (project, hidden flag, identity override, ...) is not
+	// asked about: answering "yes" would delete that data, so the question goes away instead (FU-18a).
+	if !withData && cur.hasOwnData() {
 		return RepoRecord{}, false
 	}
 	var found *RepoRecord
@@ -356,7 +365,7 @@ func (s *Store) DeclineMove(newID, oldID string) error {
 // identity override, binding, AI defaults or integrated commits of its own (they would be lost).
 func (s *Store) Reattach(oldID, newID string) error {
 	err := s.Mutate(func(d *Data) error {
-		if m, ok := movedFrom(d, newID); !ok || m.ID != oldID {
+		if m, ok := movedMatch(d, newID, true); !ok || m.ID != oldID {
 			return fmt.Errorf("%w: no unique moved repository for %s", ErrNotFound, newID)
 		}
 		old, cur := d.FindRepo(oldID), d.FindRepo(newID)

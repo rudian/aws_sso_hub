@@ -1,12 +1,12 @@
 import { CancellablePromise } from '@wailsio/runtime'
 import * as RepoReal from '../../../bindings/github.com/rudian/codepass/internal/app/reposervice'
-import { BackupKind, BackupReason, BindWarning, BindingSource, ErrorCode, OwnerStatus, ProfileKind, RemoteKind, SessionState, StaticState, TestStatus } from '../models'
-import type { BindOutcome, OwnerResult, Repo, TestResult } from '../models'
+import { BackupKind, BackupReason, BindWarning, BindingSource, ErrorCode, OwnerStatus, ProfileKind, RemoteKind, RepoProvider, SessionState, StaticState, TestStatus } from '../models'
+import type { BindOutcome, OwnerResult, Repo, RepoStatus, ReposState, TestResult } from '../models'
 import { mockEmit } from '../events'
 import { deepCopy, iso, now } from './clock'
-import { ACCT, CC_HOST, HOME, REGION_OF_ACCT, SCAN_ROOT_DISPLAY, accountIdOfProfile, accountsState, acctKeyOfId, addBackup, allProfiles, candidateFor, emptyBinding, emptyOwner, findPortal, findProfile, getWorld, httpsUrl, isUsable, mkRepo, recompute, reposState } from './world'
+import { ACCT, CC_HOST, HOME, REGION_OF_ACCT, SCAN_ROOT, SCAN_ROOT_DISPLAY, accountIdOfProfile, accountsState, acctKeyOfId, addBackup, allProfiles, candidateFor, emptyBinding, emptyOwner, fakeHash16, findPortal, findProfile, getWorld, httpsUrl, isUsable, mkRepo, recompute, reposState } from './world'
 import type { World } from './world'
-import { SCAN, SLOW, WRITE, fail, run, toRuntimeError } from './util'
+import { READ, SCAN, SLOW, WRITE, fail, run, toRuntimeError } from './util'
 
 const REGION_RE = /^[a-z]{2}(-gov|-iso[a-z]*)?-[a-z]+-[0-9]{1,2}$/
 
@@ -154,6 +154,124 @@ function testStatusFor(w: World, r: Repo): TestResult {
   return { ...base, status: TestStatus.TestSignedOut, profile: p.name, portal: p.portal }
 }
 
+// ------------------------------------------------------------------ F1-11: any git repository, hiding, projects
+
+/** Why a clone folder name is refused, or '' when it is fine. Mirrors repos.ValidateFolderName in Go. */
+export function folderNameReason(name: string): string {
+  if (name === '') return 'empty'
+  if (name === '.' || name === '..') return 'dots'
+  if (/[\\/]/.test(name)) return 'separator'
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f<>:"|?*]/.test(name)) return 'bad-char'
+  if (/[. ]$/.test(name)) return 'trailing'
+  const stem = name.split('.')[0].replace(/ +$/, '').toUpperCase()
+  if (/^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9\u00b9\u00b2\u00b3]|LPT[1-9\u00b9\u00b2\u00b3])$/.test(stem)) return 'reserved'
+  if (new TextEncoder().encode(name).length > 255) return 'too-long'
+  return ''
+}
+
+function checkFolderName(name: string): void {
+  const reason = folderNameReason(name)
+  if (reason) throw fail(ErrorCode.ErrInvalidInput, 'invalid folder name', { field: 'folderName', reason })
+}
+
+function providerOf(url: string): RepoProvider {
+  if (/^(https:\/\/([^@/]+@)?|git@|ssh:\/\/git@)(www\.)?github\.com[:/]/i.test(url)) return RepoProvider.ProviderGitHub
+  if (/^(https:\/\/([^@/]+@)?|git@|ssh:\/\/git@)(www\.)?bitbucket\.org[:/]/i.test(url)) return RepoProvider.ProviderBitbucket
+  return RepoProvider.ProviderOther
+}
+
+/** A repository that is not CodeCommit: follows the machine's own git setup. */
+export function mkOtherRepo(path: string, remoteUrl: string, opts: { pending?: boolean; extra?: boolean } = {}): Repo {
+  const local = path.split('/').pop() || 'repo'
+  const remoteName = remoteUrl ? (remoteUrl.replace(/\/+$/, '').replace(/\.git$/, '').split(/[/:@]/).pop() ?? '') : ''
+  return {
+    id: fakeHash16(path),
+    path,
+    displayPath: path.replace(HOME, '~'),
+    name: local,
+    localName: local,
+    remoteName,
+    provider: providerOf(remoteUrl),
+    hidden: false,
+    pending: !!opts.pending,
+    remote: remoteUrl ? 'origin' : '',
+    remoteUrl,
+    remoteKind: remoteUrl.startsWith('https://') ? RemoteKind.RemoteHTTPS : remoteUrl ? RemoteKind.RemoteSSH : RemoteKind.RemoteOther,
+    host: remoteUrl.replace(/^[a-z+]+:\/\//, '').replace(/^[^@/]*@/, '').split(/[:/]/)[0] || undefined,
+    hasUserinfo: false,
+    binding: emptyBinding(BindingSource.BindingMachine),
+    owner: emptyOwner(),
+    toFix: false,
+    extra: !!opts.extra,
+    lastCommitAt: opts.pending ? iso(now() - (fakeHash16(path).charCodeAt(0) % 200) * 24 * 3600 * 1000) : undefined,
+  }
+}
+
+/** What a scan finds next to the known repositories, once per world: forks and experiments (plan 4.4). */
+const FOUND_ON_SCAN: Array<[string, string]> = [
+  ['acme-web-fork', 'https://github.com/someone/acme-web.git'],
+  ['dotfiles', 'git@github.com:alex/dotfiles.git'],
+  ['globex-sdk', 'git@bitbucket.org:globex/globex-sdk.git'],
+  ['scratch', ''],
+]
+
+function seedFound(w: World): void {
+  if (w.foundSeeded) return
+  w.foundSeeded = true
+  for (const [dir, url] of FOUND_ON_SCAN) {
+    const path = `${SCAN_ROOT}/${dir}`
+    if (!w.repos.some((r) => r.path === path)) w.repos.push(mkOtherRepo(path, url, { pending: true }))
+  }
+}
+
+function statusFor(r: Repo): RepoStatus {
+  const h = fakeHash16(r.path)
+  const n = parseInt(h.slice(0, 2), 16)
+  return {
+    branch: 'main',
+    detached: false,
+    unborn: false,
+    upstream: r.remote ? 'origin/main' : '',
+    syncKnown: !!r.remote,
+    ahead: n % 4 === 0 ? n % 3 : 0,
+    behind: n % 5 === 0 ? 1 + (n % 4) : 0,
+    staged: 0,
+    unstaged: n % 3 === 0 ? 2 : 0,
+    untracked: n % 7 === 0 ? 1 : 0,
+    conflicted: 0,
+    changes: (n % 3 === 0 ? 2 : 0) + (n % 7 === 0 ? 1 : 0),
+    unverified: 0,
+    renamesSkipped: false,
+    at: iso(now()),
+  }
+}
+
+function needProject(w: World, id: string): void {
+  if (!w.projects.some((p) => p.id === id)) throw fail(ErrorCode.ErrProjectNotFound, 'project not found', { id })
+}
+
+function projectName(name: string): string {
+  const n = name.trim()
+  if (!n || [...n].length > 100) throw fail(ErrorCode.ErrInvalidInput, 'invalid project name', { field: 'name' })
+  return n
+}
+
+function newProject(w: World, name: string): string {
+  const id = `p_${fakeHash16(`${name}${w.projects.length}${now()}`).slice(0, 12)}`
+  w.projects.push({ id, name: projectName(name), collapsed: false, order: w.projects.reduce((m, p) => Math.max(m, p.order + 1), 0) })
+  return id
+}
+
+/** Repositories the person opened in this world (Go: Engine.MarkOpened); with a local binding they may be fetched in the background. */
+const openedRepos = new WeakMap<World, Set<string>>()
+
+function pushState(w: World): ReposState {
+  const st = reposState(w)
+  mockEmit('repos:changed', st)
+  return st
+}
+
 export const mockRepoService: typeof RepoReal = {
   GetState: () => run(120, () => reposState(getWorld())),
 
@@ -171,6 +289,7 @@ export const mockRepoService: typeof RepoReal = {
         timers.push(setTimeout(() => prog(total, false), SCAN * 0.9))
         timers.push(
           setTimeout(() => {
+            seedFound(w)
             prog(total, true)
             w.repoMeta.scanning = false
             w.repoMeta.scannedAt = iso(now())
@@ -190,7 +309,7 @@ export const mockRepoService: typeof RepoReal = {
   DetectOwners: (ids) => {
     const w = getWorld()
     const want = new Set(ids ?? [])
-    const targets = w.repos.filter((r) => (want.size > 0 ? want.has(r.id) : r.toFix && (r.remoteKind === RemoteKind.RemoteHTTPS || r.remoteKind === RemoteKind.RemoteSSH)))
+    const targets = w.repos.filter((r) => (want.size > 0 ? want.has(r.id) : !r.hidden && !r.pending && r.toFix && (r.remoteKind === RemoteKind.RemoteHTTPS || r.remoteKind === RemoteKind.RemoteSSH)))
     for (const r of targets) r.owner = { ...emptyOwner(), status: OwnerStatus.OwnerChecking }
     w.repoMeta.detecting = true
     mockEmit('repos:changed', reposState(w))
@@ -405,17 +524,19 @@ export const mockRepoService: typeof RepoReal = {
   PreviewClone: (req) =>
     run(120, () => {
       const w = getWorld()
-      const dest = `${req.parentDir.replace(/\/+$/, '')}/${req.folderName}`
+      const folder = req.folderName || req.repoName
+      checkFolderName(folder)
+      const dest = `${req.parentDir.replace(/\/+$/, '')}/${folder}`
       const tld = req.region.startsWith('cn-') ? 'amazonaws.com.cn' : 'amazonaws.com'
       const url = `https://git-codecommit.${req.region}.${tld}/v1/repos/${req.repoName}`
-      return { dest, exists: w.repos.some((r) => r.path === dest), command: `git clone ${url}`, httpsUrl: url }
+      return { dest, exists: w.repos.some((r) => r.path === dest), folderName: folder, command: `git clone ${url}`, httpsUrl: url }
     }),
 
   Clone: (req) => {
     const w = getWorld()
     const timers: Array<ReturnType<typeof setTimeout>> = []
     const lines = [
-      `Cloning into '${req.folderName}'...`,
+      `Cloning into '${req.folderName || req.repoName}'...`,
       'remote: Counting objects: 100% (1532/1532), done.',
       'Receiving objects:  45% (689/1532)',
       'Receiving objects: 100% (1532/1532), 2.31 MiB | 4.10 MiB/s, done.',
@@ -430,9 +551,9 @@ export const mockRepoService: typeof RepoReal = {
           if (!p) throw fail(ErrorCode.ErrProfileNotFound, `profile ${req.profile} not found`, { name: req.profile })
           if (!REGION_RE.test(req.region)) throw fail(ErrorCode.ErrInvalidRegion, 'invalid region')
           if (!/^[\w.-]{1,100}$/.test(req.repoName)) throw fail(ErrorCode.ErrInvalidInput, 'invalid repository name', { field: 'repoName' })
-          if (!req.folderName || /[\\/]/.test(req.folderName) || req.folderName === '.' || req.folderName === '..') throw fail(ErrorCode.ErrInvalidInput, 'invalid folder name', { field: 'folderName' })
+          checkFolderName(req.folderName || req.repoName)
           if (!req.parentDir) throw fail(ErrorCode.ErrInvalidInput, 'parent folder required', { field: 'parentDir' })
-          dest = `${req.parentDir.replace(/\/+$/, '')}/${req.folderName}`
+          dest = `${req.parentDir.replace(/\/+$/, '')}/${req.folderName || req.repoName}`
           if (w.repos.some((r) => r.path === dest)) throw fail(ErrorCode.ErrDestExists, 'destination exists', { path: dest })
         } catch (e) {
           reject(toRuntimeError(e))
@@ -455,4 +576,168 @@ export const mockRepoService: typeof RepoReal = {
       () => timers.forEach(clearTimeout),
     )
   },
+
+  // ---- F1-11 ----
+
+  AddFolder: (path) => {
+    const clean = path.trim().replace(/\/+$/, '')
+    const lower = clean.toLowerCase()
+    const leaf = clean.split('/').pop() ?? ''
+    const url = lower.includes('github') ? `https://github.com/alex/${leaf}.git` : lower.includes('bitbucket') ? `git@bitbucket.org:globex/${leaf}.git` : lower.includes('plain') ? `https://git.example.com/team/${leaf}.git` : ''
+    if (!url) return mockRepoService.AddExisting(path) // CodeCommit (or not a repository): the old path
+    return run(SLOW, () => {
+      const w = getWorld()
+      if (!clean.startsWith('/')) throw fail(ErrorCode.ErrRepoNotFound, 'not a git repository', { path: clean })
+      const listed = w.repos.find((x) => x.path === clean)
+      if (listed) {
+        listed.hidden = false
+        listed.pending = false
+        return { state: pushState(w), repoId: listed.id, added: false, autoBound: false }
+      }
+      const r = mkOtherRepo(clean, url, { extra: true })
+      w.repos.push(r)
+      return { state: pushState(w), repoId: r.id, added: true, autoBound: false }
+    })
+  },
+
+  ReattachMoved: (newID) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      const r = needRepo(w, newID)
+      if (!r.movedFrom) throw fail(ErrorCode.ErrMovedGone, 'the moved-folder question is out of date')
+      if (r.projectId || r.hidden) throw fail(ErrorCode.ErrMovedHasData, 'the repository found at the new place already has data of its own')
+      delete r.movedFrom
+      return pushState(w)
+    }),
+
+  DeclineMoved: (newID) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      const r = needRepo(w, newID)
+      if (!r.movedFrom) throw fail(ErrorCode.ErrMovedGone, 'the moved-folder question is out of date')
+      delete r.movedFrom
+      return pushState(w)
+    }),
+
+  ResolveFound: (show, hide) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      for (const id of [...(show ?? []), ...(hide ?? [])]) needRepo(w, id)
+      for (const id of show ?? []) {
+        const r = needRepo(w, id)
+        if (r.pending) r.pending = false
+      }
+      for (const id of hide ?? []) {
+        const r = needRepo(w, id)
+        r.pending = false
+        r.hidden = true
+      }
+      return pushState(w)
+    }),
+
+  SetHidden: (repoID, hidden) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      const r = needRepo(w, repoID)
+      r.hidden = hidden
+      r.pending = false // hiding a row that waits for the review takes it out of the review; unhiding lists it
+      if (hidden) {
+        delete r.status
+        delete r.movedFrom
+      }
+      return pushState(w)
+    }),
+
+  MoveToProject: (repoIDs, projectID) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      for (const id of repoIDs ?? []) needRepo(w, id)
+      if (projectID) needProject(w, projectID)
+      for (const id of repoIDs ?? []) {
+        const r = needRepo(w, id)
+        r.projectId = projectID || undefined
+        if (projectID) delete r.movedFrom
+      }
+      return pushState(w)
+    }),
+
+  CreateProject: (name) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      newProject(w, name)
+      return pushState(w)
+    }),
+
+  CreateProjectWith: (name, repoIDs) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      for (const id of repoIDs ?? []) needRepo(w, id)
+      const pid = newProject(w, name)
+      for (const id of repoIDs ?? []) {
+        const r = needRepo(w, id)
+        r.projectId = pid
+        delete r.movedFrom
+      }
+      return pushState(w)
+    }),
+
+  RenameProject: (projectID, name) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      needProject(w, projectID)
+      const p = w.projects.find((x) => x.id === projectID)
+      if (p) p.name = projectName(name)
+      return pushState(w)
+    }),
+
+  RemoveProject: (projectID) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      needProject(w, projectID)
+      w.projects = w.projects.filter((p) => p.id !== projectID)
+      for (const r of w.repos) if (r.projectId === projectID) delete r.projectId
+      return pushState(w)
+    }),
+
+  SetProjectCollapsed: (projectID, collapsed) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      needProject(w, projectID)
+      const p = w.projects.find((x) => x.id === projectID)
+      if (p) p.collapsed = collapsed
+      return pushState(w)
+    }),
+
+  DismissSuggestion: (key) =>
+    run(WRITE, () => {
+      const w = getWorld()
+      if (!key.trim()) throw fail(ErrorCode.ErrInvalidInput, 'invalid suggestion', { field: 'key' })
+      if (!w.dismissedSuggestions.includes(key)) w.dismissedSuggestions.push(key)
+      return pushState(w)
+    }),
+
+  RefreshStatus: (repoIDs) =>
+    run(READ, () => {
+      const w = getWorld()
+      const want = repoIDs && repoIDs.length > 0 ? new Set(repoIDs) : null
+      for (const r of w.repos) {
+        if (r.hidden || r.pending || (want && !want.has(r.id))) continue
+        r.status = statusFor(r)
+      }
+      return pushState(w)
+    }),
+
+  MarkOpened: (repoID) =>
+    run(20, () => {
+      const w = getWorld()
+      needRepo(w, repoID)
+      openedRepos.set(w, (openedRepos.get(w) ?? new Set()).add(repoID))
+    }),
+
+  FetchNow: (repoID) =>
+    run(SLOW, () => {
+      const r = needRepo(getWorld(), repoID)
+      const bound = r.provider === RepoProvider.ProviderCodeCommit && (r.binding.source === BindingSource.BindingLocal || r.binding.source === BindingSource.BindingRemoteURL)
+      if (r.hidden || r.pending || !(bound || openedRepos.get(getWorld())?.has(r.id))) throw fail(ErrorCode.ErrInvalidInput, 'background fetch runs only for repositories that are bound or opened', { field: 'repoId' })
+    }),
 }

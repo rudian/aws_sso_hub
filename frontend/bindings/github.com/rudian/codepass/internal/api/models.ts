@@ -267,6 +267,11 @@ export enum BindingSource {
      */
     $zero = "",
 
+    /**
+     * BindingMachine: a GitHub, Bitbucket or other non-CodeCommit repository follows the machine's own git
+     * setup (credential helper, SSH agent, keychain). The row says "other binding: machine default".
+     */
+    BindingMachine = "machine-default",
     BindingLocal = "local",
     BindingGlobalURL = "global-url",
     BindingGlobalDefault = "global-default",
@@ -292,6 +297,11 @@ export interface ClonePreview {
     "exists": boolean;
 
     /**
+     * FolderName is the name the clone will use (the request's, or the remote name when it was empty).
+     */
+    "folderName": string;
+
+    /**
      * "git clone https://git-codecommit.<region>.amazonaws.com/v1/repos/<name>"
      */
     "command": string;
@@ -307,6 +317,11 @@ export interface CloneRequest {
     "region": string;
     "repoName": string;
     "parentDir": string;
+
+    /**
+     * FolderName is the local folder's name; "" means the remote repository's name. It is checked by
+     * ValidateFolderName (no separator, not "." or "..", no reserved Windows name, no trailing dot or space).
+     */
     "folderName": string;
 }
 
@@ -627,6 +642,25 @@ export enum ErrorCode {
      * params: reason (not-json | format | version | size | limit)
      */
     ErrImportFormat = "E_IMPORT_FORMAT",
+
+    /**
+     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
+     *
+     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
+     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
+     */
+    ErrMovedHasData = "E_MOVED_HAS_DATA",
+
+    /**
+     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
+     * after 30 days, or the question was answered already).
+     */
+    ErrMovedGone = "E_MOVED_GONE",
+
+    /**
+     * ErrProjectNotFound: the project does not exist (any more). params: id
+     */
+    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
 };
 
 /**
@@ -1185,6 +1219,19 @@ export enum MotionPref {
     MotionFull = "full",
 };
 
+/**
+ * MovedFrom is the question "Is this <name>, moved here?" (F1-18): this folder's first commit and origin URL
+ * match one record that vanished from disk less than 30 days ago.
+ */
+export interface MovedFrom {
+    "oldId": string;
+
+    /**
+     * the old folder's name
+     */
+    "name": string;
+}
+
 export interface NavigateRequest {
     /**
      * PageId of the frontend
@@ -1371,6 +1418,28 @@ export enum ProgressStatus {
     ProgressFailed = "failed",
 };
 
+/**
+ * ProjectInfo is a project with the number of listed repositories in it.
+ */
+export interface ProjectInfo {
+    "id": string;
+    "name": string;
+    "collapsed": boolean;
+    "order": number;
+    "repoCount": number;
+}
+
+/**
+ * ProjectSuggestion is one dismissible "put them in one project?" banner. Key is what DismissSuggestion takes;
+ * Label is the prefix or the folder's name and is the proposed project name.
+ */
+export interface ProjectSuggestion {
+    "key": string;
+    "kind": SuggestionKind;
+    "label": string;
+    "repoIds": string[] | null;
+}
+
 export interface ReminderSettings {
     "expiryNotice": boolean;
 
@@ -1403,7 +1472,7 @@ export interface RemoteRepo {
 
 export interface Repo {
     /**
-     * first 16 hex chars of sha1(absolute path)
+     * random, stable (F1-18); never derived from the path
      */
     "id": string;
 
@@ -1450,12 +1519,119 @@ export interface Repo {
      * the scan roots); RemoveExtra applies to exactly these.
      */
     "extra": boolean;
+
+    /**
+     * LocalName is the folder's name; RemoteName is the last segment of the origin URL without ".git" ("" when
+     * there is no remote). They may differ (remote acme_api cloned as api-main); the UI shows both then.
+     */
+    "localName": string;
+    "remoteName": string;
+    "provider": RepoProvider;
+    "projectId"?: string;
+    "hidden": boolean;
+
+    /**
+     * Pending: found by a scan and waiting for the one-time review (Found list); not in Repos or the counts.
+     */
+    "pending": boolean;
+
+    /**
+     * RFC 3339; filled for Found and Hidden rows
+     */
+    "lastCommitAt"?: string;
+    "status"?: RepoStatus | null;
+    "movedFrom"?: MovedFrom | null;
 }
 
 export interface RepoCounts {
     "all": number;
     "toFix": number;
     "bound": number;
+
+    /**
+     * waiting for the one-time review
+     */
+    "found": number;
+
+    /**
+     * hidden by the person
+     */
+    "hidden": number;
+}
+
+/**
+ * RepoProvider is the host family of a repository's remote (plan 3.2), worked out from the remote URL.
+ */
+export enum RepoProvider {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    ProviderCodeCommit = "codecommit",
+    ProviderGitHub = "github",
+    ProviderBitbucket = "bitbucket",
+    ProviderOther = "other",
+};
+
+/**
+ * RepoStatus is the git status of one repository, read through the read-only git layer (F1-04). It is filled
+ * by RefreshStatus (and the file watcher) for repositories that are in the list; hidden and not yet reviewed
+ * repositories get none.
+ */
+export interface RepoStatus {
+    /**
+     * "" when detached
+     */
+    "branch": string;
+    "detached": boolean;
+
+    /**
+     * no commit yet
+     */
+    "unborn": boolean;
+
+    /**
+     * "" when none
+     */
+    "upstream": string;
+    "syncKnown": boolean;
+    "ahead": number;
+    "behind": number;
+    "staged": number;
+    "unstaged": number;
+    "untracked": number;
+    "conflicted": number;
+
+    /**
+     * files changed or untracked, a file counted once
+     */
+    "changes": number;
+
+    /**
+     * changes that could not be confirmed (filter drivers such as git-lfs)
+     */
+    "unverified": number;
+
+    /**
+     * RenamesSkipped: a partial clone could not detect renames, so a renamed file shows as a deletion and a
+     * new file (FU-04b).
+     */
+    "renamesSkipped": boolean;
+
+    /**
+     * RFC 3339, when it was read
+     */
+    "at": string;
+}
+
+/**
+ * RepoWarning is a non-fatal problem the list should mention (FU-18c).
+ */
+export interface RepoWarning {
+    "code": WarningCode;
+    "count": number;
+    "file"?: string;
 }
 
 export interface ReposState {
@@ -1473,6 +1649,20 @@ export interface ReposState {
     "globalDefault"?: GlobalDefaultInfo | null;
     "awsCliReady": boolean;
     "needsRepair": number;
+
+    /**
+     * Found are the repositories a scan found that the person has not yet chosen to show (the one-time review,
+     * plan 4.4). HiddenRepos are the hidden ones. Neither is in Repos or Counts.All.
+     */
+    "found": Repo[] | null;
+    "hiddenRepos": Repo[] | null;
+
+    /**
+     * Projects are all projects, in order. Suggestions are the banners not dismissed yet.
+     */
+    "projects": ProjectInfo[] | null;
+    "suggestions": ProjectSuggestion[] | null;
+    "warnings": RepoWarning[] | null;
 }
 
 export interface RestorePreview {
@@ -1711,6 +1901,23 @@ export enum StaticState {
     StaticKeysLeft = "migrated-keys-left",
 };
 
+export enum SuggestionKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * three or more ungrouped repositories share a name prefix
+     */
+    SuggestPrefix = "prefix",
+
+    /**
+     * three or more ungrouped repositories share a parent folder
+     */
+    SuggestFolder = "folder",
+};
+
 export enum TerminalApp {
     /**
      * The Go zero value for the underlying type of the enum.
@@ -1846,6 +2053,19 @@ export interface VerifyResult {
     "arn"?: string;
     "error"?: AppError | null;
 }
+
+export enum WarningCode {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * WarnProjectsNotWritable: projects.json could not be written, so folders that have no record yet were left
+     * out of the list. They are tried again at the next scan. Count is how many; File is "projects.json".
+     */
+    WarnProjectsNotWritable = "projects-not-writable",
+};
 
 export interface WriteResult {
     "file": string;

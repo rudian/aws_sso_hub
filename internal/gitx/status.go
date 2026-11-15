@@ -4,6 +4,8 @@ import (
 	"context"
 	"strconv"
 	"strings"
+
+	"github.com/rudian/codepass/internal/execx"
 )
 
 // Status is the parsed result of `git status --porcelain=v2 --branch -z`.
@@ -28,6 +30,12 @@ type Status struct {
 	// not the identity makes stale stat data look like a modification. They are not in Unstaged, Entries or
 	// Changes(). A genuinely edited filtered file is also listed here until plain git refreshes the index.
 	Unverified []string
+
+	// RenamesSkipped is true when status had to run without rename detection: in a partial clone
+	// (`--filter=blob:none`) detecting a rename needs file contents that are not on disk, the background
+	// reader may not fetch them, and the first attempt failed. Renamed files then show as a deletion plus a
+	// new file (FU-04b).
+	RenamesSkipped bool
 }
 
 // StatusEntry is one changed path.
@@ -45,18 +53,41 @@ func (s Status) Dirty() bool { return s.Staged+s.Unstaged+s.Untracked+s.Conflict
 // in both the index and the work tree counts once; ignored paths are not counted.
 func (s Status) Changes() int { return len(s.Entries) - s.Ignored }
 
-// Status runs the read-only status of dir.
+// Status runs the read-only status of dir. When it fails, it is tried once more without rename detection: in a
+// partial clone detecting a rename needs a blob that is not on disk, and GIT_NO_LAZY_FETCH stops the reader
+// from fetching it. The result then has RenamesSkipped set.
 func (r *Reader) Status(ctx context.Context, dir string) (Status, error) {
 	names := r.filterNames(ctx, dir)
-	res, err := r.runWith(ctx, dir, names, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=normal")
+	args := []string{"--porcelain=v2", "--branch", "-z", "--untracked-files=normal"}
+	res, err := r.runWith(ctx, dir, names, "status", args...)
+	renamesSkipped := false
 	if res, err = r.okResult(ctx, "status", res, err); err != nil {
-		return Status{}, err
+		if ctx.Err() != nil {
+			return Status{}, err
+		}
+		res2, err2 := r.statusNoRenames(ctx, dir, names, args)
+		if res2, err2 = r.okResult(ctx, "status", res2, err2); err2 != nil {
+			return Status{}, err // the first failure is the informative one
+		}
+		res, renamesSkipped = res2, true
 	}
 	st := ParseStatus(res.Stdout)
+	st.RenamesSkipped = renamesSkipped
 	if len(names) > 0 {
 		r.markUnverified(ctx, dir, &st, names)
 	}
 	return st, nil
+}
+
+// statusNoRenames is the same read with rename detection turned off. It is built here, not through Run: the
+// read forms of Run take no -c, and these two settings are the only difference from Run's own command line.
+func (r *Reader) statusNoRenames(ctx context.Context, dir string, names []string, args []string) (execx.Result, error) {
+	full := append([]string(nil), readOnlyFlags...)
+	full = append(full, "-c", "status.renames=false", "-c", "diff.renames=false", "status", "--ignore-submodules=dirty")
+	full = append(full, args...)
+	env := []string{"GIT_OPTIONAL_LOCKS=0", "GIT_NO_LAZY_FETCH=1"}
+	env = append(env, r.filterOverrides(names)...)
+	return r.g.WithEnv(env...).Run(ctx, dir, nil, full...)
 }
 
 // markUnverified moves work-tree-modified entries whose filter attribute names a blanked driver out of the

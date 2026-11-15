@@ -66,6 +66,16 @@ type Registry interface {
 	MovedFrom(id string) (projects.RepoRecord, bool)
 	Reattach(oldID, newID string) error
 	DeclineMove(newID, oldID string) error
+	// F1-11: repositories that are not CodeCommit, hiding, projects.
+	IDsForFound(paths []string, provider projects.Provider, at time.Time, pendingNew bool) (ids []string, created []bool, err error)
+	ResolvePending(show, hide []string) error
+	SetHidden(id string, hidden bool) error
+	SetProject(repoID, projectID string) error
+	AddProject(name string) (projects.Project, error)
+	RenameProject(id, name string) error
+	RemoveProject(id string) error
+	SetProjectCollapsed(id string, collapsed bool) error
+	DismissSuggestion(key string) error
 }
 
 // BackupPort snapshots a file before the engine changes it.
@@ -90,6 +100,10 @@ type Deps struct {
 	// RemoteURLFor overrides the URL used by Clone and CompareCommits. nil = the regional HTTPS URL.
 	// Tests return file:// bare repositories.
 	RemoteURLFor func(region, name string) string
+	// Watch, when set, keeps the status of listed repositories fresh: the engine subscribes to the folder of
+	// every repository that is shown (never a hidden or not yet reviewed one) and re-reads that repository's
+	// status when something in it changes. *watch.Watcher implements it.
+	Watch WatchPort
 }
 
 type rec struct {
@@ -109,6 +123,19 @@ type Engine struct {
 	reg    Registry
 	moved  map[string]MovedOffer
 	lost   map[string]api.OwnerResult // owner results of records that left the list, for a re-attach
+
+	// Repositories that are not CodeCommit (GitHub, Bitbucket, anything else, no remote at all), by ID. They
+	// are kept apart from recs so every CodeCommit code path runs on exactly the records it always did.
+	others     map[string]*orec
+	status     map[string]api.RepoStatus // last status read, by ID
+	lastCommit map[string]string         // RFC 3339 of HEAD's commit, for found and hidden rows
+	opened     map[string]bool           // repositories the person opened in this run (background fetch)
+	warnings   []api.RepoWarning
+	leftOut    map[string]bool // folders a scan could not give a record (projects.json not writable)
+	watchSeq   uint64
+	watches    map[string]watchSub
+	bgCtx      context.Context
+	bgCancel   context.CancelFunc
 
 	scanned           bool
 	scannedAt         time.Time
@@ -135,7 +162,10 @@ func New(d Deps) *Engine {
 		// would never be saved. Every registry call fails loudly instead, until the caller passes one.
 		reg = noRegistry{}
 	}
-	return &Engine{d: d, recs: map[string]*rec{}, reg: reg, moved: map[string]MovedOffer{}, lost: map[string]api.OwnerResult{}}
+	bg, cancel := context.WithCancel(context.Background())
+	return &Engine{d: d, recs: map[string]*rec{}, reg: reg, moved: map[string]MovedOffer{}, lost: map[string]api.OwnerResult{},
+		others: map[string]*orec{}, status: map[string]api.RepoStatus{}, lastCommit: map[string]string{},
+		opened: map[string]bool{}, leftOut: map[string]bool{}, watches: map[string]watchSub{}, bgCtx: bg, bgCancel: cancel}
 }
 
 func fileExists(p string) bool {
@@ -246,21 +276,29 @@ func (e *Engine) Scan(ctx context.Context) (api.ReposState, error) {
 	}
 	e.d.Emit(api.EventScanProgress, api.ScanProgress{Found: len(dirs), Done: true})
 
-	scanned, _ := g.InspectMany(ctx, dirs, gitx.DefaultScanOptions.Concurrency)
+	scanned, inspectErrs := g.InspectMany(ctx, dirs, gitx.DefaultScanOptions.Concurrency)
 	if err := ctx.Err(); err != nil {
 		return api.ReposState{}, api.AsAppError(err)
 	}
 	gh, ghFound := e.readGlobalHelper(ctx, g)
+	// Every other repository under the roots (GitHub, Bitbucket, no remote at all) is read by the read-only layer.
+	otherScanned := e.inspectOthers(ctx, g, otherDirs(dirs, scanned, inspectErrs))
+	if err := ctx.Err(); err != nil {
+		return api.ReposState{}, api.AsAppError(err)
+	}
 
 	ids, err := e.idsFor(scanned, scanAt)
 	if err != nil {
 		return api.ReposState{}, err
 	}
+	otherIDs := e.idsForOthers(otherScanned, scanAt)
 	e.mu.Lock()
+	left := map[string]bool{}
 	next := make(map[string]*rec, len(scanned))
 	for i, sr := range scanned {
 		id := ids[i]
 		if id == "" { // no record and projects.json could not be written: left out until the next scan
+			left[sr.Path] = true
 			continue
 		}
 		r := &rec{id: id, sr: sr, cls: e.classify(sr), owner: emptyOwner()}
@@ -275,12 +313,28 @@ func (e *Engine) Scan(ctx context.Context) (api.ReposState, error) {
 		}
 	}
 	e.recs = next
+	nextOthers := make(map[string]*orec, len(otherScanned))
+	for i, sr := range otherScanned {
+		if otherIDs[i] == "" {
+			left[sr.Path] = true
+			continue
+		}
+		nextOthers[otherIDs[i]] = &orec{id: otherIDs[i], sr: sr, provider: otherProvider(sr)}
+	}
+	e.others = nextOthers
+	e.leftOut = left
+	e.warnings = nil
+	if len(left) > 0 {
+		e.warnings = []api.RepoWarning{{Code: api.WarnProjectsNotWritable, Count: len(left), File: "projects.json"}}
+	}
 	e.scanned = true
 	e.scanning = false
 	e.scannedAt = e.d.Now()
 	e.globalHelper, e.globalHelperFound = gh, ghFound
 	e.mu.Unlock()
-	e.afterScan(ctx, g, scanned, ids, scanAt)
+	e.afterScan(ctx, g, joinScanned(scanned, otherScanned), joinIDs(ids, otherIDs), scanAt)
+	e.fillLastCommits(ctx, g)
+	e.syncWatches()
 
 	st := e.buildState(ctx)
 	e.d.Emit(api.EventReposChanged, st)
@@ -400,6 +454,7 @@ func (e *Engine) buildRepo(r *rec, pm map[string]ProfileInfo, tests map[string]a
 		ID: r.id, Path: r.sr.Path, DisplayPath: e.d.Paths.Display(r.sr.Path), Name: info.Repo, Remote: rname,
 		RemoteURL: redact.URL(url), RemoteKind: info.Kind, Host: info.Host, Region: info.Region, HTTPSURL: info.HTTPSURL,
 		HasUserinfo: info.Kind == api.RemoteHTTPS && info.User != "", Binding: b, Owner: r.owner,
+		LocalName: filepath.Base(r.sr.Path), RemoteName: remoteNameFor(r.sr), Provider: api.ProviderCodeCommit,
 	}
 	repo.Owner.Candidates = append([]api.OwnerCandidate{}, r.owner.Candidates...)
 	repo.Owner.SkippedPortals = append([]string{}, r.owner.SkippedPortals...)
@@ -416,12 +471,34 @@ func (e *Engine) buildState(ctx context.Context) api.ReposState {
 	pm := profileMap(e.profiles(ctx))
 	tests := e.reg.LastTests()
 	roots := e.d.Store.ScanRoots()
+	data := e.reg.Snapshot()
+	recOf := make(map[string]projects.RepoRecord, len(data.Repos))
+	for _, r := range data.Repos {
+		recOf[r.ID] = r
+	}
 
 	e.mu.Lock()
 	recs := make([]*rec, 0, len(e.recs))
 	for _, r := range e.recs {
 		recs = append(recs, r)
 	}
+	others := make([]*orec, 0, len(e.others))
+	for _, o := range e.others {
+		others = append(others, o)
+	}
+	status := make(map[string]api.RepoStatus, len(e.status))
+	for k, v := range e.status {
+		status[k] = v
+	}
+	lastCommit := make(map[string]string, len(e.lastCommit))
+	for k, v := range e.lastCommit {
+		lastCommit[k] = v
+	}
+	moved := make(map[string]MovedOffer, len(e.moved))
+	for k, v := range e.moved {
+		moved[k] = v
+	}
+	warnings := append([]api.RepoWarning{}, e.warnings...)
 	scanning, detecting := e.scanning, e.detecting
 	scannedAt, scanned := e.scannedAt, e.scanned
 	gh, ghFound := e.globalHelper, e.globalHelperFound
@@ -429,8 +506,14 @@ func (e *Engine) buildState(ctx context.Context) api.ReposState {
 
 	st := api.ReposState{
 		Roots: append([]string{}, roots...), RootsDisplay: make([]string, 0, len(roots)),
-		Scanning: scanning, Detecting: detecting, Repos: make([]api.Repo, 0, len(recs)),
+		Scanning: scanning, Detecting: detecting, Repos: make([]api.Repo, 0, len(recs)+len(others)),
 		AWSCLIReady: e.d.AWSReady != nil && e.d.AWSReady(),
+		Found:       []api.Repo{}, HiddenRepos: []api.Repo{}, Projects: []api.ProjectInfo{},
+		Suggestions: []api.ProjectSuggestion{}, Warnings: warnings,
+	}
+	known := map[string]bool{}
+	for _, p := range data.Projects {
+		known[p.ID] = true
 	}
 	for _, r := range roots {
 		st.RootsDisplay = append(st.RootsDisplay, e.d.Paths.Display(r))
@@ -438,24 +521,65 @@ func (e *Engine) buildState(ctx context.Context) api.ReposState {
 	if scanned {
 		st.ScannedAt = scannedAt.UTC().Format(time.RFC3339)
 	}
-	for _, r := range recs {
-		repo := e.buildRepo(r, pm, tests)
-		st.Repos = append(st.Repos, repo)
-		st.Counts.All++
-		if repo.ToFix {
-			st.Counts.ToFix++
+	// route puts a built repository into the list, the review set or the hidden set.
+	route := func(repo api.Repo, sr gitx.ScannedRepo, provider api.RepoProvider) {
+		rr := recOf[repo.ID]
+		repo.LocalName = filepath.Base(sr.Path)
+		repo.RemoteName = remoteNameFor(sr)
+		repo.Provider = provider
+		if known[rr.ProjectID] {
+			repo.ProjectID = rr.ProjectID
 		}
-		if repo.Binding.Source == api.BindingLocal && repo.Binding.NeedsRepair {
-			st.NeedsRepair++
+		repo.Hidden, repo.Pending = rr.Hidden, rr.Pending
+		if mo, ok := moved[repo.ID]; ok {
+			repo.MovedFrom = &api.MovedFrom{OldID: mo.OldID, Name: mo.Name}
+		}
+		switch {
+		case rr.Pending:
+			repo.LastCommitAt = lastCommit[repo.ID]
+			st.Found = append(st.Found, repo)
+		case rr.Hidden:
+			repo.LastCommitAt = lastCommit[repo.ID]
+			st.HiddenRepos = append(st.HiddenRepos, repo)
+		default:
+			if s, ok := status[repo.ID]; ok {
+				s := s
+				repo.Status = &s
+			}
+			st.Repos = append(st.Repos, repo)
+			st.Counts.All++
+			if provider == api.ProviderCodeCommit {
+				if repo.ToFix {
+					st.Counts.ToFix++
+				} else {
+					st.Counts.Bound++
+				}
+				if repo.Binding.Source == api.BindingLocal && repo.Binding.NeedsRepair {
+					st.NeedsRepair++
+				}
+			}
 		}
 	}
-	st.Counts.Bound = st.Counts.All - st.Counts.ToFix
-	sort.Slice(st.Repos, func(i, j int) bool {
-		if st.Repos[i].Name != st.Repos[j].Name {
-			return st.Repos[i].Name < st.Repos[j].Name
-		}
-		return st.Repos[i].DisplayPath < st.Repos[j].DisplayPath
-	})
+	for _, r := range recs {
+		route(e.buildRepo(r, pm, tests), r.sr, api.ProviderCodeCommit)
+	}
+	for _, o := range others {
+		route(e.buildOther(o), o.sr, api.RepoProvider(o.provider))
+	}
+	byName := func(l []api.Repo) {
+		sort.Slice(l, func(i, j int) bool {
+			if l[i].Name != l[j].Name {
+				return l[i].Name < l[j].Name
+			}
+			return l[i].DisplayPath < l[j].DisplayPath
+		})
+	}
+	byName(st.Repos)
+	byName(st.Found)
+	byName(st.HiddenRepos)
+	st.Counts.Found, st.Counts.Hidden = len(st.Found), len(st.HiddenRepos)
+	st.Projects = projectInfos(data, st.Repos)
+	st.Suggestions = suggestionsFor(data, st.Repos, roots)
 	if ghFound {
 		h := gitx.ParseAWSHelper(gh)
 		gd := &api.GlobalDefaultInfo{Profile: h.Profile, Helper: redact.String(gh)}
@@ -472,10 +596,62 @@ func (e *Engine) buildState(ctx context.Context) api.ReposState {
 	return st
 }
 
+// remoteNameFor is the last segment of the origin URL (or of the primary remote's, when there is no origin).
+func remoteNameFor(sr gitx.ScannedRepo) string {
+	for _, r := range sr.Remotes {
+		if r.Name == "origin" {
+			if r.URL != "" {
+				return remoteNameOf(r.URL)
+			}
+			return remoteNameOf(r.PushURL)
+		}
+	}
+	if r, ok := originOrPrimary(sr); ok {
+		if r.URL != "" {
+			return remoteNameOf(r.URL)
+		}
+		return remoteNameOf(r.PushURL)
+	}
+	return ""
+}
+
 // Snapshot returns the current repositories without scanning.
+//
+// It returns every CodeCommit repository, hidden or waiting for the review included, and no GitHub, Bitbucket
+// or other row: callers such as internal/gitglobal treat it as "all CodeCommit repositories" (URL-rule
+// migration, default-change impact, bound counts) and a hidden repository must not escape those. The UI list
+// is ReposState.Repos, which is separate.
 func (e *Engine) Snapshot() []api.Repo {
-	st := e.buildState(context.Background())
-	return st.Repos
+	ctx := context.Background()
+	pm := profileMap(e.profiles(ctx))
+	tests := e.reg.LastTests()
+	e.mu.Lock()
+	recs := make([]*rec, 0, len(e.recs))
+	for _, r := range e.recs {
+		recs = append(recs, r)
+	}
+	status := make(map[string]api.RepoStatus, len(e.status))
+	for k, v := range e.status {
+		status[k] = v
+	}
+	e.mu.Unlock()
+	out := make([]api.Repo, 0, len(recs))
+	for _, r := range recs {
+		repo := e.buildRepo(r, pm, tests)
+		e.fillRecord(&repo)
+		if s, ok := status[repo.ID]; ok && !repo.Hidden && !repo.Pending {
+			s := s
+			repo.Status = &s
+		}
+		out = append(out, repo)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].DisplayPath < out[j].DisplayPath
+	})
+	return out
 }
 
 // RepoPath returns the absolute path of a repository.
@@ -484,6 +660,9 @@ func (e *Engine) RepoPath(id string) (string, bool) {
 	defer e.mu.Unlock()
 	if r, ok := e.recs[id]; ok {
 		return r.sr.Path, true
+	}
+	if o, ok := e.others[id]; ok {
+		return o.sr.Path, true
 	}
 	return "", false
 }
@@ -551,6 +730,9 @@ func (e *Engine) rec(id string) (*rec, error) {
 	defer e.mu.Unlock()
 	if r, ok := e.recs[id]; ok {
 		return r, nil
+	}
+	if _, ok := e.others[id]; ok {
+		return nil, api.NewError(api.ErrNotCodeCommit, "the repository has no CodeCommit remote")
 	}
 	return nil, api.NewError(api.ErrRepoNotFound, "repository not found").WithParam("path", id)
 }

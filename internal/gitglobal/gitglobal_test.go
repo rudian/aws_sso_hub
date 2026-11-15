@@ -581,3 +581,82 @@ func TestClearSavedIgnoresUnlistedIds(t *testing.T) {
 		t.Errorf("only unlisted ids: n=%d err=%v cleared=%v", n, err, f.creds.cleared)
 	}
 }
+
+// ---- F1-11: hidden and non-CodeCommit rows ----
+
+// A hidden CodeCommit clone is still "a CodeCommit repository" for the global-file features: Hiding changes
+// nothing on disk, so a URL rule migration must bind it too, and a default change must list it.
+func TestHiddenCloneStaysInGlobalFileFeatures(t *testing.T) {
+	ctx := context.Background()
+	f := newFx(t)
+	f.sb.WriteGlobal(t, defaultOnly+urlRule)
+	f.repo("initech_infra", ccURL("initech_infra"))
+	f.repo("initech_infra2", ccURL("initech_infra"))
+	st := f.scan()
+	hiddenID := f.id(st, "initech_infra2")
+	shownID := f.id(st, "initech_infra")
+	if _, err := f.repos.SetHidden(ctx, hiddenID, true); err != nil {
+		t.Fatal(err)
+	}
+	gs, err := f.eng.State(ctx)
+	if err != nil || len(gs.URLRules) != 1 || len(gs.URLRules[0].MatchedRepoIDs) != 2 {
+		t.Fatalf("matched: %+v %v", gs.URLRules, err)
+	}
+	res, err := f.eng.MigrateURLRule(ctx, api.URLRuleMigration{Pattern: ccURL("initech_infra"), Assignments: []api.BindItem{
+		{RepoID: shownID, Profile: "initech-admin"}, {RepoID: hiddenID, Profile: "initech-admin"},
+	}}, gs.BaseHash)
+	if err != nil || !res.RuleRemoved {
+		t.Fatalf("%+v %v", res, err)
+	}
+	st2, _ := f.repos.State(ctx)
+	if len(st2.HiddenRepos) != 1 || st2.HiddenRepos[0].Binding.Source != api.BindingLocal || st2.HiddenRepos[0].Binding.Profile != "initech-admin" {
+		t.Errorf("hidden clone after migration: %+v", st2.HiddenRepos)
+	}
+}
+
+func TestHiddenRepoOnDefaultIsListedInDefaultChange(t *testing.T) {
+	ctx := context.Background()
+	f := newFx(t)
+	f.sb.WriteGlobal(t, defaultOnly)
+	f.repo("shown", ccURL("shown_repo"))
+	f.repo("hid", ccURL("hid_repo"))
+	st := f.scan()
+	hidID := f.id(st, "hid")
+	if _, err := f.repos.SetHidden(ctx, hidID, true); err != nil {
+		t.Fatal(err)
+	}
+	pv, err := f.eng.PreviewDefault(ctx, api.DefaultChangeRequest{Action: api.DefaultRemove})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, id := range pv.BlockedRepoIDs {
+		found = found || id == hidID
+	}
+	if !found || pv.UnboundBlocked != 2 {
+		t.Errorf("impact must include the hidden repository: %+v", pv)
+	}
+}
+
+func TestListedGitHubRepoIsNotCountedAsCodeCommit(t *testing.T) {
+	ctx := context.Background()
+	f := newFx(t)
+	f.sb.WriteGlobal(t, defaultOnly)
+	f.repo("a", ccURL("a_repo"))
+	f.sb.InitRepo(t, "code/gh", map[string]string{"origin": "https://github.com/acme/web.git"})
+	st := f.scan()
+	var ids []string
+	for _, r := range st.Found {
+		ids = append(ids, r.ID)
+	}
+	if len(ids) != 1 {
+		t.Fatalf("found: %+v", st.Found)
+	}
+	if _, err := f.repos.ResolveFound(ctx, ids, nil); err != nil {
+		t.Fatal(err)
+	}
+	gs, err := f.eng.State(ctx)
+	if err != nil || gs.BoundRepos != 0 || gs.UnboundRepos != 1 {
+		t.Errorf("counts: %d/%d %v", gs.BoundRepos, gs.UnboundRepos, err)
+	}
+}

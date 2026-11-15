@@ -98,8 +98,8 @@ describe('filters', () => {
   afterEach(() => vi.useRealTimers())
 
   it('defaultFilter picks "todo" only when something is left', () => {
-    expect(defaultFilter({ all: 16, toFix: 5, bound: 11 })).toBe('todo')
-    expect(defaultFilter({ all: 16, toFix: 0, bound: 16 })).toBe('all')
+    expect(defaultFilter({ all: 16, toFix: 5, bound: 11, found: 0, hidden: 0 })).toBe('todo')
+    expect(defaultFilter({ all: 16, toFix: 0, bound: 16, found: 0, hidden: 0 })).toBe('all')
   })
 
   it('filters by state, account and query (name or display path, case-insensitive)', () => {

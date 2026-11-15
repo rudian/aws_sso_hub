@@ -89,6 +89,10 @@ type RepoRecord struct {
 	FirstSeen *time.Time `json:"firstSeen,omitempty"`
 	// DeclinedMoves lists the IDs of missing records the person said this folder is not a move of.
 	DeclinedMoves []string `json:"declinedMoves,omitempty"`
+	// Pending marks a repository a scan found that the person has not yet chosen to show (F1-11, plan 4.4):
+	// it stays out of the list, the counts and all background work until it is shown or hidden. false (the
+	// zero value) means shown, so every record written before this field existed stays in the list.
+	Pending bool `json:"pending,omitempty"`
 }
 
 // Data is the whole projects.json document.
@@ -96,4 +100,7 @@ type Data struct {
 	SchemaVersion int          `json:"schemaVersion"`
 	Projects      []Project    `json:"projects"`
 	Repos         []RepoRecord `json:"repos"`
+	// DismissedSuggestions holds the keys of project suggestions the person said no to ("prefix:initech");
+	// a dismissed suggestion does not return (F1-11).
+	DismissedSuggestions []string `json:"dismissedSuggestions,omitempty"`
 }

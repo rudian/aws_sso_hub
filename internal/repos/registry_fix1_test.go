@@ -50,7 +50,7 @@ func TestDeletedSecondCheckoutIsNotOfferedOnTheSurvivor(t *testing.T) {
 		t.Fatalf("expected two checkouts: %+v", st.Repos)
 	}
 	survivor := f.byName(st, "acme_api")
-	if err := f.reg.SetHidden(survivor.ID, true); err != nil {
+	if err := setOwnData(f.reg, survivor.ID); err != nil { // was SetHidden: a hidden repository now leaves the list (F1-11)
 		t.Fatal(err)
 	}
 	f.clock = f.clock.Add(48 * time.Hour)
@@ -70,7 +70,7 @@ func TestDeletedSecondCheckoutIsNotOfferedOnTheSurvivor(t *testing.T) {
 	f.clock = f.clock.Add(time.Hour)
 	f.scan()
 	snap := f.reg.Snapshot()
-	if r := snap.FindRepo(survivor.ID); r == nil || !r.Hidden {
+	if r := snap.FindRepo(survivor.ID); r == nil || r.IdentityOverride == nil {
 		t.Fatalf("survivor lost: %+v", r)
 	}
 }

@@ -25,14 +25,17 @@ export {
     ProfileKind,
     ProgressStatus,
     RemoteKind,
+    RepoProvider,
     SavedCredentialStore,
     SessionState,
     Severity,
     StaticState,
+    SuggestionKind,
     TerminalApp,
     TestStatus,
     Theme,
-    ToolStatus
+    ToolStatus,
+    WarningCode
 } from "./models.js";
 
 export type {
@@ -84,6 +87,7 @@ export type {
     MigrationAccountChoice,
     MigrationProgress,
     MigrationState,
+    MovedFrom,
     NavigateRequest,
     NewProfileSpec,
     OwnerCandidate,
@@ -92,10 +96,14 @@ export type {
     PortalInput,
     PortalInputCheck,
     Profile,
+    ProjectInfo,
+    ProjectSuggestion,
     ReminderSettings,
     RemoteRepo,
     Repo,
     RepoCounts,
+    RepoStatus,
+    RepoWarning,
     ReposState,
     RestorePreview,
     SavedCredential,

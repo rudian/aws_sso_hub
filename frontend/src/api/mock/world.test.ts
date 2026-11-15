@@ -71,7 +71,7 @@ describe('mock worlds', () => {
     const w = buildScenario('fresh')
     expect(w.repos).toHaveLength(16)
     expect(w.accounts.staticCount).toBe(2)
-    expect(reposState(w).counts).toEqual({ all: 16, toFix: 16, bound: 0 })
+    expect(reposState(w).counts).toEqual({ all: 16, toFix: 16, bound: 0, found: 0, hidden: 0 })
     expect(w.appInfo.firstRun).toBe(true)
   })
 
@@ -135,7 +135,7 @@ describe('mock worlds', () => {
 
   it('mid: 5 repos to fix, globex is mid-wizard, acme is the global default', () => {
     const w = buildScenario('mid')
-    expect(reposState(w).counts).toEqual({ all: 16, toFix: 5, bound: 11 })
+    expect(reposState(w).counts).toEqual({ all: 16, toFix: 5, bound: 11, found: 0, hidden: 0 })
     const globex = w.accounts.profiles?.find((p) => p.name === 'globex')
     expect(globex?.migrationInProgress).toBe(true)
     expect(w.migrations.globex.step).toBe('review')
@@ -146,7 +146,7 @@ describe('mock worlds', () => {
 
   it('done: everything bound, guard installed, no default', () => {
     const w = buildScenario('done')
-    expect(reposState(w).counts).toEqual({ all: 16, toFix: 0, bound: 16 })
+    expect(reposState(w).counts).toEqual({ all: 15, toFix: 0, bound: 15, found: 0, hidden: 1 })
     expect(w.git.globalDefault).toBeNull()
     expect(w.git.guardInstalled).toBe(true)
     expect(w.backups).toHaveLength(8)

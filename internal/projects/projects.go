@@ -110,6 +110,9 @@ func (s *Store) Mutate(fn func(d *Data) error) error {
 
 func clone(d Data) Data {
 	out := Data{SchemaVersion: d.SchemaVersion}
+	if len(d.DismissedSuggestions) > 0 {
+		out.DismissedSuggestions = append([]string(nil), d.DismissedSuggestions...)
+	}
 	out.Projects = append([]Project(nil), d.Projects...)
 	for i := range out.Projects {
 		if p := d.Projects[i].Identity; p != nil {

@@ -109,4 +109,7 @@ export const errorKeys: Record<ErrorCode, { title: MessageKey; body?: MessageKey
   [ErrorCode.ErrSandbox]: e(ErrorCode.ErrSandbox),
   [ErrorCode.ErrUnsupportedOS]: e(ErrorCode.ErrUnsupportedOS),
   [ErrorCode.ErrImportFormat]: e(ErrorCode.ErrImportFormat, true),
+  [ErrorCode.ErrMovedHasData]: e(ErrorCode.ErrMovedHasData),
+  [ErrorCode.ErrMovedGone]: e(ErrorCode.ErrMovedGone),
+  [ErrorCode.ErrProjectNotFound]: e(ErrorCode.ErrProjectNotFound),
 }

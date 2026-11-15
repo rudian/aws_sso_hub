@@ -16,10 +16,12 @@ import {
   OwnerStatus,
   ProfileKind,
   RemoteKind,
+  RepoProvider,
   SavedCredentialStore,
   SessionState,
   Severity,
   StaticState,
+  SuggestionKind,
   TerminalApp,
   TestStatus,
   Theme,
@@ -43,9 +45,12 @@ import type {
   OwnerCandidate,
   Portal,
   Profile,
+  ProjectInfo,
+  ProjectSuggestion,
   RemoteRepo,
   Repo,
   ReposState,
+  RepoWarning,
   SavedCredential,
   SessionStatus,
   Settings,
@@ -136,6 +141,12 @@ export interface World {
   discovery: Record<string, DiscoveredAccount[]>
   draftDiscovery: DiscoveredAccount[]
   repos: Repo[]
+  /** Projects of the repository list (F1-11). Rows carry projectId; hidden and pending flags live on the rows too. */
+  projects: Array<Omit<ProjectInfo, 'repoCount'>>
+  dismissedSuggestions: string[]
+  repoWarnings: RepoWarning[]
+  /** The mock's scan finds the "newly found" repositories once (F1-11). */
+  foundSeeded: boolean
   truth: Record<string, OwnerTruth>
   repoMeta: { scannedAt: string; scanning: boolean; detecting: boolean }
   awsCliReady: boolean
@@ -334,6 +345,8 @@ export function accountIdOfProfile(p: Profile): string | undefined {
 }
 
 export function repoToFix(r: Repo): boolean {
+  // Only a CodeCommit repository can need a binding; GitHub, Bitbucket and other rows follow the machine's own git setup.
+  if (r.provider !== RepoProvider.ProviderCodeCommit) return false
   const b = r.binding
   return !((b.source === BindingSource.BindingLocal && !b.legacyPlain && !b.needsRepair && b.profileKnown) || b.source === BindingSource.BindingRemoteURL)
 }
@@ -398,21 +411,68 @@ export function globalDefaultInfo(w: World): GlobalDefaultInfo | undefined {
   }
 }
 
+/** Name before the first "_", "-" or "." (at least two characters), "" when there is none. Mirrors the Go engine. */
+export function namePrefix(name: string): string {
+  const i = name.search(/[_.-]/)
+  return i < 2 ? '' : name.slice(0, i)
+}
+
+const MIN_GROUP = 3
+
+/** Project suggestions for listed repositories that are in no project (three or more share a prefix or a parent folder). */
+export function suggestionsFor(w: World, listed: Repo[]): ProjectSuggestion[] {
+  const pre = new Map<string, { label: string; ids: string[] }>()
+  const dir = new Map<string, { label: string; ids: string[] }>()
+  for (const r of listed) {
+    if (r.projectId) continue
+    const p = namePrefix(r.localName)
+    if (p) {
+      const g = pre.get(p.toLowerCase()) ?? { label: p, ids: [] }
+      g.ids.push(r.id)
+      pre.set(p.toLowerCase(), g)
+    }
+    const parent = r.path.slice(0, Math.max(0, r.path.lastIndexOf('/')))
+    if (parent && parent !== SCAN_ROOT && parent.includes('/')) {
+      const g = dir.get(parent) ?? { label: parent.split('/').pop() as string, ids: [] }
+      g.ids.push(r.id)
+      dir.set(parent, g)
+    }
+  }
+  const collect = (m: Map<string, { label: string; ids: string[] }>, kind: SuggestionKind): ProjectSuggestion[] =>
+    [...m.entries()]
+      .map(([k, g]) => ({ key: `${kind}:${k}`, kind, label: g.label, repoIds: [...g.ids].sort() }))
+      .filter((x) => x.repoIds.length >= MIN_GROUP && !w.dismissedSuggestions.includes(x.key))
+      .sort((a, b) => b.repoIds.length - a.repoIds.length || a.key.localeCompare(b.key))
+  return [...collect(pre, SuggestionKind.SuggestPrefix), ...collect(dir, SuggestionKind.SuggestFolder)]
+}
+
 export function reposState(w: World): ReposState {
   recompute(w)
-  const all = w.repos.length
-  const toFix = w.repos.filter((r) => r.toFix).length
-  const repos = [...w.repos].sort((a, b) => a.name.localeCompare(b.name) || a.displayPath.localeCompare(b.displayPath))
+  const byName = (a: Repo, b: Repo) => a.name.localeCompare(b.name) || a.displayPath.localeCompare(b.displayPath)
+  const listed = w.repos.filter((r) => !r.hidden && !r.pending)
+  const found = w.repos.filter((r) => r.pending && !r.hidden)
+  const hiddenRepos = w.repos.filter((r) => r.hidden)
+  const all = listed.length
+  const cc = listed.filter((r) => r.provider === RepoProvider.ProviderCodeCommit)
+  const toFix = cc.filter((r) => r.toFix).length
+  const repos = [...listed].sort(byName)
+  const known = new Set(w.projects.map((p) => p.id))
+  const count = (id: string) => listed.filter((r) => r.projectId === id).length
   const s: ReposState = {
     roots: [SCAN_ROOT],
     rootsDisplay: [SCAN_ROOT_DISPLAY],
     scannedAt: w.repoMeta.scannedAt || undefined,
     scanning: w.repoMeta.scanning,
     detecting: w.repoMeta.detecting,
-    repos: deepCopy(repos),
-    counts: { all, toFix, bound: all - toFix },
+    repos: deepCopy(repos.map((r) => (r.projectId && !known.has(r.projectId) ? { ...r, projectId: undefined } : r))),
+    counts: { all, toFix, bound: cc.length - toFix, found: found.length, hidden: hiddenRepos.length },
     awsCliReady: w.awsCliReady,
-    needsRepair: w.repos.filter((r) => r.binding.source === BindingSource.BindingLocal && r.binding.needsRepair).length,
+    needsRepair: listed.filter((r) => r.binding.source === BindingSource.BindingLocal && r.binding.needsRepair).length,
+    found: deepCopy([...found].sort(byName)),
+    hiddenRepos: deepCopy([...hiddenRepos].sort(byName)),
+    projects: [...w.projects].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name)).map((p) => ({ ...p, repoCount: count(p.id) })),
+    suggestions: suggestionsFor(w, listed),
+    warnings: deepCopy(w.repoWarnings),
   }
   const g = globalDefaultInfo(w)
   if (g) s.globalDefault = g
@@ -545,6 +605,11 @@ export function mkRepo(path: string, name: string, binding: Binding, region: str
     path,
     displayPath: path.replace(HOME, '~'),
     name,
+    localName: path.split('/').pop() || name,
+    remoteName: name,
+    provider: RepoProvider.ProviderCodeCommit,
+    hidden: false,
+    pending: false,
     remote: 'origin',
     remoteUrl: httpsUrl(name, region),
     remoteKind: RemoteKind.RemoteHTTPS,
@@ -737,6 +802,10 @@ function emptyWorld(scenario: ScenarioId, firstRun: boolean): World {
     discovery: {},
     draftDiscovery: [],
     repos: [],
+    projects: [],
+    dismissedSuggestions: [],
+    repoWarnings: [],
+    foundSeeded: false,
     truth: {},
     repoMeta: { scannedAt: iso(now() - 30_000), scanning: false, detecting: false },
     awsCliReady: true,
@@ -985,6 +1054,41 @@ function midGlobexMigration(w: World): MigrationState {
   }
 }
 
+/**
+ * The projects of the mockup (acme, globex, umbrella), one hidden repository and one repository whose folder was
+ * moved by hand (the question "Is this initech_dashboard, moved here?"), as `done` shows them after some use.
+ */
+function seedProjectsAndReview(w: World): void {
+  w.projects = [
+    { id: 'p_acme', name: 'acme', collapsed: false, order: 0 },
+    { id: 'p_globex', name: 'globex', collapsed: false, order: 1 },
+    { id: 'p_umbrella', name: 'umbrella', collapsed: false, order: 2 },
+  ]
+  for (const r of w.repos) {
+    if (r.name.startsWith('acme_')) r.projectId = 'p_acme'
+    else if (r.name.startsWith('globex_')) r.projectId = 'p_globex'
+    else if (r.name.startsWith('initech_')) r.projectId = 'p_umbrella'
+  }
+  const hid = repoByDefN(w, 14) // acme_handbook
+  hid.hidden = true
+  hid.projectId = undefined
+  // initech_dashboard was renamed to dashboard-main in Finder: the new folder has no project of its own, the old record has.
+  const mv = repoByDefN(w, 10)
+  const oldId = mv.id
+  const path = `${SCAN_ROOT}/dashboard-main`
+  mv.path = path
+  mv.displayPath = path.replace(HOME, '~')
+  mv.localName = 'dashboard-main'
+  mv.id = fakeHash16(path)
+  mv.projectId = undefined
+  mv.movedFrom = { oldId, name: 'initech_dashboard' }
+  if (mv.lastTest) mv.lastTest = { ...mv.lastTest, repoId: mv.id }
+  if (w.truth[oldId]) {
+    w.truth[mv.id] = w.truth[oldId]
+    delete w.truth[oldId]
+  }
+}
+
 export function buildDone(): World {
   const w = emptyWorld('done', false)
   w.accounts.portals = [initechPortal(), portalOf(PORTAL_ACME), portalOf(PORTAL_GLOBEX)]
@@ -1009,6 +1113,7 @@ export function buildDone(): World {
     r.lastTest = { repoId: r.id, status: TestStatus.TestOK, at: ago((2 + def.n) * MIN), profile }
     presetSingleOwner(w, r)
   }
+  seedProjectsAndReview(w)
   w.discovery = discoveryPerPortal(w)
   w.backups = []
   const kinds: Array<[BackupKind, BackupReason, Record<string, string>, boolean]> = [

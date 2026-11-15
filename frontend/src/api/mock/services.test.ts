@@ -64,7 +64,7 @@ describe('mock services', () => {
     const out = await call(mock.repos.Bind(id, 'globex'))
     expect(out.ok).toBe(true)
     expect(out.repo?.binding).toMatchObject({ source: BindingSource.BindingLocal, profile: 'globex', profileKnown: true, colorSlot: 6 })
-    expect((await call(mock.repos.GetState())).counts).toEqual({ all: 16, toFix: 15, bound: 1 })
+    expect((await call(mock.repos.GetState())).counts).toEqual({ all: 16, toFix: 15, bound: 1, found: 0, hidden: 0 })
     expect(getWorld().backups.at(-1)).toMatchObject({ kind: 'git-local', reason: 'bind', reasonParams: { repo: 'globex_backend' } })
     const un = await call(mock.repos.Unbind(id))
     expect(un.repo?.binding.source).toBe(BindingSource.BindingGlobalDefault)

@@ -2,6 +2,7 @@ package repos
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -77,6 +78,30 @@ func (e *Engine) afterScan(ctx context.Context, g *gitx.Git, scanned []gitx.Scan
 	for _, id := range ids {
 		if old, ok := e.reg.MovedFrom(id); ok {
 			offers[id] = MovedOffer{OldID: old.ID, OldPath: old.Path, Name: filepath.Base(old.Path)}
+		}
+	}
+	// A folder that is the moved copy of a listed repository is not a new repository: it stays in the list with
+	// the question instead of waiting in the review set (design 5.2 holds back only what was not shown before).
+	if len(offers) > 0 {
+		pend, hidden := map[string]bool{}, map[string]bool{}
+		for _, r := range e.reg.Snapshot().Repos {
+			if r.Pending {
+				pend[r.ID] = true
+			}
+			if r.Hidden {
+				hidden[r.ID] = true
+			}
+		}
+		var show []string
+		for id, offer := range offers {
+			// Only a copy of a repository that was listed before: a never-reviewed record stays held back.
+			if pend[id] && !pend[offer.OldID] && !hidden[offer.OldID] {
+				show = append(show, id)
+			}
+		}
+		if len(show) > 0 {
+			sort.Strings(show)
+			_ = e.reg.ResolvePending(show, nil)
 		}
 	}
 	e.mu.Lock()
@@ -171,10 +196,13 @@ func (e *Engine) ReattachMoved(ctx context.Context, newID string) (api.ReposStat
 	offer, ok := e.moved[newID]
 	e.mu.Unlock()
 	if !ok {
-		return api.ReposState{}, api.NewError(api.ErrRepoNotFound, "repository not found").WithParam("path", newID)
+		return api.ReposState{}, e.noOfferErr(newID)
 	}
 	if err := e.reg.Reattach(offer.OldID, newID); err != nil {
-		return api.ReposState{}, api.AsAppError(err)
+		if errors.Is(err, projects.ErrHasData) || errors.Is(err, projects.ErrNotFound) {
+			e.forgetOffers(newID) // the question is out of date either way
+		}
+		return api.ReposState{}, regErr(err, true)
 	}
 	// The row keeps its detected owner under the old ID.
 	e.mu.Lock()
@@ -187,6 +215,8 @@ func (e *Engine) ReattachMoved(ctx context.Context, newID string) (api.ReposStat
 		e.recs[offer.OldID] = r
 		delete(e.recs, newID)
 	}
+	delete(e.others, newID)
+	delete(e.status, newID)
 	delete(e.moved, newID)
 	e.mu.Unlock()
 	return e.Scan(ctx)
@@ -199,10 +229,10 @@ func (e *Engine) DeclineMoved(ctx context.Context, newID string) (api.ReposState
 	offer, ok := e.moved[newID]
 	e.mu.Unlock()
 	if !ok {
-		return api.ReposState{}, api.NewError(api.ErrRepoNotFound, "repository not found").WithParam("path", newID)
+		return api.ReposState{}, e.noOfferErr(newID)
 	}
 	if err := e.reg.DeclineMove(newID, offer.OldID); err != nil {
-		return api.ReposState{}, api.AsAppError(err)
+		return api.ReposState{}, regErr(err, true)
 	}
 	e.mu.Lock()
 	delete(e.moved, newID)
@@ -210,6 +240,15 @@ func (e *Engine) DeclineMoved(ctx context.Context, newID string) (api.ReposState
 	st := e.buildState(ctx)
 	e.d.Emit(api.EventReposChanged, st)
 	return st, nil
+}
+
+// noOfferErr is the error for an answer to a moved-folder question the engine no longer holds: out of date
+// (E_MOVED_GONE) for a repository it knows, not found for an unknown ID.
+func (e *Engine) noOfferErr(id string) error {
+	if e.knownRepo(id) {
+		return api.NewError(api.ErrMovedGone, "the moved-folder question is out of date")
+	}
+	return api.NewError(api.ErrRepoNotFound, "repository not found").WithParam("path", id)
 }
 
 // noRegistry is the Registry of an engine that was given none: every call reports it.
@@ -234,3 +273,16 @@ func (noRegistry) Reconcile(func(string) projects.Presence, time.Time) ([]string
 func (noRegistry) MovedFrom(string) (projects.RepoRecord, bool) { return projects.RepoRecord{}, false }
 func (noRegistry) Reattach(string, string) error                { return errNoRegistry }
 func (noRegistry) DeclineMove(string, string) error             { return errNoRegistry }
+func (noRegistry) IDsForFound(p []string, _ projects.Provider, _ time.Time, _ bool) ([]string, []bool, error) {
+	return nil, nil, errNoRegistry
+}
+func (noRegistry) ResolvePending(show, hide []string) error { return errNoRegistry }
+func (noRegistry) SetHidden(string, bool) error             { return errNoRegistry }
+func (noRegistry) SetProject(string, string) error          { return errNoRegistry }
+func (noRegistry) AddProject(string) (projects.Project, error) {
+	return projects.Project{}, errNoRegistry
+}
+func (noRegistry) RenameProject(string, string) error     { return errNoRegistry }
+func (noRegistry) RemoveProject(string) error             { return errNoRegistry }
+func (noRegistry) SetProjectCollapsed(string, bool) error { return errNoRegistry }
+func (noRegistry) DismissSuggestion(string) error         { return errNoRegistry }

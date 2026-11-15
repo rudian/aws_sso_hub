@@ -229,6 +229,9 @@ func (e *Engine) AddExisting(ctx context.Context, path string) (api.AddRepoResul
 	_, present := e.recs[id]
 	e.mu.Unlock()
 	if !present {
+		if e.wasLeftOut(top) { // projects.json could not be written, so the folder got no record (FU-18b)
+			return api.AddRepoResult{}, api.NewError(api.ErrFileIO, "cannot write the repository list").WithParam("file", "projects.json")
+		}
 		return api.AddRepoResult{}, api.NewError(api.ErrRepoNotFound, "repository not found").WithParam("path", top)
 	}
 
@@ -309,14 +312,15 @@ func (e *Engine) autoBind(ctx context.Context, g *gitx.Git, id string) (api.Bind
 
 // RemoveExtra stops listing a hand-added repository. The folder and its git configuration are not touched.
 func (e *Engine) RemoveExtra(ctx context.Context, id string) (api.ReposState, error) {
-	r, err := e.rec(id)
-	if err != nil {
-		return api.ReposState{}, err
+	// Any listed repository can be an extra, whatever its provider.
+	path, ok := e.RepoPath(id)
+	if !ok {
+		return api.ReposState{}, api.NewError(api.ErrRepoNotFound, "repository not found").WithParam("path", id)
 	}
-	if !e.isExtra(r.sr.Path) {
+	if !e.isExtra(path) {
 		return api.ReposState{}, api.NewError(api.ErrInvalidInput, "the repository was not added by hand").WithParam("field", "repoId")
 	}
-	if err := e.d.Store.RemoveExtraRepo(r.sr.Path); err != nil {
+	if err := e.d.Store.RemoveExtraRepo(path); err != nil {
 		return api.ReposState{}, api.AsAppError(err)
 	}
 	return e.Scan(ctx)

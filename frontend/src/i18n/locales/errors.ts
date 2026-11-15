@@ -69,6 +69,9 @@ export const zh = {
   'errors.E_UNSUPPORTED_OS': '这个系统暂不支持',
   'errors.E_IMPORT_FORMAT': '无法读取这个文件',
   'errors.E_IMPORT_FORMAT.body': '它不是 Codepass 导出的账号配置，或者来自更新的版本。',
+  'errors.E_MOVED_HAS_DATA': '这个文件夹已经有自己的设置了',
+  'errors.E_MOVED_GONE': '这个问题已经过期了',
+  'errors.E_PROJECT_NOT_FOUND': '找不到这个项目',
 } as const
 
 export const en: { [K in keyof typeof zh]: string } = {
@@ -140,4 +143,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   'errors.E_UNSUPPORTED_OS': 'Not supported on this system',
   'errors.E_IMPORT_FORMAT': 'Can’t read this file',
   'errors.E_IMPORT_FORMAT.body': 'It isn’t a Codepass accounts export, or it comes from a newer version.',
+  'errors.E_MOVED_HAS_DATA': 'This folder already has settings of its own',
+  'errors.E_MOVED_GONE': 'This question is out of date',
+  'errors.E_PROJECT_NOT_FOUND': 'Project not found',
 }

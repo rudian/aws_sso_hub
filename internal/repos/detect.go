@@ -144,8 +144,12 @@ func (e *Engine) DetectOwners(ctx context.Context, ids []string) (api.ReposState
 		targets = append(targets, target{r, info})
 	}
 	if ids == nil {
-		for _, r := range e.recs {
-			pick(r, false)
+		// Hidden and not yet reviewed repositories leave all background work (plan 4.4).
+		listed := e.shownIDsLocked()
+		for id, r := range e.recs {
+			if listed[id] {
+				pick(r, false)
+			}
 		}
 	} else {
 		for _, id := range ids {
@@ -232,7 +236,9 @@ func (e *Engine) CompareCommits(ctx context.Context, id string) (api.Repo, error
 	owner := r.owner
 	e.mu.Unlock()
 	if len(owner.Candidates) < 2 {
-		return e.buildRepo(r, pm, e.reg.LastTests()), nil
+		repo := e.buildRepo(r, pm, e.reg.LastTests())
+		e.fillRecord(&repo)
+		return repo, nil
 	}
 	aws, err := e.awsPath()
 	if err != nil {

@@ -22,6 +22,14 @@ export function AddExisting(path: string): $CancellablePromise<api$0.AddRepoResu
     return $Call.ByID(2783431241, path);
 }
 
+/**
+ * AddFolder lists any git repository that is on disk (CodeCommit or not). A CodeCommit one is handled like
+ * AddExisting; any other is shown at once, with no binding. A hidden repository comes back.
+ */
+export function AddFolder(path: string): $CancellablePromise<api$0.AddRepoResult> {
+    return $Call.ByID(1891963088, path);
+}
+
 export function Bind(repoID: string, profile: string): $CancellablePromise<api$0.BindOutcome> {
     return $Call.ByID(714380670, repoID, profile);
 }
@@ -42,8 +50,41 @@ export function ConvertToHTTPS(repoID: string, profile: string): $CancellablePro
     return $Call.ByID(1908925286, repoID, profile);
 }
 
+export function CreateProject(name: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(3368930966, name);
+}
+
+/**
+ * CreateProjectWith makes a project and moves the repositories into it (a suggestion's "Create project").
+ */
+export function CreateProjectWith(name: string, repoIDs: string[] | null): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(2415847506, name, repoIDs);
+}
+
+/**
+ * DeclineMoved answers "no": the folder is a new repository and the question is not asked again.
+ */
+export function DeclineMoved(newID: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(1932394692, newID);
+}
+
 export function DetectOwners(repoIDs: string[] | null): $CancellablePromise<api$0.ReposState> {
     return $Call.ByID(4019471978, repoIDs);
+}
+
+/**
+ * DismissSuggestion says "no thanks" to a project suggestion (ReposState.Suggestions[].Key) for good.
+ */
+export function DismissSuggestion(key: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(2548144971, key);
+}
+
+/**
+ * FetchNow fetches one repository's remote (the person asked, or the app's schedule). It refuses a repository
+ * that is hidden, or neither bound nor opened.
+ */
+export function FetchNow(repoID: string): $CancellablePromise<void> {
+    return $Call.ByID(742998941, repoID);
 }
 
 export function GetState(): $CancellablePromise<api$0.ReposState> {
@@ -52,6 +93,20 @@ export function GetState(): $CancellablePromise<api$0.ReposState> {
 
 export function ListRemoteRepos(profile: string, region: string): $CancellablePromise<api$0.RemoteRepo[] | null> {
     return $Call.ByID(1416567940, profile, region);
+}
+
+/**
+ * MarkOpened tells the engine the person opened a repository: it then takes part in background fetch.
+ */
+export function MarkOpened(repoID: string): $CancellablePromise<void> {
+    return $Call.ByID(3337033913, repoID);
+}
+
+/**
+ * MoveToProject puts repositories into a project; an empty projectID takes them out of any project.
+ */
+export function MoveToProject(repoIDs: string[] | null, projectID: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(442829878, repoIDs, projectID);
 }
 
 export function OpenFolder(repoID: string): $CancellablePromise<void> {
@@ -67,18 +122,63 @@ export function PreviewClone(req: api$0.CloneRequest): $CancellablePromise<api$0
 }
 
 /**
+ * ReattachMoved answers "yes" to "Is this <name>, moved here?" for the repository newID: the old record (project,
+ * hidden flag, identity, binding, test result) takes this folder. The folder itself is never touched.
+ * Errors: E_MOVED_HAS_DATA, E_MOVED_GONE.
+ */
+export function ReattachMoved(newID: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(3544298176, newID);
+}
+
+/**
+ * RefreshStatus re-reads the git status of listed repositories (empty = all). Hidden repositories are skipped.
+ */
+export function RefreshStatus(repoIDs: string[] | null): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(704966958, repoIDs);
+}
+
+/**
  * RemoveExtra stops listing a repository that was added by hand. The folder is not touched.
  */
 export function RemoveExtra(repoID: string): $CancellablePromise<api$0.ReposState> {
     return $Call.ByID(1166117873, repoID);
 }
 
+/**
+ * RemoveProject deletes a project; its repositories become ungrouped. Nothing on disk is touched.
+ */
+export function RemoveProject(projectID: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(3760595638, projectID);
+}
+
+export function RenameProject(projectID: string, name: string): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(3591058592, projectID, name);
+}
+
 export function RepairBindings(): $CancellablePromise<api$0.BindOutcome[] | null> {
     return $Call.ByID(165983338);
 }
 
+/**
+ * ResolveFound answers the one-time review of newly found repositories: show joins the list, hide hides.
+ */
+export function ResolveFound(show: string[] | null, hide: string[] | null): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(4291488149, show, hide);
+}
+
 export function Scan(): $CancellablePromise<api$0.ReposState> {
     return $Call.ByID(3909291160);
+}
+
+/**
+ * SetHidden hides a repository (it leaves the list, the counts and all background work) or brings it back.
+ */
+export function SetHidden(repoID: string, hidden: boolean): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(3705898611, repoID, hidden);
+}
+
+export function SetProjectCollapsed(projectID: string, collapsed: boolean): $CancellablePromise<api$0.ReposState> {
+    return $Call.ByID(3988854665, projectID, collapsed);
 }
 
 export function TestConnection(repoID: string): $CancellablePromise<api$0.TestResult> {

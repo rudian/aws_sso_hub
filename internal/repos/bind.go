@@ -162,6 +162,7 @@ func (e *Engine) outcome(ctx context.Context, id, backupID string) api.BindOutco
 	o := api.BindOutcome{RepoID: id, OK: true, BackupID: backupID}
 	if ok {
 		repo := e.buildRepo(r, pm, e.reg.LastTests())
+		e.fillRecord(&repo)
 		o.Repo = &repo
 	}
 	return o

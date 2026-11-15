@@ -59,7 +59,7 @@ func TestRenamedFolderIsOfferedAndReattached(t *testing.T) {
 		t.Fatalf("owner not detected: %v %+v", err, st.Repos[0].Owner)
 	}
 	old := st.Repos[0]
-	if err := f.reg.SetHidden(old.ID, true); err != nil {
+	if err := setOwnData(f.reg, old.ID); err != nil { // was SetHidden: a hidden repository now leaves the list (F1-11)
 		t.Fatal(err)
 	}
 	if err := f.reg.SetLastTest(old.ID, api.TestResult{Status: api.TestOK, At: "2026-11-01T00:00:00Z", Profile: "acme"}); err != nil {
@@ -101,7 +101,7 @@ func TestRenamedFolderIsOfferedAndReattached(t *testing.T) {
 		t.Fatalf("owner detection lost on re-attach: %+v", st.Repos[0].Owner)
 	}
 	d := f.reg.Snapshot()
-	if r := d.FindRepo(old.ID); r == nil || !r.Hidden || r.MissingSince != nil || len(d.Repos) != 1 {
+	if r := d.FindRepo(old.ID); r == nil || r.IdentityOverride == nil || r.MissingSince != nil || len(d.Repos) != 1 {
 		t.Fatalf("%+v", d.Repos)
 	}
 	if len(f.eng.MovedOffers()) != 0 {
