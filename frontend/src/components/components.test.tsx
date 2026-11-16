@@ -301,6 +301,21 @@ describe('small components', () => {
     expect(b.disabled).toBe(true)
     expect(b.className).toContain('is-loading')
   })
+
+  it('Button loading with keepEnabled shows the spinner and stays focusable; disabled still disables', () => {
+    render(<Button loading keepEnabled>Console</Button>)
+    const b = host.querySelector('button') as HTMLButtonElement
+    expect(b.hasAttribute('disabled')).toBe(false)
+    expect(b.getAttribute('aria-busy')).toBe('true')
+    expect(b.className).toContain('is-loading')
+    act(() => b.focus())
+    expect(document.activeElement).toBe(b)
+    render(<Button keepEnabled>Console</Button>)
+    expect(b.getAttribute('aria-busy')).toBeNull()
+    expect(b.className).not.toContain('is-loading')
+    render(<Button loading keepEnabled disabled>Console</Button>)
+    expect(b.disabled).toBe(true)
+  })
 })
 
 describe('CodeText', () => {

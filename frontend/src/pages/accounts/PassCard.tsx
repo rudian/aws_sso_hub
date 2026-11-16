@@ -56,7 +56,8 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
   const [consoleOpening, setConsoleOpening] = useState(false)
   const consoleBusy = useRef(false)
 
-  // OpenConsole makes two network calls (about 1 s); clicks meanwhile are ignored
+  // OpenConsole makes two network calls (about 1 s); clicks meanwhile are ignored. The button stays enabled
+  // while it loads (keepEnabled), so keyboard focus is not dropped to <body>.
   const openConsole = async () => {
     if (consoleBusy.current) return
     consoleBusy.current = true
@@ -157,7 +158,7 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
               {state === 'signed-out' && <Dot kind="off" />}
               {state === 'error' && <Dot kind="danger" />}
               {state === 'refreshable' && (session.refreshing ? <Spinner /> : <Dot kind="warn" />)}
-              <span>{cardStateText(session, lang, t)}</span>
+              <span>{cardStateText(session, now, lang, t)}</span>
             </div>
             {state === 'error' && session.error && <ErrorDetails error={session.error} />}
           </div>
@@ -172,7 +173,7 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
       <div className="pass__actions">
         {counting && (
           <>
-            <Button size="sm" icon={ExternalLink} loading={consoleOpening} onClick={() => void openConsole()}>
+            <Button size="sm" icon={ExternalLink} loading={consoleOpening} keepEnabled onClick={() => void openConsole()}>
               {t('card.console')}
             </Button>
             <IconButton size="sm" label={t('card.terminal')} icon={Terminal} onClick={() => navigate({ page: 'terminal', profile: profile.name })} />

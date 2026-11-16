@@ -121,6 +121,8 @@ describe('LoginModal: private window hints', () => {
     open(LoginMode.LoginModeDevice)
     await flush(700)
     expect(text()).toContain('uses a private window where it can')
+    // the same switch-user warning as the browser flow's private body
+    expect(text()).toContain('Close that window after you allow access. To sign in as a different user, close all private windows first.')
     const btn = [...document.querySelectorAll<HTMLButtonElement>('.login-modal .modal__footer button')].find((b) => b.textContent === 'Open browser')
     act(() => btn?.click())
     await flush(50)
@@ -136,6 +138,7 @@ describe('LoginModal: private window hints', () => {
     await flush(200)
     expect(text()).toContain('Opened in a separate, fresh browser window. It closes by itself when you’re done.')
     expect(text()).not.toContain('uses a private window where it can')
+    expect(text()).not.toContain('To sign in as a different user')
     expect(text()).not.toContain(FALLBACK)
   })
 

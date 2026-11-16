@@ -82,7 +82,7 @@ export const zh: TutorialSection[] = [
       {
         title: '决定一次登录能用多久',
         crumbs: ['Settings', 'Authentication', 'Session duration'],
-        text: '“用户交互式会话”（user interactive sessions）决定大家多久要重新登录一次。默认 8 小时：越长登录越少，越短越安全。AWS SSO Hub 读不到这个值，会根据 AWS 返回的时间自动算出每次会话什么时候结束。第一次登录时，在 AWS 给出结束时间之前，倒计时可能按 8 小时计算；会话不超过 1 小时的，大约 2 分钟内就能发现。',
+        text: '“用户交互式会话”（user interactive sessions）决定大家多久要重新登录一次。默认 8 小时：越长登录越少，越短越安全。AWS SSO Hub 读不到这个值，会根据 AWS 返回的时间自动算出每次会话什么时候结束。第一次登录时，在 AWS 给出结束时间之前，倒计时可能按 8 小时计算；会话不超过 1 小时的，只要 AWS SSO Hub 设置里的**自动续期登录**开着（默认开启），大约 2 分钟内就能发现。',
       },
     ],
     callouts: [

@@ -84,7 +84,7 @@ export const zh = {
   'session.details.tokenExpires': '访问令牌到期',
   'session.details.autoRenews': '会自动续期',
   'session.details.lastRenewed': '上次续期',
-  'session.details.admin': '会话时长由 AWS 管理员在 IAM Identity Center 中设定，app 读不到也改不了。app 会根据 AWS 每次续期给出的时间，自动算出会话什么时候结束。',
+  'session.details.admin': '会话时长由 AWS 管理员在 IAM Identity Center 中设定，应用读不到也改不了。应用会根据 AWS 每次续期给出的时间，自动算出会话什么时候结束。',
   'session.details.note': '退出应用不会退出登录。会话结束前，git 和 aws 命令都能正常使用。',
   'tip.refresh': '刷新（⌘R）',
   'tip.more': '更多操作',

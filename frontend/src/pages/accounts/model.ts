@@ -106,10 +106,13 @@ export function pillText(s: SessionStatus, now: number, t: T): string {
 }
 
 /** The state line of a card that is not signed in (a signed-in card uses the Countdown). */
-export function cardStateText(s: SessionStatus, lang: Lang, t: T): string {
+export function cardStateText(s: SessionStatus, now: number, lang: Lang, t: T): string {
   switch (pillState(s)) {
     case 'expired': {
-      const at = s.sessionKnown && s.sessionEndsAt ? s.sessionEndsAt : s.expiresAt
+      // The session end only when it has passed: an estimated end still ahead was wrong (the session ended
+      // earlier), so the access token expiry is the better time. Unparsable counts as not passed.
+      const sessionEnd = s.sessionKnown && s.sessionEndsAt ? Date.parse(s.sessionEndsAt) : NaN
+      const at = sessionEnd <= now ? s.sessionEndsAt : s.expiresAt
       return at ? t('session.expiredAt', { time: formatDateTime(at, lang) }) : t('session.expired')
     }
     case 'signing-in':
