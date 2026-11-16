@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/rudian/codepass/internal/api"
@@ -116,7 +117,28 @@ func (e *Engine) PreviewClone(ctx context.Context, req api.CloneRequest) (api.Cl
 		return api.ClonePreview{}, err
 	}
 	_, statErr := os.Lstat(dest)
-	return api.ClonePreview{Dest: dest, Exists: statErr == nil, FolderName: folder, Command: "git clone " + url, HTTPSURL: url}, nil
+	// The command names the folder as well, so "Command to run" and "Clones into" say the same (a custom
+	// folder name is part of it).
+	return api.ClonePreview{Dest: dest, Exists: statErr == nil, FolderName: folder, Command: "git clone " + url + " " + shellArg(dest, e.d.GOOS), HTTPSURL: url}, nil
+}
+
+// shellArg writes a path as one argument of a command line for the terminal a person would paste it in: as it
+// is when it has only plain characters, otherwise in single quotes (macOS) or double quotes (Windows).
+func shellArg(s, goos string) string {
+	plain := s != ""
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("_@%+=:,./-\\", r)) {
+			plain = false
+			break
+		}
+	}
+	switch {
+	case plain:
+		return s
+	case goos == "windows":
+		return `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // Clone clones a CodeCommit repository with the binding already applied.

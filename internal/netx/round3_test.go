@@ -200,3 +200,50 @@ func TestDownloadSharesProxyWithoutTimeout(t *testing.T) {
 		t.Fatalf("hits %d", hits.Load())
 	}
 }
+
+// FU-06a: a request that NO_PROXY or loopback sends direct never meets the broken proxy setting.
+func TestProxyFuncBadURLDoesNotFailBypassedRequests(t *testing.T) {
+	f := Config{HTTPS: "http://u:pa#ss@p.example.com:1:x", NoProxy: "internal.example"}.ProxyFunc()
+	for _, raw := range []string{"https://internal.example/", "https://git.internal.example/", "https://localhost/", "https://127.0.0.1:8443/"} {
+		r, _ := http.NewRequest("GET", raw, nil)
+		if u, err := f(r); u != nil || err != nil {
+			t.Errorf("%s: u=%v err=%v", raw, u, err)
+		}
+	}
+	r, _ := http.NewRequest("GET", "https://other.example/", nil)
+	if _, err := f(r); err == nil {
+		t.Error("a request that would use the proxy must still fail")
+	}
+	r, _ = http.NewRequest("GET", "http://other.example/", nil) // no http proxy at all: direct
+	if u, err := f(r); u != nil || err != nil {
+		t.Errorf("u=%v err=%v", u, err)
+	}
+}
+
+// FU-06b: on Windows a SOCKS-only proxy is reported as unsupported, as on macOS, instead of going direct silently.
+func TestWindowsSocksOnlyIsUnsupported(t *testing.T) {
+	for name, c := range map[string]Config{
+		"WinINET":  WinInternetConfig(true, "socks=127.0.0.1:1080", "", ""),
+		"WinHTTP":  WinHTTPConfig("socks=127.0.0.1:1080", ""),
+		"socks5=":  WinInternetConfig(true, "socks5=127.0.0.1:1080", "", ""),
+		"disabled": {},
+	} {
+		if name == "disabled" {
+			continue
+		}
+		if !c.Empty() || c.Unsupported != "socks" || c.Source != "system" || c.PACOnly() {
+			t.Errorf("%s: %+v", name, c)
+		}
+	}
+	// a SOCKS entry next to an http one: the http proxy is used and nothing is unsupported
+	if c := WinInternetConfig(true, "http=a.example:1;socks=c.example:3", "", ""); c.HTTP == "" || c.Unsupported != "" {
+		t.Errorf("%+v", c)
+	}
+	// a SOCKS entry with the proxy switched off, and with a PAC file, does not matter
+	if c := WinInternetConfig(false, "socks=c.example:3", "", ""); c.Unsupported != "" || c.Source != "none" {
+		t.Errorf("%+v", c)
+	}
+	if c := WinInternetConfig(true, "socks=c.example:3", "", "http://wpad/p.pac"); c.Unsupported != "" || !c.PACOnly() {
+		t.Errorf("%+v", c)
+	}
+}

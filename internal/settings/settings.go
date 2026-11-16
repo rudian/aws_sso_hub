@@ -52,7 +52,8 @@ type data struct {
 	AWSCLIPath           string                        `json:"awsCliPath"`
 	GitPath              string                        `json:"gitPath"`
 	AutoBindOnAdd        bool                          `json:"autoBindOnAdd"`
-	PrivateSignIn        *bool                         `json:"privateSignIn,omitempty"` // nil (key absent) = true
+	PrivateSignIn        *bool                         `json:"privateSignIn,omitempty"`  // nil (key absent) = true
+	UpdateCheckOff       bool                          `json:"updateCheckOff,omitempty"` // the daily update check is off; absent = on (plan 3.1)
 	CollapsedPortals     []string                      `json:"collapsedPortals"`
 	LastCloneProfile     string                        `json:"lastCloneProfile"`
 	LastCloneRegion      string                        `json:"lastCloneRegion"`
@@ -351,6 +352,7 @@ func (s *Store) apiLocked() api.Settings {
 		GitPath:         d.GitPath,
 		AutoBindOnAdd:   d.AutoBindOnAdd,
 		PrivateSignIn:   d.privateSignIn(),
+		UpdateCheckOff:  d.UpdateCheckOff,
 
 		CollapsedPortals: append([]string{}, d.CollapsedPortals...),
 		LastCloneProfile: d.LastCloneProfile,
@@ -468,6 +470,9 @@ func (s *Store) Update(p api.SettingsPatch) (api.Settings, error) {
 	if p.PrivateSignIn != nil {
 		v := *p.PrivateSignIn
 		next.PrivateSignIn = &v
+	}
+	if p.UpdateCheckOff != nil {
+		next.UpdateCheckOff = *p.UpdateCheckOff
 	}
 	if p.CollapsedPortals != nil {
 		if len(p.CollapsedPortals) > maxCollapsedPortals {
@@ -790,6 +795,13 @@ func (s *Store) PrivateSignIn() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.d.privateSignIn()
+}
+
+// UpdateCheckOn reports whether the daily automatic update check is on (the default).
+func (s *Store) UpdateCheckOn() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.d.UpdateCheckOff
 }
 
 // AutoBindOnAdd reports whether a hand-added repository is bound to its detected SSO profile.

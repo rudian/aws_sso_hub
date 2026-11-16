@@ -31,7 +31,7 @@ This guide walks through every screen of AWS SSO Hub, step by step. All screensh
 
 - macOS 13 or later (Apple Silicon or Intel), or Windows 10/11 x64 with the WebView2 runtime.
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html), version 2.22 or later. Signing in works without it, but Git and the `aws` command need it.
-- Git 2.39.1 or later.
+- Git 2.44.0 or later.
 
 **In AWS (an administrator does this once per company)**
 

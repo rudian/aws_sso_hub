@@ -279,13 +279,20 @@ func ChildEnv() []string {
 	return append(env, extra...)
 }
 
+// waitDelay is how long Run keeps waiting for a command's output after the command itself has exited or its
+// context has ended. A grandchild (git-remote-https, ssh) that inherited the output pipes and outlives the
+// command would otherwise keep Run waiting for as long as it lives. A variable so tests can shorten it.
+var waitDelay = 5 * time.Second
+
 // Command builds a child process with the sanitised environment. On Windows the console window is hidden.
+// Once the command has exited or ctx has ended, Run waits at most about 5 seconds for the output pipes to close.
 func Command(ctx context.Context, name string, args ...string) *exec.Cmd {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = ChildEnv()
+	cmd.WaitDelay = waitDelay
 	hideWindow(cmd)
 	return cmd
 }
@@ -332,6 +339,9 @@ func Run(cmd *exec.Cmd, stdin []byte) (Result, error) {
 	}
 	err := cmd.Run()
 	res := Result{Stdout: stdout.Bytes(), Stderr: stderr.Bytes()}
+	if errors.Is(err, exec.ErrWaitDelay) {
+		err = nil // the command itself succeeded; a grandchild still held the pipes, and what was read is kept
+	}
 	if err == nil {
 		return res, nil
 	}

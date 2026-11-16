@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -33,6 +32,13 @@ func NewIdentityService(c *Container, reg *projects.Store) *IdentityService {
 		GOOS:     runtime.GOOS,
 		Emit:     c.emit,
 		OnWrite:  c.noteIdentityWrite,
+		// the repository engine keeps the moved-folder questions; a repository that got a project or an identity
+		// of its own through this engine must lose its question
+		OnRecordData: func(ids ...string) {
+			if c.Repos != nil {
+				c.Repos.ForgetMovedOffers(ids...)
+			}
+		},
 	})
 	return &IdentityService{c: c, e: e}
 }
@@ -41,12 +47,13 @@ func NewIdentityService(c *Container, reg *projects.Store) *IdentityService {
 // undo that removed a file the app had created) records the watcher's "missing" state, not the hash of an
 // empty file, so the next poll does not report the app's own change.
 func (c *Container) noteIdentityWrite(path string, content []byte) {
-	c.files.note(path, content)
 	if content == nil {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			c.files.set(filepath.Clean(path), "")
+			c.files.noteRemoved(path)
+			return
 		}
 	}
+	c.files.note(path, content)
 }
 
 func (s *IdentityService) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {

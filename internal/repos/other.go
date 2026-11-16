@@ -366,19 +366,6 @@ func fileIOProjects(err error) *api.AppError {
 		WithParam("file", "projects.json").WithDetail(err.Error())
 }
 
-// urlHasUserinfo reports whether a remote URL carries a user name or password (http, https, ssh or git URLs).
-func urlHasUserinfo(raw string) bool {
-	u, err := url.Parse(raw)
-	if err != nil || u.User == nil {
-		return false
-	}
-	if _, hasPw := u.User.Password(); hasPw {
-		return true
-	}
-	// ssh://git@host/... is the normal way to reach a host over SSH, not a credential.
-	return u.Scheme != "ssh" && u.User.Username() != ""
-}
-
 // urlHasCredential is the rule for hosts other than CodeCommit: a password or a token-shaped user name counts;
 // a plain account name (Bitbucket's https://<user>@bitbucket.org/...) and its static user names do not.
 func urlHasCredential(raw string) bool {
@@ -394,5 +381,23 @@ func urlHasCredential(raw string) bool {
 	case "x-token-auth", "x-bitbucket-api-token-auth", "":
 		return false
 	}
+	if strings.EqualFold(u.Hostname(), "bitbucket.org") {
+		// A Bitbucket account name can be long (an e-mail style name); only a name that starts like a token counts.
+		return hasTokenPrefix(name)
+	}
 	return redact.String(raw) != raw // a token-shaped user name is masked
+}
+
+// bitbucketTokenPrefixes start the access tokens Atlassian issues (app passwords, API tokens) and the usual
+// tokens of other hosts a person may paste into a Bitbucket URL.
+var bitbucketTokenPrefixes = []string{"atbb", "atatt", "ghp_", "gho_", "ghs_", "github_pat_", "glpat-", "xox"}
+
+func hasTokenPrefix(name string) bool {
+	l := strings.ToLower(name)
+	for _, p := range bitbucketTokenPrefixes {
+		if strings.HasPrefix(l, p) {
+			return true
+		}
+	}
+	return false
 }

@@ -795,8 +795,15 @@ func TestCloneAddsExtraRepo(t *testing.T) {
 	}
 	req := api.CloneRequest{Profile: "initech-admin", Region: "us-east-1", RepoName: "remote_repo", ParentDir: outside, FolderName: "remote_repo"}
 	pv, err := f.eng.PreviewClone(context.Background(), req)
-	if err != nil || pv.Exists || pv.Dest != filepath.Join(outside, "remote_repo") || pv.Command != "git clone "+ccURL("remote_repo") || pv.HTTPSURL != ccURL("remote_repo") {
+	if err != nil || pv.Exists || pv.Dest != filepath.Join(outside, "remote_repo") || pv.Command != "git clone "+ccURL("remote_repo")+" "+pv.Dest || pv.HTTPSURL != ccURL("remote_repo") {
 		t.Fatalf("preview: %+v %v", pv, err)
+	}
+	// FU-19c: a custom folder name is part of the command, and a path with a space is quoted
+	reqSp := req
+	reqSp.FolderName = "my repo"
+	if pv2, err := f.eng.PreviewClone(context.Background(), reqSp); err != nil || pv2.FolderName != "my repo" ||
+		pv2.Command != "git clone "+ccURL("remote_repo")+" '"+filepath.Join(outside, "my repo")+"'" {
+		t.Fatalf("preview with a folder name: %+v %v", pv2, err)
 	}
 	f.state()
 	o, err := f.eng.Clone(context.Background(), req)

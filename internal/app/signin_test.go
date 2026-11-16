@@ -24,6 +24,10 @@ type fakePrivate struct {
 	windows  []*fakeWindow
 
 	openIso func(ctx context.Context) // runs inside OpenIsolated before it returns (tests that block)
+	// startThenFail: the browser is started, then, as the real opener does when its context was cancelled
+	// meanwhile, the call reports the context's error and returns no handle
+	startThenFail bool
+	slowFirst     time.Duration // the first window's Close takes this long
 
 	staleRoot chan string // RemoveStale records its root and keep function here
 	staleKeep chan func(string) bool
@@ -43,8 +47,14 @@ func (f *fakePrivate) OpenIsolated(ctx context.Context, u, dir string) (signInWi
 	}
 	w := &fakeWindow{url: u, dir: dir}
 	f.mu.Lock()
+	if len(f.windows) == 0 {
+		w.slow = f.slowFirst
+	}
 	f.windows = append(f.windows, w)
 	f.mu.Unlock()
+	if f.startThenFail && ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	return w, nil
 }
 
@@ -61,6 +71,7 @@ type fakeWindow struct {
 	mu       sync.Mutex
 	closed   int
 	focused  int
+	slow     time.Duration // Close takes this long (a browser that is slow to quit)
 }
 
 // Focus stands in for bringing an isolated browser to the front (F1-22: a click on "Sign in again" while that
@@ -75,6 +86,7 @@ func (w *fakeWindow) Focus(context.Context) error {
 func (w *fakeWindow) focusCount() int { w.mu.Lock(); defer w.mu.Unlock(); return w.focused }
 
 func (w *fakeWindow) Close(context.Context) error {
+	time.Sleep(w.slow)
 	err := os.RemoveAll(w.dir)
 	w.mu.Lock()
 	w.closed++

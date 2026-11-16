@@ -11,7 +11,8 @@
 //     no proxy variables. Leave HTTP nil (the controller builds a client with no overall timeout) or, if a client is
 //     injected, give it none: the Wails default cuts a large download off after 30 s.
 //   - ControllerConfig.HelperLog is a file in the data folder (for example <data>/update/restarts). Highest.Path, Channel,
-//     Gate.Requirement and HelperLog are all required; Check refuses with CodeConfig when one is missing.
+//     Gate.Requirement, HelperLog and StagedRecord (for example <data>/update/staged) are all required; Check
+//     refuses with CodeConfig when one is missing.
 //   - Call Highest.Record(version) on every start. Start Controller.Run in a goroutine (it removes the helper logs
 //     of the restarts it recorded) and call CleanHelperLogs nowhere else.
 //   - State carries Code (stable, see the Code* constants) and Step (check, download, verify, restart); the UI maps

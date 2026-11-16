@@ -140,6 +140,7 @@ func TestApprovedQuitIsOneShot(t *testing.T) {
 
 func TestWndProcTracksSessionEnd(t *testing.T) {
 	sessionEndFlag.Store(false)
+	t.Cleanup(func() { sessionEndFlag.Store(false) }) // never leave a "logout" behind for another test
 	if _, consumed := WndProc(0, wmQueryEndSession, 0, 0); consumed || !sessionEndFlag.Load() {
 		t.Fatal("QUERYENDSESSION sets the flag and is not consumed")
 	}

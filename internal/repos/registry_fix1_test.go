@@ -266,6 +266,19 @@ func TestAddExistingAfterManualMoveIsOffered(t *testing.T) {
 			if err := reg.SetHidden(old, true); err != nil {
 				t.Fatal(err)
 			}
+			pr, err := reg.AddProject("Acme")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := reg.SetProject(old, pr.ID); err != nil {
+				t.Fatal(err)
+			}
+			if err := reg.Mutate(func(d *projects.Data) error {
+				d.FindRepo(old).IdentityOverride = &projects.Identity{Name: "Ann", Email: "ann@example.com"}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
 			dst := target(f)
 			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 				t.Fatal(err)
@@ -289,6 +302,38 @@ func TestAddExistingAfterManualMoveIsOffered(t *testing.T) {
 			if r == nil || !r.Hidden || r.MissingSince != nil {
 				t.Fatalf("record not kept: %+v", r)
 			}
+			// the project and the identity of the old record survive the move too (FU-18h)
+			if r.ProjectID != pr.ID || r.IdentityOverride == nil || *r.IdentityOverride != (projects.Identity{Name: "Ann", Email: "ann@example.com"}) {
+				t.Fatalf("project or identity lost: %+v", r)
+			}
 		})
+	}
+}
+
+// FU-14h: a caller outside the engine that gave the new row data of its own drops the question.
+func TestForgetMovedOffersDropsTheQuestion(t *testing.T) {
+	f := newFixture(t)
+	dir := f.newRepo("acme_api", ccURL("acme_api"))
+	f.sb.CommitFile(t, dir, "README.md", "hi\n")
+	eng, reg, _ := engineWith(t, f, t.TempDir())
+	ctx := context.Background()
+	if _, err := eng.Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(f.code, "api-main")
+	if err := os.Rename(dir, dst); err != nil {
+		t.Fatal(err)
+	}
+	res, err := eng.AddExisting(ctx, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := eng.MovedOffers()[res.RepoID]; !ok {
+		t.Fatal("no offer to start from")
+	}
+	_ = reg
+	eng.ForgetMovedOffers(res.RepoID)
+	if _, ok := eng.MovedOffers()[res.RepoID]; ok {
+		t.Fatal("the question stays")
 	}
 }

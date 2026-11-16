@@ -18,6 +18,7 @@ import (
 
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/awsguard"
 	"github.com/rudian/codepass/internal/sso"
 )
 
@@ -50,6 +51,9 @@ func stsClient(p aws.CredentialsProvider, ep Endpoints) *sts.Client {
 		if ep.STS != "" {
 			o.BaseEndpoint = aws.String(ep.STS)
 		}
+		if c := awsguard.Client(); c != nil {
+			o.HTTPClient = c
+		}
 	})
 }
 
@@ -57,6 +61,9 @@ func iamClient(p aws.CredentialsProvider, ep Endpoints) *iam.Client {
 	return iam.NewFromConfig(aws.Config{Region: globalRegion, Credentials: p}, func(o *iam.Options) {
 		if ep.IAM != "" {
 			o.BaseEndpoint = aws.String(ep.IAM)
+		}
+		if c := awsguard.Client(); c != nil {
+			o.HTTPClient = c
 		}
 	})
 }

@@ -103,3 +103,28 @@ func TestIdentityUndoOfCreatedGlobalIsNotAnExternalChange(t *testing.T) {
 		t.Fatalf("%+v", bad)
 	}
 }
+
+// FU-13d: after an undo removed a global config the app had created, the undo check of the backup taken before
+// that removal expects "missing" (""), not the hash of an empty file, so restoring it is not refused.
+func TestRemovedFileIsRecordedAsMissingForTheUndoCheck(t *testing.T) {
+	w := newWorld(t)
+	f := w.c.files
+	path := filepath.Join(w.p.Home, ".gitconfig-created")
+	f.onSnapshot(api.BackupEntry{ID: "b-removed", Path: path})
+	w.c.noteIdentityWrite(path, nil) // the file does not exist: the app removed it
+	if h, ok := f.writtenAfter("b-removed"); !ok || h != "" {
+		t.Fatalf("after-write hash %q (recorded %v), want \"\"", h, ok)
+	}
+	if h, _ := f.get(filepath.Clean(path)); h != "" {
+		t.Fatalf("the watcher's state %q, want \"\"", h)
+	}
+	// an empty file that exists is still the hash of an empty file
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.onSnapshot(api.BackupEntry{ID: "b-empty", Path: path})
+	w.c.noteIdentityWrite(path, nil)
+	if h, _ := f.writtenAfter("b-empty"); h != hashBytes(nil) {
+		t.Fatalf("empty file hash %q", h)
+	}
+}

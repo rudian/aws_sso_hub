@@ -64,7 +64,7 @@ The [illustrated guide](docs/guide.md) covers the rest: the migration wizard ste
 
 - macOS 13 or later (Apple Silicon or Intel), or Windows 10/11 x64 with the WebView2 runtime (included in current Windows).
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 2.22 or later, for Git and the `aws` command. Signing in works without it.
-- Git 2.39.1 or later.
+- Git 2.44.0 or later.
 - An AWS IAM Identity Center **organization instance** with a permission set assigned to you. If your company does not have one yet, the [guide](docs/guide.md#1-before-you-start) shows the administrator steps. If each of your companies has its own AWS Organization, each one becomes its own portal in the app.
 
 To check a download, compare it with `SHA256SUMS.txt` from the release:

@@ -31,7 +31,7 @@
 
 - macOS 13 或更新版本（Apple 芯片或 Intel），或者 Windows 10/11 x64，并装有 WebView2 运行时。
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 2.22 或更新版本。只登录的话不需要它，但 git 和 `aws` 命令需要。
-- Git 2.39.1 或更新版本。
+- Git 2.44.0 或更新版本。
 
 **AWS 那边（管理员为每家公司做一次）**
 

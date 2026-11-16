@@ -500,25 +500,6 @@ export enum ErrorCode {
      */
     $zero = "",
 
-    /**
-     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
-     *
-     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
-     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
-     */
-    ErrMovedHasData = "E_MOVED_HAS_DATA",
-
-    /**
-     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
-     * after 30 days, or the question was answered already).
-     */
-    ErrMovedGone = "E_MOVED_GONE",
-
-    /**
-     * ErrProjectNotFound: the project does not exist (any more). params: id
-     */
-    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
-
     ErrInternal = "E_INTERNAL",
     ErrCancelled = "E_CANCELLED",
     ErrNotImplemented = "E_NOT_IMPLEMENTED",
@@ -690,6 +671,31 @@ export enum ErrorCode {
      * params: reason (not-json | format | version | size | limit)
      */
     ErrImportFormat = "E_IMPORT_FORMAT",
+
+    /**
+     * ErrConfigShared: a per-repository identity change would write a config file that another repository (a linked
+     * worktree) with an identity of its own reads too. Nothing was written. params: file
+     */
+    ErrConfigShared = "E_CONFIG_SHARED",
+
+    /**
+     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
+     *
+     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
+     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
+     */
+    ErrMovedHasData = "E_MOVED_HAS_DATA",
+
+    /**
+     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
+     * after 30 days, or the question was answered already).
+     */
+    ErrMovedGone = "E_MOVED_GONE",
+
+    /**
+     * ErrProjectNotFound: the project does not exist (any more). params: id
+     */
+    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
 };
 
 /**
@@ -2652,6 +2658,11 @@ export interface Settings {
     "privateSignIn": boolean;
 
     /**
+     * the daily automatic update check is off (zero value = checks on); a manual check always works
+     */
+    "updateCheckOff": boolean;
+
+    /**
      * portal names collapsed on the Accounts page
      */
     "collapsedPortals": string[] | null;
@@ -2693,6 +2704,7 @@ export interface SettingsPatch {
     "gitPath"?: string | null;
     "autoBindOnAdd"?: boolean | null;
     "privateSignIn"?: boolean | null;
+    "updateCheckOff"?: boolean | null;
 
     /**
      * nil = unchanged; empty slice = clear
@@ -2738,7 +2750,8 @@ export enum SetupFix {
 
     /**
      * FixUseDetected: the tool path chosen in Settings is missing or too old, but automatic detection finds an
-     * acceptable copy. The setup run clears the chosen path (a normal, backed-up settings write); nothing is installed.
+     * acceptable copy. The setup run clears the chosen path with the normal settings write, which keeps no copy of it (the person can
+     * choose it again in Settings); nothing is installed.
      */
     FixUseDetected = "use-detected",
 };
@@ -2805,7 +2818,8 @@ export interface SetupTool {
     /**
      * Override is true when the row was judged on a program path the user chose in Settings (git, AWS CLI). The
      * setup run clears that path first, because a chosen path that blocks the gate cannot be changed from the
-     * setup screen.
+     * setup screen. The cleared path is not backed up (settings.json has no backup); the person can choose it again
+     * in Settings.
      */
     "override"?: boolean;
 }

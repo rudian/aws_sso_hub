@@ -243,3 +243,50 @@ func TestToolServiceRecheckFailsAStepThatChangedNothing(t *testing.T) {
 		t.Errorf("the next step must not run: %d", run.count())
 	}
 }
+
+// FU-15e: StartToolUpdate runs brew upgrade through the same installer, emits the same event, and Cancel
+// (CancelSetupInstall) stops it.
+func TestToolServiceUpdatesAToolWithItsInstaller(t *testing.T) {
+	run := &toolRunner{}
+	svc, events, _ := newToolSvc(t, api.SetupState{Platform: "darwin", Preflight: api.Preflight{EnoughSpace: true},
+		Tools: []api.SetupTool{{ID: api.SetupHomebrew, Status: api.ToolOK}, {ID: api.SetupGit, Status: api.ToolOK}}}, run)
+	if err := svc.StartToolUpdate(context.Background(), api.SetupHomebrew); err == nil {
+		t.Fatal("Homebrew is not updated here")
+	}
+	if err := svc.StartToolUpdate(context.Background(), api.SetupGit); err != nil {
+		t.Fatal(err)
+	}
+	waitCalls(t, run, 1)
+	run.mu.Lock()
+	c := run.calls[0]
+	run.mu.Unlock()
+	if len(c.Args) != 2 || c.Args[0] != "upgrade" || c.Args[1] != "git" {
+		t.Fatalf("%v", c.Args)
+	}
+	svc.installer().Wait()
+	st, _ := svc.GetInstallState()
+	if !st.Finished || st.Failure != nil || len(st.Steps) != 1 || st.Steps[0].ID != "git:update" {
+		t.Fatalf("%+v", st)
+	}
+	if len(*events) == 0 || (*events)[0] != api.EventToolInstall {
+		t.Fatalf("events %v", *events)
+	}
+}
+
+func TestToolServiceUpdateCancelsAndRefusesASecondRun(t *testing.T) {
+	run := &toolRunner{hold: make(chan struct{})}
+	svc, _, _ := newToolSvc(t, api.SetupState{Platform: "darwin", Tools: []api.SetupTool{{ID: api.SetupGit, Status: api.ToolOK}}}, run)
+	if err := svc.StartToolUpdate(context.Background(), api.SetupGit); err != nil {
+		t.Fatal(err)
+	}
+	waitCalls(t, run, 1)
+	if err := svc.StartToolUpdate(context.Background(), api.SetupAWSCLI); err == nil {
+		t.Fatal("a second run must be refused while one goes")
+	}
+	_ = svc.CancelSetupInstall()
+	close(run.hold) // the fake runner ignores its context; the real one stops the program
+	svc.installer().Wait()
+	if st, _ := svc.GetInstallState(); !st.Finished || st.Running {
+		t.Fatalf("%+v", st)
+	}
+}

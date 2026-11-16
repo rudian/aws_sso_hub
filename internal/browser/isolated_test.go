@@ -259,3 +259,31 @@ func TestRemoveStaleWindowsKeepsProfilesInUse(t *testing.T) {
 		t.Fatalf("a profile that is not in use is deleted: %v", entries)
 	}
 }
+
+// FU-22e: Focus brings the started browser's window forward on Windows (the process the app started), with no
+// permission; on macOS it declines, so the caller opens the page again.
+func TestIsolatedFocus(t *testing.T) {
+	var asked []int
+	o := &Opener{GOOS: "windows", Running: func(pid int) bool { return pid == 77 },
+		Foreground: func(pid int) error { asked = append(asked, pid); return nil }}
+	w := &Isolated{o: o, goos: "windows", dir: t.TempDir(), pid: 77}
+	if err := w.Focus(context.Background()); err != nil || !reflect.DeepEqual(asked, []int{77}) {
+		t.Fatalf("%v %v", err, asked)
+	}
+	// the foreground lock: Windows refuses, the error reaches the caller
+	o.Foreground = func(int) error { return errors.New("refused") }
+	if err := w.Focus(context.Background()); err == nil {
+		t.Fatal("a refusal must be an error")
+	}
+	// a browser that has quit is never addressed (its id may belong to another program now)
+	asked = nil
+	o.Foreground = func(pid int) error { asked = append(asked, pid); return nil }
+	o.Running = func(int) bool { return false }
+	if err := w.Focus(context.Background()); err == nil || len(asked) != 0 {
+		t.Fatalf("%v %v", err, asked)
+	}
+	mac := &Isolated{o: &Opener{GOOS: "darwin", Foreground: func(int) error { t.Fatal("macOS asks nothing"); return nil }}, goos: "darwin", dir: t.TempDir()}
+	if err := mac.Focus(context.Background()); !errors.Is(err, ErrFocusUnsupported) {
+		t.Fatalf("%v", err)
+	}
+}

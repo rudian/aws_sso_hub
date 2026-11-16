@@ -67,23 +67,6 @@ func parsePS(out string, uid int) []Proc {
 	return procs
 }
 
-// parseTasklist parses `tasklist /FO CSV /NH`: "name.exe","123",... (image names only, no paths).
-func parseTasklist(out string) []Proc {
-	var procs []Proc
-	for _, line := range strings.Split(out, "\n") {
-		parts := strings.Split(strings.TrimSpace(line), `","`)
-		if len(parts) < 2 {
-			continue
-		}
-		pid, err := strconv.Atoi(strings.Trim(parts[1], `"`))
-		if err != nil {
-			continue
-		}
-		procs = append(procs, Proc{PID: pid, Path: strings.Trim(parts[0], `"`)})
-	}
-	return procs
-}
-
 func homeTrash() string {
 	h, err := os.UserHomeDir()
 	if err != nil || h == "" {

@@ -133,8 +133,10 @@ func (c *Container) Shutdown() {
 	gitx.RemoveNeutralDir()
 }
 
-// online reports whether the machine looks connected: a non-loopback network interface is up and has an address.
-// It sends no traffic. Background fetch is skipped while it is false.
+// online reports whether the machine looks connected: a non-loopback network interface is up and has a routable
+// address (not loopback, not link-local), and the system has a default route to the internet. It sends no
+// traffic (a UDP connect to a documentation address writes no packet). Background fetch is skipped while it is
+// false.
 func (c *Container) online() bool {
 	if c.opts.Online != nil {
 		return c.opts.Online()

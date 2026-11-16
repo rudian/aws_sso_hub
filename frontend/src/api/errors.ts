@@ -112,4 +112,5 @@ export const errorKeys: Record<ErrorCode, { title: MessageKey; body?: MessageKey
   [ErrorCode.ErrMovedHasData]: e(ErrorCode.ErrMovedHasData),
   [ErrorCode.ErrMovedGone]: e(ErrorCode.ErrMovedGone),
   [ErrorCode.ErrProjectNotFound]: e(ErrorCode.ErrProjectNotFound),
+  [ErrorCode.ErrConfigShared]: e(ErrorCode.ErrConfigShared),
 }

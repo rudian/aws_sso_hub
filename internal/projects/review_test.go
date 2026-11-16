@@ -111,3 +111,25 @@ func TestProjectEditsAndDismissals(t *testing.T) {
 		t.Error("pending by default")
 	}
 }
+
+// FU-11b: the moved copy was shown while the old record was still waiting in the review set (or the other way
+// round): answering yes must not put the row back into the review set.
+func TestReattachDoesNotKeepTheOldRecordsPending(t *testing.T) {
+	s, oldID, newID := movedFixture(t)
+	_ = s.Mutate(func(d *Data) error { d.FindRepo(oldID).Pending = true; return nil }) // the copy (newID) is shown
+	if err := s.Reattach(oldID, newID); err != nil {
+		t.Fatal(err)
+	}
+	if d := s.Snapshot(); d.FindRepo(oldID) == nil || d.FindRepo(oldID).Pending {
+		t.Fatal("the row jumped back into the review set")
+	}
+	// both still waiting: it stays waiting
+	s2, old2, new2 := movedFixture(t)
+	_ = s2.Mutate(func(d *Data) error { d.FindRepo(old2).Pending, d.FindRepo(new2).Pending = true, true; return nil })
+	if err := s2.Reattach(old2, new2); err != nil {
+		t.Fatal(err)
+	}
+	if d := s2.Snapshot(); d.FindRepo(old2) == nil || !d.FindRepo(old2).Pending {
+		t.Fatal("both waiting: it stays waiting")
+	}
+}

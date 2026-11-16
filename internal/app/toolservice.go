@@ -28,8 +28,10 @@ type ToolDeps struct {
 	Lang    func() string
 	// AWSPath and GitPath are the user's chosen program paths ("" = detect).
 	AWSPath, GitPath func() string
-	// ClearPath empties the user's chosen path of a tool (git or AWS CLI) through the normal, backed-up settings
-	// write. The setup run uses it for a row whose chosen path blocks the gate.
+	// ClearPath empties the user's chosen path of a tool (git or AWS CLI) through the normal settings write
+	// (events, environment re-check, repository rescan). The old path is not kept: settings.json is not backed
+	// up, so the setup screen never promises a way back. The setup run uses it for a row whose chosen path
+	// blocks the gate.
 	ClearPath func(id api.SetupToolID) error
 	CacheDir  string // where Homebrew.pkg is saved (the app's private folder)
 	GOOS      string
@@ -190,7 +192,7 @@ func (s *ToolService) StartSetupInstall(ctx context.Context) error {
 	state := s.gate(chk)
 	cancel()
 	// A tool path chosen in Settings that blocks the gate cannot be changed from the setup screen, which
-	// replaces the whole window: clear it first (backed up like every settings write), then judge again.
+	// replaces the whole window: clear it first (through the normal settings write, which keeps no copy of the old path), then judge again.
 	cleared := false
 	for _, t := range state.Tools {
 		if t.Blocking && t.Override && s.d.ClearPath != nil {
@@ -206,6 +208,27 @@ func (s *ToolService) StartSetupInstall(ctx context.Context) error {
 		cancel()
 	}
 	if err := s.installer().Start(s.ctx, state); err != nil {
+		return fail(invalidField("run"))
+	}
+	return nil
+}
+
+// StartToolUpdate updates git or the AWS CLI with the installer that manages it (brew upgrade on macOS, winget
+// upgrade on Windows): the Health page's "Update" action. It returns at once; progress and the failure cause
+// arrive as EventToolInstall, exactly as for an install, and CancelSetupInstall stops it. Any other tool, or a
+// run already going, is E_INVALID_INPUT.
+func (s *ToolService) StartToolUpdate(ctx context.Context, tool api.SetupToolID) error {
+	if tool != api.SetupGit && tool != api.SetupAWSCLI {
+		return fail(invalidField("tool"))
+	}
+	n := s.net(ctx)
+	if sp, ok := n.(interface{ SetProxy(netx.Config) }); ok {
+		sp.SetProxy(netx.Detect(ctx))
+	}
+	chk, cancel := context.WithTimeout(ctx, 60*time.Second)
+	state := s.gate(chk)
+	cancel()
+	if err := s.installer().StartUpdate(s.ctx, state, tool); err != nil {
 		return fail(invalidField("run"))
 	}
 	return nil

@@ -129,6 +129,9 @@ type item struct {
 	after    []byte
 	baseHash string
 	err      *api.AppError // set with RepoActionError: nothing is written for this item
+	// writtenBy is the item whose write also covers this one: a repository and its linked worktree share one
+	// config file, written once. This item reports that write's outcome (nil = it is its own writer).
+	writtenBy *item
 }
 
 func (it *item) afterHash() string { return hashOf(it.after, true) }
@@ -377,8 +380,10 @@ func (e *Engine) repoReadError(rec projects.RepoRecord, cfg string, cause error)
 }
 
 // gitFileInMessage matches the file git names in a config error: "bad config line 1 in file /x/.gitconfig" and
-// "bad config variable 'a.b' in file '/x/config' at line 3".
-var gitFileInMessage = regexp.MustCompile(`(?m)\bin file '?([^'\n]+?)'?(?: at line \d+)?\s*$`)
+// "bad config variable 'a.b' in file '/x/config' at line 3", with git's own reason after the file when it gives
+// one ("bad numeric config value 'x' for 'core.a' in file .git/config: invalid unit"): the reason is not part of
+// the path.
+var gitFileInMessage = regexp.MustCompile(`(?m)\bin file '?([^'\n]+?)'?(?: at line \d+|: [^\n]*)?\s*$`)
 
 // failedFile is the display path of the file a failed config read is about: the file git names in its message
 // (it may be ~/.gitconfig, not the repository's own config), else the repository's config. It is "" when that
@@ -411,6 +416,8 @@ func (e *Engine) errorItem(rec projects.RepoRecord, cause error) *item {
 		if f := ae.Params["file"]; f != "" {
 			file = e.d.Paths.Display(f)
 		}
+	} else if ae != nil && ae.Code == api.ErrGitFailed && ae.Params["file"] != "" {
+		file = ae.Params["file"] // git named the file (a corrupt ~/.gitconfig is not this repository's config); already a display path
 	}
 	perr := api.NewError(code, "cannot read this repository's config").WithParam("file", file)
 	if ae != nil {
@@ -518,8 +525,36 @@ func (e *Engine) planRepo(ctx context.Context, g *gitx.Git, req api.RepoIdentity
 	if err != nil {
 		return nil, err
 	}
+	if rp.it.op != nil && !ri.missing {
+		if err := e.checkSharedConfig(ctx, g, data, rec, ri); err != nil {
+			return nil, err
+		}
+	}
 	rp.hash = planHash("repo", string(req.Mode), rec.ID, authorKey(fromProjects(rec.IdentityOverride)), authorKey(rp.override), rp.it.key())
 	return rp, nil
+}
+
+// checkSharedConfig refuses a per-repository write when the file is also the config of another repository that
+// has an identity of its own (a linked worktree): that write would change what the other one commits as.
+func (e *Engine) checkSharedConfig(ctx context.Context, g *gitx.Git, data projects.Data, rec projects.RepoRecord, ri repoInfo) error {
+	mine := cleanPath(ri.cfgPath)
+	for _, other := range data.Repos {
+		if other.ID == rec.ID || other.IdentityOverride == nil {
+			continue
+		}
+		oi, err := e.repoInfo(ctx, g, other)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			continue // an unreadable repository cannot be told to share anything
+		}
+		if !oi.missing && cleanPath(oi.cfgPath) == mine {
+			return api.NewError(api.ErrConfigShared, "the config file is shared with a repository that has its own identity").
+				WithParam("file", e.d.Paths.Display(ri.cfgPath))
+		}
+	}
+	return nil
 }
 
 // PreviewRepo previews a repository change.
@@ -581,6 +616,9 @@ func (e *Engine) ApplyRepo(ctx context.Context, req api.RepoIdentityRequest, pla
 			_ = e.restoreFile(f)
 		}
 		return api.IdentityChangeResult{}, api.NewError(api.ErrFileIO, "cannot write projects.json").WithParam("file", "projects.json").WithDetail(err.Error())
+	}
+	if rp.override != nil && e.d.OnRecordData != nil {
+		e.d.OnRecordData(req.RepoID) // an identity of its own: same as a project
 	}
 	undo.records = append(undo.records, identityRecord("repo-override", req.RepoID, prev))
 	res.Outcomes = append(res.Outcomes, oc)
@@ -646,7 +684,7 @@ func (e *Engine) planProject(ctx context.Context, g *gitx.Git, req api.ProjectId
 		}
 		ms = append(ms, member{r, ri, err})
 	}
-	claimed := map[string]bool{} // config files one earlier member already writes
+	claimed := map[string]*item{} // config files one earlier member already writes
 	for _, m := range ms {
 		r, ri := m.rec, m.info
 		var it *item
@@ -672,10 +710,11 @@ func (e *Engine) planProject(ctx context.Context, g *gitx.Git, req api.ProjectId
 			// A repository and its linked worktree share one config file: the first member writes it, the
 			// others report the same action and outcome without a second write.
 			key := cleanPath(it.path)
-			if claimed[key] {
-				it.op = nil
+			if owner := claimed[key]; owner != nil {
+				it.op, it.writtenBy = nil, owner
+			} else {
+				claimed[key] = it
 			}
-			claimed[key] = true
 		}
 		pp.items = append(pp.items, it)
 	}
@@ -743,8 +782,15 @@ func (e *Engine) ApplyProject(ctx context.Context, req api.ProjectIdentityReques
 	res := api.IdentityChangeResult{Outcomes: []api.RepoChangeOutcome{}, BackupIDs: []string{}}
 	var undo undoState
 	failed := false
+	done := map[*item]api.RepoChangeOutcome{}
+	outcome := func(it *item) api.RepoChangeOutcome {
+		return api.RepoChangeOutcome{RepoID: it.plan.RepoID, Name: it.plan.Name, Action: it.plan.Action, OK: true}
+	}
 	for _, it := range pp.items {
-		oc := api.RepoChangeOutcome{RepoID: it.plan.RepoID, Name: it.plan.Name, Action: it.plan.Action, OK: true}
+		if it.writtenBy != nil {
+			continue // reports the outcome of the write that covers it, below
+		}
+		oc := outcome(it)
 		if it.err != nil {
 			oc.OK, oc.Error, failed = false, it.err, true
 		} else if it.op != nil {
@@ -756,6 +802,16 @@ func (e *Engine) ApplyProject(ctx context.Context, req api.ProjectIdentityReques
 				if bid != "" {
 					res.BackupIDs = append(res.BackupIDs, bid)
 				}
+			}
+		}
+		done[it] = oc
+	}
+	for _, it := range pp.items {
+		oc, ok := done[it]
+		if !ok { // written together with another member: the same outcome, or the same failure
+			oc = outcome(it)
+			if w := done[it.writtenBy]; !w.OK {
+				oc.OK, oc.Error, failed = false, w.Error, true
 			}
 		}
 		res.Outcomes = append(res.Outcomes, oc)
@@ -888,6 +944,9 @@ func (e *Engine) ApplyMove(ctx context.Context, repoID, toProjectID, planHash st
 			_ = e.restoreFile(f)
 		}
 		return api.IdentityChangeResult{}, api.NewError(api.ErrFileIO, "cannot write projects.json").WithParam("file", "projects.json").WithDetail(err.Error())
+	}
+	if toProjectID != "" && e.d.OnRecordData != nil {
+		e.d.OnRecordData(repoID) // it has a project now: a pending "moved here?" offer is out of date (FU-14h)
 	}
 	undo.records = append(undo.records, undoRecord{kind: "repo-project", id: repoID, value: mp.rec.ProjectID})
 	res.Outcomes = append(res.Outcomes, api.RepoChangeOutcome{RepoID: repoID, Name: mp.it.plan.Name, Action: mp.it.plan.Action, OK: true})

@@ -74,11 +74,15 @@ func ParseScutil(out string) Config {
 // values (HKCU): ProxyEnable, ProxyServer, ProxyOverride, AutoConfigURL.
 func WinInternetConfig(enabled bool, server, override, pac string) Config {
 	c := Config{Source: "system", PAC: strings.TrimSpace(pac)}
+	socks := false
 	if enabled {
-		c.HTTP, c.HTTPS = parseWinProxyServer(server)
+		c.HTTP, c.HTTPS, socks = parseWinProxyServer(server)
 		c.NoProxy, c.BypassSimple = joinNoProxy(strings.Split(override, ";"))
 	}
 	if c.Empty() && c.PAC == "" {
+		if socks { // only a SOCKS proxy is set: the app cannot use it and says so, as on macOS
+			return Config{Source: "system", Unsupported: "socks"}
+		}
 		return Config{Source: "none"}
 	}
 	return c
@@ -88,23 +92,28 @@ func WinInternetConfig(enabled bool, server, override, pac string) Config {
 // bypass list as WinHttpGetDefaultProxyConfiguration returns them).
 func WinHTTPConfig(server, bypass string) Config {
 	c := Config{Source: "system"}
-	c.HTTP, c.HTTPS = parseWinProxyServer(server)
+	var socks bool
+	c.HTTP, c.HTTPS, socks = parseWinProxyServer(server)
 	c.NoProxy, c.BypassSimple = joinNoProxy(strings.Split(bypass, ";"))
 	if c.Empty() {
+		if socks {
+			return Config{Source: "system", Unsupported: "socks"}
+		}
 		return Config{Source: "none"}
 	}
 	return c
 }
 
-// parseWinProxyServer handles "host:port" and "http=h:p;https=h:p;socks=h:p".
-func parseWinProxyServer(s string) (httpURL, httpsURL string) {
+// parseWinProxyServer handles "host:port" and "http=h:p;https=h:p;socks=h:p". socks reports that a socks=
+// entry was there (the app cannot use it).
+func parseWinProxyServer(s string) (httpURL, httpsURL string, socks bool) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return "", ""
+		return "", "", false
 	}
 	if !strings.Contains(s, "=") {
 		u := normalizeProxyURL(s)
-		return u, u
+		return u, u, false
 	}
 	for _, part := range strings.Split(s, ";") {
 		scheme, v, ok := strings.Cut(strings.TrimSpace(part), "=")
@@ -116,6 +125,8 @@ func parseWinProxyServer(s string) (httpURL, httpsURL string) {
 			httpURL = normalizeProxyURL(v)
 		case "https":
 			httpsURL = normalizeProxyURL(v)
+		case "socks", "socks4", "socks5":
+			socks = true
 		}
 	}
 	// A per-scheme entry covers that scheme only (WinINET, WinHTTP).

@@ -113,6 +113,10 @@ type header struct {
 }
 
 // Load reads the file into v (a pointer to a struct). found is false when the file does not exist (v is untouched).
+//
+// v must be a fresh (zero) value: the file is decoded over whatever v holds, so a field that the file leaves
+// out keeps the old value (a map or slice is merged into, not replaced). Callers that want defaults for a
+// missing field set them after Load, or decode into a new value each time.
 func (f *File) Load(v any) (found bool, err error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -278,6 +282,9 @@ func (f *File) Update(v any, fn func() error) error {
 	return f.saveLocked(v)
 }
 
+// maxQuarantineSuffix bounds the "-1", "-2", ... suffixes Quarantine tries for a name that is taken.
+const maxQuarantineSuffix = 1000
+
 // Quarantine renames a damaged file to "<name>.corrupt-<unix>" (with -1, -2, ... when that name is taken, so
 // an earlier quarantined copy is never replaced) so a fresh file can be started. v is a pointer to the type the
 // file decodes into; damage is decided under the lock by loading into a fresh value of that type: the header
@@ -299,12 +306,19 @@ func (f *File) Quarantine(v any) (string, error) {
 	base := fmt.Sprintf("%s.corrupt-%d", f.path, f.spec.Now().Unix())
 	dst := base
 	for i := 1; ; i++ {
-		if _, err := os.Lstat(dst); errors.Is(err, os.ErrNotExist) {
+		_, err := os.Lstat(dst)
+		if errors.Is(err, os.ErrNotExist) {
 			break
+		}
+		if err != nil {
+			return "", err // a name that cannot even be looked at: stop, never loop on it
+		}
+		if i > maxQuarantineSuffix {
+			return "", fmt.Errorf("store: %d quarantined copies of %s already exist", maxQuarantineSuffix, filepath.Base(f.path))
 		}
 		dst = fmt.Sprintf("%s-%d", base, i)
 	}
-	if err := os.Rename(f.path, dst); err != nil {
+	if err := renameReplace(f.path, dst); err != nil {
 		return "", err
 	}
 	f.corrupt = false

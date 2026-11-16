@@ -268,3 +268,7 @@ type IdentityChangeResult struct {
 	RecordUpdated bool     `json:"recordUpdated"` // projects.json holds the new value
 	BackupIDs     []string `json:"backupIds"`
 }
+
+// ErrConfigShared: a per-repository identity change would write a config file that another repository (a linked
+// worktree) with an identity of its own reads too. Nothing was written. params: file
+const ErrConfigShared ErrorCode = "E_CONFIG_SHARED"

@@ -12,8 +12,7 @@ import (
 	"time"
 )
 
-// Proc is one running process of the current user: its id and the full path of its executable (the image name
-// on Windows).
+// Proc is one running process of the current user: its id and the full path of its executable.
 type Proc struct {
 	PID  int
 	Path string
@@ -28,7 +27,8 @@ type Terminator interface {
 	Alive(pid int) bool
 }
 
-// FileOps is the only file access the guard has.
+// FileOps is the only file access the guard has. On macOS an old app is a ".app" bundle that is renamed into the
+// Trash folder; on Windows it is one .exe (0.0.1 was a portable zip) that goes to the Recycle Bin.
 type FileOps interface {
 	Exists(path string) bool
 	Rename(oldPath, newPath string) error
@@ -60,8 +60,9 @@ type Prompter interface {
 	// AskQuit shows "The old AWS SSO Hub is still running. Quit it first, then open Codepass." with the buttons
 	// "Quit the old app and continue" and Cancel. It reports whether the user chose to quit it.
 	AskQuit(found []Instance, lang string) bool
-	// AskTrash is the second prompt, after the old app quit: "Move the old app to the Trash" naming the exact
-	// bundle paths, with "Keep it". It reports whether the user chose to move them.
+	// AskTrash is the second prompt, after the old app quit: "Move the old app to the Trash" (macOS: the bundle
+	// folders; Windows: "Recycle Bin", the exact .exe files) naming the exact paths, with "Keep it". It reports
+	// whether the user chose to move them.
 	AskTrash(bundles []string, lang string) bool
 	// Tell shows a message (a failure the user must read).
 	Tell(msg string)

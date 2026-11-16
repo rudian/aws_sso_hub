@@ -1,7 +1,8 @@
 package api
 
-// The update flow (design 5.13). The values of UpdatePhase mirror update.Phase; internal/app converts between them
-// (a test fails on a phase it does not map).
+// The update flow (design 5.13). The values of UpdatePhase mirror update.Phase; internal/app converts between them.
+// TestUpdatePhasesMatchTheAPI checks each pair in its list; a new update.Phase must be added to that list (the
+// test cannot find a phase that is not in it).
 
 type UpdatePhase string
 

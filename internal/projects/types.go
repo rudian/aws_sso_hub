@@ -103,4 +103,8 @@ type Data struct {
 	// DismissedSuggestions holds the keys of project suggestions the person said no to ("prefix:initech");
 	// a dismissed suggestion does not return (F1-11).
 	DismissedSuggestions []string `json:"dismissedSuggestions,omitempty"`
+	// ImportedLegacy holds the 0.0.1 path hashes whose connection test was copied from settings.json. A hash is
+	// imported once: after the record that took it is purged, another repository at the old path does not get
+	// the old result (FU-18e).
+	ImportedLegacy []string `json:"importedLegacy,omitempty"`
 }

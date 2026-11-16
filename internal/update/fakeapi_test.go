@@ -139,6 +139,7 @@ type relOpts struct {
 	dropSig, dropMan     bool
 	rawSig               string
 	rawMan               func([]byte) []byte // rewrites the manifest bytes before they are signed
+	os, arch             string              // the release's platform (default darwin / arm64)
 }
 
 func (f *fakeAPI) publish(o relOpts) {
@@ -147,7 +148,10 @@ func (f *fakeAPI) publish(o relOpts) {
 		o.archive = []byte("archive bytes")
 	}
 	sum := sha256.Sum256(o.archive)
-	m := Manifest{Version: o.manifestVersion, OS: "darwin", Arch: "arm64", File: "Codepass-darwin-arm64.zip",
+	if o.os == "" {
+		o.os, o.arch = "darwin", "arm64"
+	}
+	m := Manifest{Version: o.manifestVersion, OS: o.os, Arch: o.arch, File: "Codepass-" + o.os + "-" + o.arch + ".zip",
 		Size: int64(len(o.archive)), SHA256: hex.EncodeToString(sum[:]), Notes: o.notes}
 	if o.mutate != nil {
 		o.mutate(&m)
@@ -158,14 +162,14 @@ func (f *fakeAPI) publish(o relOpts) {
 	}
 	assets := map[string][]byte{m.File: o.archive}
 	if !o.dropMan {
-		assets["manifest-darwin-arm64.json"] = raw
+		assets[manifestName(o.os, o.arch)] = raw
 	}
 	if !o.dropSig {
 		sig := SignManifest(o.signWith, raw)
 		if o.rawSig != "" {
 			sig = o.rawSig
 		}
-		assets["manifest-darwin-arm64.json.sig"] = []byte(sig)
+		assets[manifestName(o.os, o.arch)+".sig"] = []byte(sig)
 	}
 	f.add(&fakeRelease{Tag: o.tag, Body: "UNSIGNED NOTES FROM THE API", Assets: assets})
 }

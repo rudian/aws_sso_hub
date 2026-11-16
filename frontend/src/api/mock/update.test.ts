@@ -3,6 +3,7 @@ import { onEvent } from '../events'
 import { UpdatePhase } from '../models'
 import type { UpdateState } from '../models'
 import { mockUpdateService, resetUpdateMock } from './update'
+import { getWorld, resetWorld } from './world'
 
 async function call<T>(p: Promise<T>, ms = 1000): Promise<T> {
   const settled = p.then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e }))
@@ -45,9 +46,13 @@ describe('mock UpdateService', () => {
   })
 
   it('keeps the daily-check preference', async () => {
+    resetWorld()
     resetUpdateMock('none')
     expect((await call(mockUpdateService.GetPreferences())).autoCheck).toBe(true)
     await call(mockUpdateService.SetAutoCheck(false))
     expect((await call(mockUpdateService.GetPreferences())).autoCheck).toBe(false)
+    expect(getWorld().settings.updateCheckOff).toBe(true)
+    await call(mockUpdateService.SetAutoCheck(true))
+    expect(getWorld().settings.updateCheckOff).toBe(false)
   })
 })

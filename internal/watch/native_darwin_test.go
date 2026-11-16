@@ -61,7 +61,7 @@ func TestNativeDifferentlyCasedRoot(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		os.WriteFile(filepath.Join(disk, "node_modules", "f"+string(rune('a'+i))), []byte("x"), 0o644)
 	}
-	if evs := drain(ch, 800*time.Millisecond); len(evs) != 0 {
+	if evs := withoutScanHints(drain(ch, 800*time.Millisecond)); len(evs) != 0 {
 		t.Fatalf("node_modules writes were reported: %+v", evs)
 	}
 	target := filepath.Join(spelled, "main.go")

@@ -104,6 +104,10 @@ type Deps struct {
 	// every repository that is shown (never a hidden or not yet reviewed one) and re-reads that repository's
 	// status when something in it changes. *watch.Watcher implements it.
 	Watch WatchPort
+	// WatchRetryBase is the first wait before a watch that stopped again soon after its last stop is subscribed
+	// again; it doubles with every further quick stop, up to 5 minutes. 0 = 5 seconds. The first stop of a
+	// repository is answered at once.
+	WatchRetryBase time.Duration
 }
 
 type rec struct {
@@ -134,6 +138,7 @@ type Engine struct {
 	leftOut    map[string]bool // folders a scan could not give a record (projects.json not writable)
 	watchSeq   uint64
 	watches    map[string]watchSub
+	watchStops map[string]watchStop // when and how often each repository's watch stopped (back-off)
 	bgCtx      context.Context
 	bgCancel   context.CancelFunc
 
@@ -165,7 +170,7 @@ func New(d Deps) *Engine {
 	bg, cancel := context.WithCancel(context.Background())
 	return &Engine{d: d, recs: map[string]*rec{}, reg: reg, moved: map[string]MovedOffer{}, lost: map[string]api.OwnerResult{},
 		others: map[string]*orec{}, status: map[string]api.RepoStatus{}, lastCommit: map[string]string{},
-		opened: map[string]bool{}, leftOut: map[string]bool{}, watches: map[string]watchSub{}, bgCtx: bg, bgCancel: cancel}
+		opened: map[string]bool{}, leftOut: map[string]bool{}, watches: map[string]watchSub{}, watchStops: map[string]watchStop{}, bgCtx: bg, bgCancel: cancel}
 }
 
 func fileExists(p string) bool {

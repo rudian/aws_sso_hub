@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -50,41 +51,54 @@ func (a *autoChecker) due() bool {
 // ReleasesURL is where "download in the browser instead" goes.
 const ReleasesURL = "https://github.com/rudian/codepass/releases/latest"
 
-// updatePrefsFile holds the only update preference (a versioned data file: plan 3.1; it moves into settings.json
-// when the settings schema takes it).
-func updatePrefsFile(c *Container) string {
-	return filepath.Join(c.Paths.AppDataDir, "update", "update-prefs.json")
+// legacyUpdatePrefsFiles are the files the update preference lived in before it moved into settings.json
+// (plan 3.1): "<data>/update/update-prefs.json", and the shorter name some early builds used.
+func legacyUpdatePrefsFiles(c *Container) []string {
+	dir := filepath.Join(c.Paths.AppDataDir, "update")
+	return []string{filepath.Join(dir, "update-prefs.json"), filepath.Join(dir, "prefs.json")}
 }
 
-// updatePrefsDoc is the on-disk form; Off is inverted so a missing field means on.
-type updatePrefsDoc struct {
+// legacyUpdatePrefsDoc is the on-disk form of that file; Off is inverted so a missing field means on.
+type legacyUpdatePrefsDoc struct {
 	AutoCheckOff bool `json:"autoCheckOff"`
 }
 
-var updatePrefsSpec = store.Spec{Current: 1}
+var legacyUpdatePrefsSpec = store.Spec{Current: 1}
 
-// readUpdatePrefs: a missing, damaged or newer file means the default (on).
-func readUpdatePrefs(path string) api.UpdatePreferences {
-	f, err := store.Open(path, updatePrefsSpec)
-	if err != nil {
-		return api.UpdatePreferences{AutoCheck: true}
+// migrateUpdatePrefs moves an old update-prefs file into settings.json once and removes it. A damaged file is
+// set aside (it reads as the default, on); a file of a newer version is left alone and ignored. When
+// settings.json cannot be written the old file stays, and the move is tried at the next start.
+func (c *Container) migrateUpdatePrefs() {
+	for _, path := range legacyUpdatePrefsFiles(c) {
+		if _, err := os.Lstat(path); err != nil {
+			continue
+		}
+		f, err := store.Open(path, legacyUpdatePrefsSpec)
+		if err != nil {
+			continue
+		}
+		var d legacyUpdatePrefsDoc
+		found, err := f.Load(&d)
+		switch {
+		case errors.Is(err, store.ErrCorrupt):
+			if _, qerr := f.Quarantine(&legacyUpdatePrefsDoc{}); qerr != nil {
+				c.Log.Warn("cannot set aside the damaged update preference file", "error", qerr.Error())
+			}
+			continue
+		case err != nil || !found:
+			continue // newer version or unreadable: leave it
+		}
+		if d.AutoCheckOff && c.Settings.UpdateCheckOn() {
+			off := true
+			if _, err := c.Settings.Update(api.SettingsPatch{UpdateCheckOff: &off}); err != nil {
+				c.Log.Warn("cannot move the update preference into settings.json", "error", err.Error())
+				continue
+			}
+		}
+		if err := os.Remove(path); err != nil {
+			c.Log.Warn("cannot remove the old update preference file", "error", err.Error())
+		}
 	}
-	var d updatePrefsDoc
-	if found, err := f.Load(&d); err != nil || !found {
-		return api.UpdatePreferences{AutoCheck: true}
-	}
-	return api.UpdatePreferences{AutoCheck: !d.AutoCheckOff}
-}
-
-func writeUpdatePrefs(path string, p api.UpdatePreferences) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	f, err := store.Open(path, updatePrefsSpec)
-	if err != nil {
-		return err
-	}
-	return f.Save(&updatePrefsDoc{AutoCheckOff: !p.AutoCheck})
 }
 
 // toAPIUpdateState converts the controller's snapshot. The English Error text is dropped: it is for the log.
@@ -190,16 +204,18 @@ func (s *UpdateService) Restart(ctx context.Context) (api.UpdateState, error) {
 
 // GetPreferences returns the update preferences.
 func (s *UpdateService) GetPreferences(ctx context.Context) (api.UpdatePreferences, error) {
-	return readUpdatePrefs(updatePrefsFile(s.c)), nil
+	return api.UpdatePreferences{AutoCheck: s.c.Settings.UpdateCheckOn()}, nil
 }
 
 // SetAutoCheck turns the daily automatic check on or off. A manual check always works.
 func (s *UpdateService) SetAutoCheck(ctx context.Context, on bool) (api.UpdatePreferences, error) {
-	p := api.UpdatePreferences{AutoCheck: on}
-	if err := writeUpdatePrefs(updatePrefsFile(s.c), p); err != nil {
+	off := !on
+	next, err := s.c.Settings.Update(api.SettingsPatch{UpdateCheckOff: &off})
+	if err != nil {
 		return api.UpdatePreferences{}, api.NewError(api.ErrInternal, "cannot save the update setting").WithDetail(err.Error())
 	}
-	return p, nil
+	s.c.emit(api.EventSettingsChanged, nn(next))
+	return api.UpdatePreferences{AutoCheck: !next.UpdateCheckOff}, nil
 }
 
 // OpenDownloadPage opens the releases page in the browser ("download in the browser instead").

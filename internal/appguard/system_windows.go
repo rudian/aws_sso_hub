@@ -3,6 +3,7 @@
 package appguard
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +23,8 @@ const canRecycle = true
 
 var shFileOperation = syscall.NewLazyDLL("shell32.dll").NewProc("SHFileOperationW")
 
-// shFileOpStruct is SHFILEOPSTRUCTW (packed on 32-bit, natural alignment on 64-bit, as Go lays it out).
+// shFileOpStruct is SHFILEOPSTRUCTW as Go lays it out (natural alignment). Windows packs the structure on 32-bit
+// systems, so the layout is right on 64-bit only; the assertion below stops a build for any other size.
 type shFileOpStruct struct {
 	Hwnd                 uintptr
 	Func                 uint32
@@ -34,9 +36,35 @@ type shFileOpStruct struct {
 	ProgressTitle        *uint16
 }
 
+// The size of SHFILEOPSTRUCTW on 64-bit Windows is 56 bytes; a different size is a compile error (index out of range).
+var _ = [1]struct{}{}[unsafe.Sizeof(shFileOpStruct{})-56]
+
+// shellError is a legacy DE_* code of SHFileOperation. These are not Win32 error numbers (0x78 is
+// DE_ACCESSDENIEDSRC, which a Win32 reading would call "not supported"), so the number is shown as it is and
+// the common ones get their own name.
+type shellError uint32
+
+var shellErrorNames = map[shellError]string{
+	0x71: "same file", 0x72: "several sources, one destination", 0x73: "different folders", 0x74: "root folder",
+	0x75: "cancelled", 0x76: "destination inside the source", 0x78: "access denied on the source",
+	0x79: "path too long", 0x7A: "too many destinations", 0x7C: "invalid file name",
+	0x7D: "destination in the same tree", 0x7E: "destination folder is a file", 0x80: "destination file is a folder",
+	0x81: "file name too long", 0x85: "file too large for the destination", 0x402: "unknown error",
+	0x10000: "error on the destination",
+}
+
+func (e shellError) Error() string {
+	if n, ok := shellErrorNames[e]; ok {
+		return fmt.Sprintf("SHFileOperation error 0x%X (%s)", uint32(e), n)
+	}
+	return fmt.Sprintf("SHFileOperation error 0x%X", uint32(e))
+}
+
 // recycleFile moves exactly one file to the Recycle Bin (FOF_ALLOWUNDO), without confirmation or progress UI.
+// FOF_WANTNUKEWARNING makes Windows ask before it deletes for good when the file cannot be recycled (a network
+// share, a USB drive, a Recycle Bin that is turned off): the person agreed to "Recycle Bin", not to deleting.
 func recycleFile(path string) error {
-	const foDelete, fofSilent, fofNoConfirmation, fofAllowUndo, fofNoErrorUI = 0x3, 0x4, 0x10, 0x40, 0x400
+	const foDelete, fofSilent, fofNoConfirmation, fofAllowUndo, fofNoErrorUI, fofWantNukeWarning = 0x3, 0x4, 0x10, 0x40, 0x400, 0x4000
 	if strings.ContainsAny(path, "*?\x00") {
 		return syscall.EINVAL // SHFileOperation expands wildcards: only a literal path is acceptable
 	}
@@ -45,10 +73,10 @@ func recycleFile(path string) error {
 		return err
 	}
 	from = append(from, 0) // the list ends with a double NUL
-	op := shFileOpStruct{Func: foDelete, From: &from[0], Flags: fofSilent | fofNoConfirmation | fofAllowUndo | fofNoErrorUI}
+	op := shFileOpStruct{Func: foDelete, From: &from[0], Flags: fofSilent | fofNoConfirmation | fofAllowUndo | fofNoErrorUI | fofWantNukeWarning}
 	r, _, _ := shFileOperation.Call(uintptr(unsafe.Pointer(&op)))
 	if r != 0 {
-		return syscall.Errno(r)
+		return shellError(r)
 	}
 	if op.AnyOperationsAborted != 0 {
 		return syscall.ERROR_OPERATION_ABORTED
@@ -74,8 +102,9 @@ func system32(tool string) string {
 
 type sysLister struct{}
 
-// List lists the current user's processes with their full executable path. A process that cannot be opened
-// (another user's, or protected) is skipped: it is never the user's own old app.
+// List lists the current user's processes with their full executable path, but only opens a process whose
+// image name is the old app's (Toolhelp's snapshot has the name): every other process costs nothing. A process
+// that cannot be opened (another user's, or protected) is skipped: it is never the user's own old app.
 func (sysLister) List() ([]Proc, error) {
 	snap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
 	if err != nil {
@@ -86,8 +115,12 @@ func (sysLister) List() ([]Proc, error) {
 	var e windows.ProcessEntry32
 	e.Size = uint32(unsafe.Sizeof(e))
 	var procs []Proc
+	buf := make([]uint16, 32768) // one path buffer for every candidate
 	for err = windows.Process32First(snap, &e); err == nil; err = windows.Process32Next(snap, &e) {
-		if p, ok := imagePath(e.ProcessID, me); ok {
+		if !isOldApp(windows.UTF16ToString(e.ExeFile[:])) {
+			continue
+		}
+		if p, ok := imagePath(e.ProcessID, me, buf); ok {
 			procs = append(procs, Proc{PID: int(e.ProcessID), Path: p})
 		}
 	}
@@ -103,7 +136,7 @@ func currentUserSID() *windows.SID {
 }
 
 // imagePath returns the full executable path of pid when it belongs to the user with SID me.
-func imagePath(pid uint32, me *windows.SID) (string, bool) {
+func imagePath(pid uint32, me *windows.SID, buf []uint16) (string, bool) {
 	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
 	if err != nil {
 		return "", false
@@ -120,7 +153,6 @@ func imagePath(pid uint32, me *windows.SID) (string, bool) {
 			return "", false
 		}
 	}
-	buf := make([]uint16, 32768)
 	n := uint32(len(buf))
 	if windows.QueryFullProcessImageName(h, 0, &buf[0], &n) != nil {
 		return "", false

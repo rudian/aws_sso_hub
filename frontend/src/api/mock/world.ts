@@ -708,6 +708,7 @@ function baseSettings(): Settings {
     gitPath: '',
     autoBindOnAdd: true,
     privateSignIn: true,
+    updateCheckOff: false,
     collapsedPortals: [],
     lastCloneProfile: '',
     lastCloneRegion: '',

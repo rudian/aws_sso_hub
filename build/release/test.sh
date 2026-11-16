@@ -44,11 +44,14 @@ mkapp "$T/a" 9.9.9-rc.1 2>/dev/null || { mkdir -p "$T/a"; mkapp "$T/a" 9.9.9-rc.
 
 # release.sh in isolation (see the header). Extra environment goes first: rel VAR=value ... -- args
 rel() {
-  local uargs=() v extra=()
-  while [ $# -gt 0 ] && [ "$1" != -- ]; do extra+=("$1"); shift; done
+  local uargs=() v extra=() script="$HERE/release.sh"
+  while [ $# -gt 0 ] && [ "$1" != -- ]; do
+    case "$1" in RELSCRIPT=*) script="${1#RELSCRIPT=}" ;; *) extra+=("$1") ;; esac
+    shift
+  done
   [ $# -eq 0 ] || shift
   for v in $(env | sed -n 's/^\(CODEPASS_[A-Za-z0-9_]*\)=.*/\1/p'); do uargs+=(-u "$v"); done
-  env ${uargs[@]+"${uargs[@]}"} -u GH -u WAILS3 -u OUT_DIR -u NOTARY_TIMEOUT CODEPASS_NO_LOCAL_ENV=1 ${extra[@]+"${extra[@]}"} "$HERE/release.sh" "$@"
+  env ${uargs[@]+"${uargs[@]}"} -u GH -u WAILS3 -u OUT_DIR -u NOTARY_TIMEOUT CODEPASS_NO_LOCAL_ENV=1 ${extra[@]+"${extra[@]}"} "$script" "$@"
 }
 outdir() { sed -n 's/.*output folder: //p' <<<"$1" | head -1; }
 
@@ -110,12 +113,14 @@ refuse "leading zero rc"     "$VMSG" --dry-run --app "$T/a/Codepass.app" --out "
 refuse "rc.0"                "$VMSG" --dry-run --app "$T/a/Codepass.app" --out "$T/o7" 1.0.0-rc.0
 refuse "out inside repo"     "must be outside the repository" --dry-run --app "$T/a/Codepass.app" --out "$OUT_IN" 9.9.9-rc.1
 [ ! -e "$OUT_IN" ] || fail "the output folder inside the repository was created"
+# (the first guard refuses every '..' component; nothing may be created, not even the missing folder)
 refuse "out with .. after a missing folder" "'..' component" --dry-run --app "$T/a/Codepass.app" --out "$T/no-such-dir/../../$(basename "$ROOT")/$(basename "$OUT_IN")-dd" 9.9.9-rc.1
-[ ! -e "$OUT_IN-dd" ] || fail "the output folder inside the repository was created (..)"
+[ ! -e "$T/no-such-dir" ] || fail "a folder was created for an --out with a '..' component"
 ln -s "$ROOT" "$T/link"
 refuse "out inside repo, via a symlinked checkout" "must be outside the repository" --dry-run --app "$T/a/Codepass.app" --out "$T/link/$(basename "$OUT_IN")-2" 9.9.9-rc.1
 [ ! -e "$OUT_IN-2" ] || fail "the output folder inside the repository was created (symlink)"
-if "$T/link/build/release/release.sh" --dry-run --app "$T/a/Codepass.app" --out "$T/link/$(basename "$OUT_IN")-3" 9.9.9-rc.1 >"$T/r.out" 2>&1; then fail "symlinked checkout accepted an output folder inside the repository"; fi
+# the same isolation as every other case (no local.env, no inherited CODEPASS_* variables), through the symlinked checkout
+if rel RELSCRIPT="$T/link/build/release/release.sh" -- --dry-run --app "$T/a/Codepass.app" --out "$T/link/$(basename "$OUT_IN")-3" 9.9.9-rc.1 >"$T/r.out" 2>&1; then fail "symlinked checkout accepted an output folder inside the repository"; fi
 grep -qF "must be outside the repository" "$T/r.out" || { cat "$T/r.out"; fail "symlinked checkout refused for the wrong reason"; }
 [ ! -e "$OUT_IN-3" ] || fail "output written inside the repository (symlink)"
 refuse "real run, no identity" "CODEPASS_SIGN_IDENTITY is not set" --out "$T/o5" 9.9.9-rc.1
@@ -194,5 +199,29 @@ rel GH="$STUB" CODEPASS_EXPECT_PUBKEY="$FIXPUB" -- --publish --repo acme/x 9.9.9
 grep -q 'release edit' "$GLOG" && fail "edit ran although verification failed"
 rel GH="$STUB" CODEPASS_EXPECT_PUBKEY="$TESTPUB" -- --publish --repo acme/x 9.9.9-rc.1 >"$T/p.out" 2>&1 || { cat "$T/p.out"; fail "publish of a verified draft failed"; }
 grep -q 'release edit v9.9.9-rc.1 --repo acme/x --draft=false' "$GLOG" || fail "the draft was not published"
+
+# FU-10a: a dry run whose --out is inside another git work tree is refused at step 1, before any build or signing
+RW="$T/otherrepo"; mkdir -p "$RW"; ( cd "$RW" && git init -q )
+if rel -- --dry-run --app "$T/a/Codepass.app" --out "$RW/inner" 9.9.9-rc.1 >"$T/r.out" 2>&1; then fail "accepted an --out inside a git work tree"; fi
+grep -q FAILED "$T/r.out" || { cat "$T/r.out"; fail "no loud failure for an --out inside a git work tree"; }
+grep -qF "inside a git work tree" "$T/r.out" || { cat "$T/r.out"; fail "refused for the wrong reason (--out inside a work tree)"; }
+grep -q "sign:" "$T/r.out" && fail "the dry run got as far as signing before it refused the output folder"
+[ -z "$(ls "$RW/inner" 2>/dev/null)" ] || fail "the refused dry run left a folder in the other work tree"
+
+# FU-10a: a local tag that is not HEAD is refused at step 1 (a copy of the scripts in a scratch repository, so the
+# real repository's tags are never touched)
+SR="$T/scratchroot"; mkdir -p "$SR/build/release" "$SR/internal/version"
+cp "$HERE/release.sh" "$HERE/lib.sh" "$SR/build/release/"
+printf 'package version\n\nconst BundleID = "%s"\n' "$BID" >"$SR/internal/version/version.go"
+( cd "$SR" && git init -q && git config user.email t@t && git config user.name t && git add -A && git commit -qm one && git tag v9.9.9-rc.1 \
+  && echo more >>internal/version/version.go && git add -A && git commit -qm two )
+if rel RELSCRIPT="$SR/build/release/release.sh" -- --dry-run --app "$T/a/Codepass.app" --out "$T/outtag" 9.9.9-rc.1 >"$T/r.out" 2>&1; then fail "accepted a local tag that is not HEAD"; fi
+grep -qF "the local tag v9.9.9-rc.1 points at" "$T/r.out" || { cat "$T/r.out"; fail "refused for the wrong reason (stale tag)"; }
+grep -q "sign:" "$T/r.out" && fail "the build and signing ran before the stale tag was found"
+( cd "$SR" && git tag -f v9.9.9-rc.1 >/dev/null 2>&1 )
+# (the scratch repository has no Go module, so this run ends at the relkit build, long after step 1)
+rel RELSCRIPT="$SR/build/release/release.sh" -- --dry-run --app "$T/a/Codepass.app" --out "$T/outtag2" 9.9.9-rc.1 >"$T/r.out" 2>&1 || true
+grep -qF "points at" "$T/r.out" && { cat "$T/r.out"; fail "a tag at HEAD was refused"; }
+grep -q "sign: AD HOC" "$T/r.out" || { cat "$T/r.out"; fail "a tag at HEAD did not get past step 1"; }
 
 echo "release pipeline dry-run tests passed"

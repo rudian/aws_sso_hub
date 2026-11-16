@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/rudian/codepass/internal/accounts"
 	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/browser"
 	"github.com/rudian/codepass/internal/notify"
 	"github.com/rudian/codepass/internal/paths"
 )
@@ -157,8 +159,16 @@ func (c *Container) wireNotify() {
 			if st, ok := data.(api.SessionStatus); ok {
 				c.sendAsync(func() { c.sendSignIn(notify.KindSignInEnded, st) })
 			}
+		case api.EventSessionChanged:
+			// the sign-in is over (or never was): its page is no longer the one to bring forward
+			if st, ok := data.(api.SessionStatus); ok && st.State != api.SessionSigningIn {
+				c.clearAuthURL(st.Portal)
+			}
 		case api.EventLoginProgress:
 			if p, ok := data.(api.LoginProgress); ok {
+				if p.Phase == api.LoginPhaseStarting {
+					c.clearAuthURL(p.Portal) // a new sign-in: the previous one's page is not this one's
+				}
 				u := p.AuthorizeURL // the page the sign-in opened: the browser flow's, or the device flow's
 				if u == "" {
 					u = p.VerificationURIComplete
@@ -171,6 +181,14 @@ func (c *Container) wireNotify() {
 			}
 		}
 	})
+}
+
+// clearAuthURL forgets the authorize URL of the portal's last sign-in, so focusSignIn does nothing until the
+// running sign-in's own page is known.
+func (c *Container) clearAuthURL(portal string) {
+	c.notifyc.mu.Lock()
+	delete(c.notifyc.authURL, portal)
+	c.notifyc.mu.Unlock()
 }
 
 // sendAsync runs a send away from the engine's ticker: the system can take a moment to answer.
@@ -186,7 +204,8 @@ func (c *Container) sendAsync(f func()) {
 
 // signInInfo gathers what a sign-in notice names for a portal.
 func (c *Container) signInInfo(st api.SessionStatus) (notify.SignInInfo, bool) {
-	in := notify.SignInInfo{Portal: st.Portal, LeadMinutes: int(c.Settings.ReminderLead() / time.Minute), SignInTime: st.LoginAt}
+	lead := int(c.Settings.ReminderLead() / time.Minute)
+	in := notify.SignInInfo{Portal: st.Portal, LeadMinutes: minutesLeft(st.SessionEndsAt, c.now(), lead), SignInTime: st.LoginAt}
 	// The Identity Center user is not known to the app yet: User stays empty and the text leaves it out.
 	startURL, accts, ok := c.Accounts.NoticeInfo(st.Portal)
 	if !ok {
@@ -197,6 +216,27 @@ func (c *Container) signInInfo(st api.SessionStatus) (notify.SignInInfo, bool) {
 		in.Accounts = append(in.Accounts, notify.Account{Name: a.Name, AccountID: a.AccountID, Role: a.Role})
 	}
 	return in, true
+}
+
+// minutesLeft is what the heads-up says: the time to the session's end, rounded to 5 minutes, at most the lead
+// (a session learned to end inside the lead window is told with the time actually left). An end that is not
+// known or not ahead leaves the lead, as before.
+func minutesLeft(endsAt string, now time.Time, lead int) int {
+	end, err := time.Parse(time.RFC3339, endsAt)
+	if err != nil {
+		return lead
+	}
+	left := int((end.Sub(now) + 150*time.Second) / (5 * time.Minute) * 5) // rounds to the nearest 5
+	if end.Sub(now) <= 0 {
+		return lead
+	}
+	if left < 5 {
+		left = 5
+	}
+	if left > lead {
+		left = lead
+	}
+	return left
 }
 
 func (c *Container) sendSignIn(kind notify.Kind, st api.SessionStatus) {
@@ -241,6 +281,7 @@ func (l noticeLog) SignedIn(portal string) {
 	n.mu.Lock()
 	front := n.front[portal]
 	delete(n.front, portal)
+	delete(n.authURL, portal) // the sign-in is over
 	n.mu.Unlock()
 	l.c.sendAsync(func() {
 		l.c.Notify.RemoveDelivered(notify.SignInID(portal))
@@ -357,6 +398,8 @@ type signInFocuser interface {
 	Focus(ctx context.Context) error
 }
 
+var _ signInFocuser = (*browser.Isolated)(nil)
+
 // focusSignIn brings the browser window of the portal's running sign-in forward; it never starts a second
 // sign-in. A page that has no window to focus (a private or normal browser window, or an isolated browser that
 // cannot come forward) is opened again the way "Open again" does it: the same authorize URL, in front, with no
@@ -377,7 +420,7 @@ func (c *Container) focusSignIn(portal string) {
 		if f, ok := w.(signInFocuser); ok {
 			if err := f.Focus(ctx); err == nil {
 				return
-			} else {
+			} else if !errors.Is(err, browser.ErrFocusUnsupported) {
 				c.Log.Warn("cannot bring the sign-in window forward", "error", err.Error())
 			}
 		}

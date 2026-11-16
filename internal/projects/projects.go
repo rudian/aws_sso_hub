@@ -113,6 +113,9 @@ func clone(d Data) Data {
 	if len(d.DismissedSuggestions) > 0 {
 		out.DismissedSuggestions = append([]string(nil), d.DismissedSuggestions...)
 	}
+	if len(d.ImportedLegacy) > 0 {
+		out.ImportedLegacy = append([]string(nil), d.ImportedLegacy...)
+	}
 	out.Projects = append([]Project(nil), d.Projects...)
 	for i := range out.Projects {
 		if p := d.Projects[i].Identity; p != nil {
@@ -204,6 +207,11 @@ func (d *Data) findPath(path string) (*RepoRecord, bool) {
 			if !os.SameFile(a, b) {
 				continue
 			}
+			return r, true
+		}
+		if errA != nil && errB == nil {
+			// a case-only rename on a case-sensitive volume: the stored spelling is gone and the other one is
+			// there, so it is the same folder under its new name (the record keeps its data)
 			return r, true
 		}
 		return r, false
@@ -301,8 +309,24 @@ var errNoChange = errors.New("no change")
 func (s *Store) SetRepoPath(id, newPath string) error { return s.Relocate(id, newPath) }
 
 // SetHidden sets or clears the hidden flag.
+// A flag that already has the value is not written: a caller that only wants "shown" must not fail because
+// projects.json cannot be written.
 func (s *Store) SetHidden(id string, hidden bool) error {
-	return s.updateRepo(id, func(r *RepoRecord) { r.Hidden = hidden })
+	err := s.Mutate(func(d *Data) error {
+		r := d.FindRepo(id)
+		if r == nil {
+			return fmt.Errorf("%w: repository %s", ErrNotFound, id)
+		}
+		if r.Hidden == hidden {
+			return errNoChange
+		}
+		r.Hidden = hidden
+		return nil
+	})
+	if errors.Is(err, errNoChange) {
+		return nil
+	}
+	return err
 }
 
 // SetProject moves a repository into a project ("" removes it from any project).

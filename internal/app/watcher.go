@@ -42,8 +42,15 @@ func (w *fileWatcher) list() []watched {
 }
 
 // note records the content the app just wrote (OnWrite).
-func (w *fileWatcher) note(path string, content []byte) {
-	p, h := filepath.Clean(path), hashBytes(content)
+func (w *fileWatcher) note(path string, content []byte) { w.noteHash(path, hashBytes(content)) }
+
+// noteRemoved records that the app removed the file (an undo of a file the app had created): the "missing"
+// state ("") both for the poll and for the undo check of the backup taken before it, so restoring that backup
+// is not refused as a change by someone else.
+func (w *fileWatcher) noteRemoved(path string) { w.noteHash(path, "") }
+
+func (w *fileWatcher) noteHash(path, h string) {
+	p := filepath.Clean(path)
 	w.mu.Lock()
 	w.known[p] = h
 	if id, ok := w.snapped[p]; ok {

@@ -18,7 +18,7 @@ EXE="$APP/Contents/MacOS/$(plist_get "$APP/Contents/Info.plist" CFBundleExecutab
 # 1. no other copy may be running
 running="$(/usr/bin/pgrep -fl 'Codepass\.app/Contents/MacOS|AWS SSO Hub\.app/Contents/MacOS' || true)"
 # A dev build (wails3 dev: bin/codepass) or a renamed bundle shares the single-instance ID too.
-running="$running$(/usr/bin/pgrep -lx 'codepass|aws-sso-hub' || true)"
+running="$(printf '%s\n%s\n' "$running" "$(/usr/bin/pgrep -lx 'codepass|aws-sso-hub' || true)" | sed '/^$/d')"
 [ -z "$running" ] || { printf '%s\n' "$running" >&2; die "another copy is running. Quit it yourself, then run this again."; }
 
 # 2. launch through LaunchServices, as a double click does: the app is then its own responsible process

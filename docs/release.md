@@ -149,10 +149,11 @@ Setup by the owner (none of it is done by the scripts or by this task):
 
 A release build (`-tags production`, `build/darwin/Taskfile.yml` `BUILD_FLAGS`) uses the system's notification
 service. Sandbox mode (`AWSSSOHUB_SANDBOX`) and every test use a fake, which also shows each notice as a toast in the
-window. A development build (no `production` tag) uses the fake too, unless `AWSSSOHUB_REAL_NOTIFICATIONS=1` is set
-(never inside `go test`). That one variable is for the owner's manual checks (C22 to C24, B19): the development build
-shares the installed app's bundle ID, so its permission answer, its notifications and a click on them are the
-installed app's. Quit the installed app first, or accept the shared identity.
+window. A development build (no `production` tag) uses the fake too. `AWSSSOHUB_REAL_NOTIFICATIONS=1` switches it to the
+real service, but only without `AWSSSOHUB_SANDBOX` (never inside `go test`), so such a build uses the real data
+folder, the real `~/.aws` and the installed app's bundle ID: its permission answer, its notifications and a click on
+them are the installed app's. That variable is for a deliberate check on the owner's own data only. The owner's checks
+C22 to C24 and B19 use a test-channel build, which is the installed Codepass with the same bundle ID and data folder.
 
 ## Dry run (what CI can run)
 

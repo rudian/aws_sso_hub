@@ -10,6 +10,7 @@ import (
 
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/execx"
+	"github.com/rudian/codepass/internal/gitx"
 )
 
 func TestParseAWSVersion(t *testing.T) {
@@ -170,5 +171,21 @@ func TestCheckToolsWithFakeBinaries(t *testing.T) {
 	if info := CheckGRC(context.Background()); info.Status != api.ToolMissing || info.Name != "git-remote-codecommit" {
 		// not installed in the isolated PATH of this test unless inherited PATH has it
 		t.Logf("grc: %+v", info)
+	}
+}
+
+// FU-12d: the gate's minimum git and the git layer's minimum are one number, and the README says it.
+func TestGitMinimumIsOneNumberEverywhere(t *testing.T) {
+	if GitMin != gitx.MinVersion {
+		t.Fatalf("envcheck.GitMin %q, gitx.MinVersion %q", GitMin, gitx.MinVersion)
+	}
+	for _, f := range []string{"../../README.md", "../../README.zh-CN.md", "../../docs/guide.md", "../../docs/guide.zh-CN.md"} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(b), "Git "+GitMin) {
+			t.Errorf("%s does not say Git %s", f, GitMin)
+		}
 	}
 }

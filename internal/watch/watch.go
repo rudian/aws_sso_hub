@@ -23,7 +23,9 @@ const defaultCheckInterval = 30 * time.Second
 var (
 	// ErrUnsupported is returned on a platform without a native backend.
 	ErrUnsupported = errors.New("watch: no native file watcher on this platform")
-	// ErrNotWatched is returned by Pause, Resume and Relocate for a folder nobody subscribed to.
+	// ErrNotWatched is returned by Resume for a folder that has no outstanding Pause, and by Relocate for a
+	// folder that is neither paused nor watched. (Pause never returns it: pausing a folder nobody watches is
+	// remembered, so a later Subscribe stays closed until Resume.)
 	ErrNotWatched = errors.New("watch: folder is not watched")
 	// ErrClosed is returned after Close.
 	ErrClosed = errors.New("watch: watcher is closed")
@@ -287,20 +289,19 @@ func cleanFolder(p string) (string, error) {
 
 // resolveDir checks that root is a folder and returns the backend's path for it.
 func (w *Watcher) resolveDir(root string) (string, os.FileInfo, error) {
-	// Stat through an open handle: on Windows this loads the volume serial and
-	// file index now, so a later swap of the folder is detected by SameFile.
-	d, err := os.Open(root)
-	if err != nil {
-		return "", nil, err
-	}
-	st, err := d.Stat()
-	d.Close()
+	// Stat first and check it is a folder, without opening it: a FIFO at the path would block an open, and on
+	// Windows an open handle without FILE_SHARE_DELETE makes a concurrent rename of the folder (or a parent)
+	// fail with a sharing violation.
+	st, err := os.Stat(root)
 	if err != nil {
 		return "", nil, err
 	}
 	if !st.IsDir() {
 		return "", nil, fmt.Errorf("watch: %s is not a folder", root)
 	}
+	// On Windows the volume serial and file index are loaded lazily; SameFile loads them now (through a handle
+	// that asks for no access and shares everything), so a later swap of the folder is detected by SameFile.
+	_ = os.SameFile(st, st)
 	real, err := w.be.resolve(root)
 	if err != nil {
 		return "", nil, err

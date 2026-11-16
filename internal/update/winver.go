@@ -103,7 +103,8 @@ func readExeFileVersion(path string) ([4]uint16, error) {
 func parseVersionResource(rsrc []byte, rsrcRVA uint32) ([4]uint16, error) {
 	var zero [4]uint16
 	le := binary.LittleEndian
-	// entry returns the data of the first entry of the directory at off, or of the entry with the wanted id.
+	// dir returns the target offset of the first entry of the directory at off (wantID < 0), or of the ID entry
+	// equal to wantID, and whether that target is a subdirectory.
 	dir := func(off uint32, wantID int64) (next uint32, isDir bool, err error) {
 		if uint64(off)+16 > uint64(len(rsrc)) {
 			return 0, false, fmt.Errorf("resource directory out of range")

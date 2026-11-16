@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/settings"
 	"github.com/rudian/codepass/internal/update"
 )
 
@@ -37,25 +38,6 @@ func TestUpdateStateCarriesNoEnglishError(t *testing.T) {
 	}
 	if got.Code != "network" || got.Step != "download" || got.Notes != "<b>x</b>" || got.CheckedAt != "2026-11-16T09:00:00Z" {
 		t.Errorf("state = %+v", got)
-	}
-}
-
-func TestUpdatePreferences(t *testing.T) {
-	c := &Container{}
-	c.Paths.AppDataDir = t.TempDir()
-	s := NewUpdateService(c)
-	ctx := context.Background()
-	if p, _ := s.GetPreferences(ctx); !p.AutoCheck {
-		t.Fatal("the daily check must default to on")
-	}
-	if p, err := s.SetAutoCheck(ctx, false); err != nil || p.AutoCheck {
-		t.Fatalf("SetAutoCheck(false) = %+v, %v", p, err)
-	}
-	if p, _ := s.GetPreferences(ctx); p.AutoCheck {
-		t.Error("the choice was not kept")
-	}
-	if p, _ := s.SetAutoCheck(ctx, true); !p.AutoCheck {
-		t.Error("turning it back on failed")
 	}
 }
 
@@ -129,27 +111,138 @@ func TestAutoCheckerFollowsThePreferenceAndTheDailyGap(t *testing.T) {
 	}
 }
 
-func TestUpdatePrefsAreVersioned(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "update", "update-prefs.json")
-	if err := writeUpdatePrefs(path, api.UpdatePreferences{AutoCheck: false}); err != nil {
+func writeLegacyPrefs(t *testing.T, w *world, name, body string) string {
+	t.Helper()
+	path := filepath.Join(w.p.AppDataDir, "update", name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	b, _ := os.ReadFile(path)
-	if !strings.Contains(string(b), "schemaVersion") {
-		t.Errorf("no schemaVersion: %s", b)
-	}
-	if readUpdatePrefs(path).AutoCheck {
-		t.Error("off was not kept")
-	}
-	for i := 0; i < 20; i++ { // quick toggles never fail
-		if err := writeUpdatePrefs(path, api.UpdatePreferences{AutoCheck: i%2 == 0}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(path, []byte(`{"schemaVersion":99,"autoCheckOff":true}`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if !readUpdatePrefs(path).AutoCheck {
-		t.Error("a newer file must read as the default")
+	return path
+}
+
+// FU-17d: a settings file of 0.0.1 or 0.0.2 has no updateCheckOff field: the check is on, and an unrelated
+// settings write does not add the field.
+func TestUpdateCheckIsOnWithoutTheField(t *testing.T) {
+	for name, body := range map[string]string{
+		"0.0.1": `{"schemaVersion":1,"language":"en","theme":"system"}`,
+		"0.0.2": `{"schemaVersion":1,"language":"en","theme":"system","privateSignIn":false}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			w := newWorld(t)
+			if err := os.WriteFile(w.p.SettingsFile, []byte(body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			st, _, err := settings.Open(w.p.SettingsFile, w.p.DefaultScanRoot, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !st.UpdateCheckOn() || st.API().UpdateCheckOff {
+				t.Fatal("no field means the check is on")
+			}
+			dark := api.ThemeDark
+			if _, err := st.Update(api.SettingsPatch{Theme: &dark}); err != nil {
+				t.Fatal(err)
+			}
+			if b, _ := os.ReadFile(w.p.SettingsFile); strings.Contains(string(b), "updateCheckOff") {
+				t.Fatalf("an unrelated write added the field: %s", b)
+			}
+		})
+	}
+}
+
+// The preference lives in settings.json: SetAutoCheck writes it and tells the window.
+func TestSetAutoCheckWritesSettings(t *testing.T) {
+	w := newWorld(t)
+	svc := NewUpdateService(w.c)
+	if p, _ := svc.GetPreferences(context.Background()); !p.AutoCheck {
+		t.Fatal("on by default")
+	}
+	if p, err := svc.SetAutoCheck(context.Background(), false); err != nil || p.AutoCheck {
+		t.Fatalf("%v %v", p, err)
+	}
+	if b, _ := os.ReadFile(w.p.SettingsFile); !strings.Contains(string(b), `"updateCheckOff": true`) {
+		t.Fatalf("not in settings.json: %s", b)
+	}
+	if w.c.Settings.UpdateCheckOn() || w.rt.count(api.EventSettingsChanged) == 0 {
+		t.Fatal("off must be in effect and announced")
+	}
+	if p, _ := svc.GetPreferences(context.Background()); p.AutoCheck {
+		t.Fatal("off was not kept")
+	}
+	if p, err := svc.SetAutoCheck(context.Background(), true); err != nil || !p.AutoCheck {
+		t.Fatalf("%v %v", p, err)
+	}
+	if b, _ := os.ReadFile(w.p.SettingsFile); strings.Contains(string(b), "updateCheckOff") {
+		t.Fatalf("on removes the field: %s", b)
+	}
+}
+
+// FU-17d: an old update-prefs file moves into settings.json once and is removed.
+func TestOldUpdatePrefsMoveIntoSettingsOnce(t *testing.T) {
+	for _, name := range []string{"update-prefs.json", "prefs.json"} {
+		t.Run(name, func(t *testing.T) {
+			w := newWorld(t)
+			path := writeLegacyPrefs(t, w, name, `{"schemaVersion":1,"autoCheckOff":true}`)
+			w.c.migrateUpdatePrefs()
+			if w.c.Settings.UpdateCheckOn() {
+				t.Fatal("off was not moved")
+			}
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatal("the old file must be removed")
+			}
+			// the person turns it on again; a second run finds nothing to move
+			if _, err := NewUpdateService(w.c).SetAutoCheck(context.Background(), true); err != nil {
+				t.Fatal(err)
+			}
+			w.c.migrateUpdatePrefs()
+			if !w.c.Settings.UpdateCheckOn() {
+				t.Fatal("the move runs once")
+			}
+		})
+	}
+	// an old file that says on moves nothing but still goes away
+	w := newWorld(t)
+	path := writeLegacyPrefs(t, w, "update-prefs.json", `{"schemaVersion":1}`)
+	w.c.migrateUpdatePrefs()
+	if _, err := os.Stat(path); !os.IsNotExist(err) || !w.c.Settings.UpdateCheckOn() {
+		t.Fatal("an old file that says on is removed and keeps the check on")
+	}
+}
+
+// FU-17c: a damaged old file is set aside, never makes SetAutoCheck fail; a newer one is left alone.
+func TestDamagedOldUpdatePrefsDoNotBreakTheSetting(t *testing.T) {
+	w := newWorld(t)
+	path := writeLegacyPrefs(t, w, "update-prefs.json", "{{{ not json")
+	w.c.migrateUpdatePrefs()
+	if m, _ := filepath.Glob(path + ".corrupt-*"); len(m) != 1 {
+		t.Fatalf("set aside: %v", m)
+	}
+	if !w.c.Settings.UpdateCheckOn() {
+		t.Fatal("a damaged file reads as the default")
+	}
+	if _, err := NewUpdateService(w.c).SetAutoCheck(context.Background(), false); err != nil {
+		t.Fatal(err)
+	}
+	newer := writeLegacyPrefs(t, w, "prefs.json", `{"schemaVersion":99,"autoCheckOff":true}`)
+	w.c.migrateUpdatePrefs()
+	if _, err := os.Stat(newer); err != nil {
+		t.Fatal("a newer file is left alone")
+	}
+}
+
+// FU-17d: building the container moves the old file once, without a hand call.
+func TestContainerStartMovesOldUpdatePrefs(t *testing.T) {
+	var path string
+	w := newWorld(t, func(*ContainerOptions) {
+		path = writeLegacyPrefs(t, active, "update-prefs.json", `{"schemaVersion":1,"autoCheckOff":true}`)
+	})
+	if w.c.Settings.UpdateCheckOn() {
+		t.Fatal("the check must be off after start")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("the old file must be gone after start")
 	}
 }

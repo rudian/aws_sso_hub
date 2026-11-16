@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -424,5 +425,88 @@ func TestPrecedenceMoreRows(t *testing.T) {
 	}
 	if row.Setting.Email != "author@example.com" || row.Setting.EmailSource.Kind == api.IdentitySrcEnv {
 		t.Fatalf("setting ignores env: %+v", row.Setting)
+	}
+}
+
+// FU-16a: a per-repository change must not write a config that a linked worktree with its own identity reads.
+func TestRepoChangeRefusesAConfigSharedWithAnotherOwnIdentity(t *testing.T) {
+	r := newRig(t)
+	r.setGlobal("Alex Global", "global@example.com")
+	work := filepath.Join(r.root, "work")
+	api1 := r.repo(work, "acme_api")
+	wt := r.worktree(api1, "acme_api-wt")
+	other := r.repo(work, "acme_web") // its own config file
+	// acme_api sits in a project that has an identity, so "follow the project" has something to write
+	prj := r.project("acme", api1)
+	preq := api.ProjectIdentityRequest{ProjectID: prj.ID, Identity: ptr(acme())}
+	ppv, err := r.eng.PreviewProject(bg, preq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.eng.ApplyProject(bg, preq, ppv.PlanHash); err != nil {
+		t.Fatal(err)
+	}
+	// the worktree gets an identity of its own first: nobody else has one, so that is allowed
+	own := api.RepoIdentityRequest{RepoID: wt.ID, Mode: api.RepoModeOwn, Identity: ptr(globex())}
+	pv, err := r.eng.PreviewRepo(bg, own)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.eng.ApplyRepo(bg, own, pv.PlanHash); err != nil {
+		t.Fatal(err)
+	}
+	before := r.read(r.localCfg(api1))
+	for _, mode := range []api.RepoIdentityMode{api.RepoModeOwn, api.RepoModeGlobal, api.RepoModeProject} {
+		req := api.RepoIdentityRequest{RepoID: api1.ID, Mode: mode}
+		if mode == api.RepoModeOwn {
+			req.Identity = ptr(acme())
+		}
+		_, err := r.eng.PreviewRepo(bg, req)
+		var ae *api.AppError
+		if !errors.As(err, &ae) || ae.Code != api.ErrConfigShared || ae.Params["file"] == "" {
+			t.Fatalf("mode %s: %v", mode, err)
+		}
+		if _, err := r.eng.ApplyRepo(bg, req, "any"); !errors.As(err, &ae) || ae.Code != api.ErrConfigShared {
+			t.Fatalf("apply, mode %s: %v", mode, err)
+		}
+	}
+	if r.read(r.localCfg(api1)) != before {
+		t.Fatal("nothing may be written")
+	}
+	// another repository with its own config is not affected
+	if _, err := r.eng.PreviewRepo(bg, api.RepoIdentityRequest{RepoID: other.ID, Mode: api.RepoModeOwn, Identity: ptr(acme())}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// FU-13a: a worktree that shares its repository's config file reports the owner's outcome: when the write of
+// that one file fails, both report the failure and the project record stays as it was.
+func TestLinkedWorktreeReportsTheOwnersFailedWrite(t *testing.T) {
+	r := newRig(t)
+	r.setGlobal("Alex Global", "global@example.com")
+	work := filepath.Join(r.root, "work")
+	api1 := r.repo(work, "acme_api")
+	wt := r.worktree(api1, "acme_api-wt")
+	p := r.project("acme", api1, wt)
+	r.write(r.localCfg(api1)+".lock", "") // git cannot take the shared config
+	req := api.ProjectIdentityRequest{ProjectID: p.ID, Identity: ptr(acme())}
+	pv, err := r.eng.PreviewProject(bg, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := r.eng.ApplyProject(bg, req, pv.PlanHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Outcomes) != 2 {
+		t.Fatalf("%+v", res.Outcomes)
+	}
+	for _, o := range res.Outcomes {
+		if o.OK || o.Error == nil || o.Error.Code != api.ErrFileIO {
+			t.Errorf("%s reports success for a file that was not written: %+v", o.Name, o)
+		}
+	}
+	if res.RecordUpdated || r.snap().FindProject(p.ID).Identity != nil {
+		t.Fatal("the project record must not change while a write failed")
 	}
 }

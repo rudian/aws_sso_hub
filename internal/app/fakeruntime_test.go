@@ -13,6 +13,7 @@ type fakeRuntime struct {
 	mu       sync.Mutex
 	events   []recordedEvent
 	urls     []string
+	attempts []string // every OpenURL call, recorded when it starts (before the gate)
 	revealed []string
 	opened   []string
 	folder   string
@@ -21,6 +22,7 @@ type fakeRuntime struct {
 	dialogs  []string
 	shown    int
 	browser  func(u string)
+	gate     chan struct{} // when set, OpenURL waits for it to close (a page that is slow to open)
 }
 
 func (f *fakeRuntime) Emit(name string, data any) {
@@ -33,6 +35,13 @@ func (f *fakeRuntime) OpenURL(raw string) error {
 	// Tests run their fake servers on loopback http, which sandbox mode allows.
 	if err := checkOpenable(raw, true); err != nil {
 		return err
+	}
+	f.mu.Lock()
+	f.attempts = append(f.attempts, raw)
+	g := f.gate
+	f.mu.Unlock()
+	if g != nil {
+		<-g
 	}
 	f.mu.Lock()
 	f.urls = append(f.urls, raw)

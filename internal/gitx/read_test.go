@@ -3,6 +3,7 @@ package gitx_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -729,6 +730,12 @@ func TestReadsNeverRunAlternateRefsCommand(t *testing.T) {
 	writeMarker(t, script, marker, "exit 0")
 	plainGit(t, sb, repo, "config", "core.alternateRefsCommand", script)
 	r := gitx.NewReader(sb.Git)
+	// the one read that could run the command is refused, and the command is not run
+	_, err := r.Run(ctx, repo, "rev-list", "--alternate-refs", "--count", "HEAD")
+	var ae *api.AppError
+	if !errors.As(err, &ae) || ae.Code != api.ErrInvalidInput {
+		t.Fatalf("want E_INVALID_INPUT, got %v", err)
+	}
 	if _, err := r.Run(ctx, repo, "rev-list", "--count", "HEAD"); err != nil {
 		t.Fatal(err)
 	}

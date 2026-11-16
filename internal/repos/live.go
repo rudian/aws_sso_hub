@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/gitx"
@@ -29,6 +30,47 @@ const (
 	WatchRemoved                   // the folder is gone or was renamed away
 	WatchStopped                   // watching failed and stopped
 )
+
+// watchStop is what the engine remembers of a repository whose watch stopped: when it last did, and how many
+// times in a row it did so quickly (a watch that keeps dying must not cost a status read every few seconds).
+type watchStop struct {
+	resubscribed time.Time // when the watch was (or will be) subscribed again after the last stop
+	n            int       // quick stops in a row
+}
+
+const (
+	watchStableAfter = time.Minute     // a watch that lived this long starts the count again
+	watchRetryMax    = 5 * time.Minute // the longest wait before subscribing again
+)
+
+// watchRetryDelay records a stop of id's watch and returns how long to wait before subscribing again: nothing
+// for the first stop, then base, 2*base, 4*base ... (at most watchRetryMax) while the stops follow each other
+// within a minute.
+func (e *Engine) watchRetryDelay(id string) time.Duration {
+	base := e.d.WatchRetryBase
+	if base <= 0 {
+		base = 5 * time.Second
+	}
+	now := time.Now()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	st := e.watchStops[id]
+	if st.resubscribed.IsZero() || now.Sub(st.resubscribed) > watchStableAfter {
+		st.n = 0 // the last subscription lived long enough: this is a first stop again
+	}
+	st.n++
+	var wait time.Duration
+	if st.n > 1 {
+		wait = base
+		for i := 2; i < st.n && wait < watchRetryMax; i++ {
+			wait *= 2
+		}
+		wait = min(wait, watchRetryMax)
+	}
+	st.resubscribed = now.Add(wait)
+	e.watchStops[id] = st
+	return wait
+}
 
 type watchSub struct {
 	path  string
@@ -201,6 +243,19 @@ func (e *Engine) onWatch(id string, token uint64, ev WatchEvent) {
 		}
 		if ev == WatchRemoved {
 			return // the next scan sees a folder that is gone (or back); a status read would only fail
+		}
+		if d := e.watchRetryDelay(id); d > 0 {
+			// it keeps stopping: neither subscribe nor read the status now, do both once after the wait
+			time.AfterFunc(d, func() {
+				if e.bgCtx.Err() != nil {
+					return
+				}
+				e.syncWatches()
+				if err := e.readStatus(e.bgCtx, []string{id}); err == nil {
+					e.emitState(e.bgCtx)
+				}
+			})
+			return
 		}
 		e.syncWatches()
 	}

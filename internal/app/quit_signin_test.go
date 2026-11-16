@@ -109,19 +109,30 @@ func TestEveryQuitPathClosesSignInWindows(t *testing.T) {
 // While the app is quitting a sign-in page opens nothing: not an isolated window, not a private window, and
 // not the normal browser either.
 func TestSignInPageAfterShutdownOpensNothing(t *testing.T) {
-	w := newWorld(t)
-	w.c.Paths.Sandbox = false
-	fake := &fakePrivate{private: true, isolated: true}
-	w.c.private = fake
-	rt := w.c.RT.(*fakeRuntime)
-	w.c.Shutdown()
-	_, err := NewAccountService(w.c).OpenSignInPage(signInURL)
-	var ae *api.AppError
-	if !errors.As(err, &ae) || ae.Code != api.ErrCancelled {
-		t.Fatalf("want E_CANCELLED, got %v", err)
-	}
-	if len(fake.windows) != 0 || len(fake.urls) != 0 || len(rt.urls) != 0 {
-		t.Fatalf("something opened: %d windows, %v private, %v normal", len(fake.windows), fake.urls, rt.urls)
+	for _, private := range []bool{true, false} { // the "private sign-in" setting on and off (FU-21c)
+		name := "private sign-in on"
+		if !private {
+			name = "private sign-in off"
+		}
+		t.Run(name, func(t *testing.T) {
+			w := newWorld(t)
+			w.c.Paths.Sandbox = false
+			if _, err := w.c.Settings.Update(api.SettingsPatch{PrivateSignIn: &private}); err != nil {
+				t.Fatal(err)
+			}
+			fake := &fakePrivate{private: true, isolated: true}
+			w.c.private = fake
+			rt := w.c.RT.(*fakeRuntime)
+			w.c.Shutdown()
+			_, err := NewAccountService(w.c).OpenSignInPage(signInURL)
+			var ae *api.AppError
+			if !errors.As(err, &ae) || ae.Code != api.ErrCancelled {
+				t.Fatalf("want E_CANCELLED, got %v", err)
+			}
+			if len(fake.windows) != 0 || len(fake.urls) != 0 || len(rt.urls) != 0 {
+				t.Fatalf("something opened: %d windows, %v private, %v normal", len(fake.windows), fake.urls, rt.urls)
+			}
+		})
 	}
 }
 
@@ -146,6 +157,7 @@ func TestSignInWindowOpenedDuringShutdownIsClosed(t *testing.T) {
 	}()
 	<-started
 	w.c.Shutdown()
+	rt := w.c.RT.(*fakeRuntime)
 	fake.mu.Lock()
 	n := len(fake.windows)
 	fake.mu.Unlock()
@@ -155,7 +167,72 @@ func TestSignInWindowOpenedDuringShutdownIsClosed(t *testing.T) {
 	if !fake.windows[0].isClosed() {
 		t.Fatal("the window opened during the quit was still open when Shutdown returned")
 	}
+	// the call ends with E_CANCELLED and nothing else opens: without the check after the isolated attempt it
+	// would fall through to a private window or the normal browser (FU-21c)
+	var ae *api.AppError
+	if err := <-opened; !errors.As(err, &ae) || ae.Code != api.ErrCancelled {
+		t.Fatalf("want E_CANCELLED, got %v", err)
+	}
+	if len(fake.urls) != 0 || len(rt.urls) != 0 {
+		t.Fatalf("a page opened during the quit: %v private, %v normal", fake.urls, rt.urls)
+	}
+}
+
+// FU-21a: an isolated launch that is under way when the quit begins is not cancelled half way: it returns its
+// handle and the window is closed, instead of a started browser nobody closes.
+func TestIsolatedLaunchUnderWayAtQuitIsClosed(t *testing.T) {
+	w := newWorld(t)
+	w.c.Paths.Sandbox = false
+	started := make(chan struct{})
+	fake := &fakePrivate{private: true, isolated: true, startThenFail: true}
+	fake.openIso = func(context.Context) { // the browser takes its time to start; the quit begins meanwhile
+		close(started)
+		for i := 0; i < 500 && w.c.ctx.Err() == nil; i++ {
+			time.Sleep(2 * time.Millisecond)
+		}
+	}
+	w.c.private = fake
+	opened := make(chan error, 1)
+	go func() {
+		_, err := NewAccountService(w.c).OpenSignInPage(signInURL)
+		opened <- err
+	}()
+	<-started
+	w.c.Shutdown()
 	<-opened
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.windows) != 1 {
+		t.Fatalf("%d windows", len(fake.windows))
+	}
+	if !fake.windows[0].isClosed() {
+		t.Fatal("the browser that was starting when the app quit is still open")
+	}
+}
+
+// FU-21b: the old window after "Open again" is closed in the background; a quit right after waits for that
+// close (the profile folder must be gone, and on Windows a profile in use is kept by RemoveStale).
+func TestShutdownWaitsForACloseInFlight(t *testing.T) {
+	w := newWorld(t)
+	w.c.Paths.Sandbox = false
+	fake := &fakePrivate{private: true, isolated: true, slowFirst: 700 * time.Millisecond}
+	w.c.private = fake
+	for i := 0; i < 2; i++ { // the second open is "Open again": it closes the first window in the background
+		if _, err := NewAccountService(w.c).OpenSignInPage(signInURL); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w.c.Shutdown()
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.windows) != 2 {
+		t.Fatalf("%d windows", len(fake.windows))
+	}
+	for i, win := range fake.windows {
+		if !win.isClosed() {
+			t.Fatalf("window %d was not closed when Shutdown returned", i)
+		}
+	}
 }
 
 // Crash leftovers are removed at start, and only profiles made before this run started.

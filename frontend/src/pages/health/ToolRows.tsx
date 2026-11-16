@@ -1,14 +1,15 @@
 // The setup rows on the Health page (design 5.1 "Later in Health"): the same three rows as the setup screen, with an
 // "Update" action where the tool is older than recommended (or, if it ever happens, below the minimum).
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toUiError } from '../../api/errors'
-import { SetupFix, SetupToolID, ToolStatus } from '../../api/models'
-import type { SetupTool } from '../../api/models'
+import { onEvent } from '../../api/events'
+import { FailureCause, SetupFix, SetupToolID, ToolStatus } from '../../api/models'
+import type { InstallFailure, InstallState, SetupTool } from '../../api/models'
 import { Tools } from '../../api/services'
 import { Button } from '../../components/Button'
 import { Skeleton } from '../../components/Skeleton'
 import { errorText, useI18n } from '../../i18n'
-import type { T } from '../../i18n'
+import type { MessageKey, T } from '../../i18n'
 import { useAsync } from '../../lib/useAsync'
 import { guessPlatform } from '../../lib/platform'
 import { useActions } from '../../shell/AppActions'
@@ -75,8 +76,42 @@ export function describeToolRow(tool: SetupTool, t: T, platform: Platform = 'dar
 }
 
 /**
- * The manager (Homebrew or winget), Git and the AWS CLI. ToolService has no update call yet (it only installs what
- * blocks the gate), so the row names the command the user can run and the button opens the tool's official page.
+ * True when the app can update this row itself: git or the AWS CLI that is there but old, in a copy its installer
+ * owns (the same cases `updateCommand` names a `brew upgrade` / `winget upgrade` command for).
+ */
+export function canUpdateHere(tool: SetupTool, platform: Platform): boolean {
+  if (tool.id !== SetupToolID.SetupGit && tool.id !== SetupToolID.SetupAWSCLI) return false
+  if (tool.status !== ToolStatus.ToolOutdated && tool.status !== ToolStatus.ToolTooOld) return false
+  if (tool.fix === SetupFix.FixUseDetected) return false
+  return /^(brew|winget) upgrade /.test(updateCommand(tool, platform) ?? '')
+}
+
+/** The cause of a failed update in words that fit "The update did not finish: …" (the setup titles speak of installing). */
+function updateCauseKey(f: InstallFailure): MessageKey {
+  switch (f.cause) {
+    case FailureCause.CauseNetwork:
+      return 'health.tool.cause.network'
+    case FailureCause.CauseProxyAuth:
+      return 'health.tool.cause.proxyAuth'
+    case FailureCause.CauseNotAdmin:
+    case FailureCause.CauseNeedsAdmin:
+      return 'health.tool.cause.admin'
+    case FailureCause.CausePolicy:
+      return 'health.tool.cause.policy'
+    case FailureCause.CauseCancelled:
+    case FailureCause.CauseAuthDenied:
+      return 'health.tool.cause.cancelled'
+    default:
+      return 'health.tool.cause.generic'
+  }
+}
+
+const updateStep = (install: InstallState | null, id: string) => (install?.steps ?? []).find((s) => s.id === `${id}:update`)
+
+/**
+ * The manager (Homebrew or winget), Git and the AWS CLI. A git or AWS CLI copy that Homebrew or winget owns has an
+ * "Update" button that runs `brew upgrade` / `winget upgrade` through ToolService (progress and Cancel in the row, the
+ * failure's cause in words); every other old or missing tool names the command and the button opens the official page.
  * `reloadKey` changes when the page's "Check again" ran.
  */
 export function ToolRows({ reloadKey = 0, compact }: { reloadKey?: number; compact?: boolean }) {
@@ -84,6 +119,34 @@ export function ToolRows({ reloadKey = 0, compact }: { reloadKey?: number; compa
   const { toast } = useActions()
   const state = useAsync(() => Tools.GetSetupState(), [reloadKey])
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [install, setInstall] = useState<InstallState | null>(null)
+  useEffect(() => onEvent('tools:install-progress', setInstall), [])
+  // coming back to Health while an update runs (or after one ended): show that run, not a fresh Update button
+  useEffect(() => {
+    let live = true
+    Tools.GetInstallState().then(
+      (s) => {
+        if (live && (s.steps ?? []).some((x) => x.id.endsWith(':update'))) setInstall((cur) => cur ?? s)
+      },
+      () => undefined,
+    )
+    return () => {
+      live = false
+    }
+  }, [])
+  // an update that ended well changes what the gate says: read it again (local checks)
+  const updateDone = !!install?.finished && !install.failure && !install.cancelled && (install.steps ?? []).some((s) => s.id.endsWith(':update'))
+  const reload = state.reload
+  useEffect(() => {
+    if (updateDone) void reload()
+  }, [updateDone, reload])
+  // when the focused Cancel / Update button goes away with the finished update, keep the keyboard on this card
+  const listRef = useRef<HTMLDivElement>(null)
+  const finished = !!install?.finished
+  const rowsRead = state.data
+  useEffect(() => {
+    if (finished && rowsRead && (document.activeElement === document.body || document.activeElement === null)) listRef.current?.focus()
+  }, [finished, rowsRead])
   const platform: Platform = state.data?.platform === 'windows' ? 'windows' : state.data?.platform === 'darwin' ? 'darwin' : guessPlatform()
 
   if (state.error && !state.data) {
@@ -104,10 +167,13 @@ export function ToolRows({ reloadKey = 0, compact }: { reloadKey?: number; compa
       </div>
     )
   }
-  const update = async (tool: SetupTool) => {
+  const update = async (tool: SetupTool, here: boolean) => {
     setBusyId(tool.id)
     try {
-      await Tools.OpenInstallPage(tool.id)
+      if (here) {
+        setInstall(null)
+        await Tools.StartToolUpdate(tool.id)
+      } else await Tools.OpenInstallPage(tool.id)
     } catch (e) {
       const text = errorText(toUiError(e), t)
       toast({ kind: 'danger', title: text.title, body: text.body })
@@ -116,19 +182,24 @@ export function ToolRows({ reloadKey = 0, compact }: { reloadKey?: number; compa
     }
   }
   return (
-    <div className="list">
+    <div className="list" ref={listRef} tabIndex={-1}>
       {(state.data.tools ?? []).map((tool) => {
         const d = describeToolRow(tool, t, platform)
         const name = toolLabel(tool.id, platform)
+        const here = canUpdateHere(tool, platform)
+        const step = updateStep(install, tool.id)
+        const updating = !!install?.running && !!step
+        const failure = install?.finished && step && install.failure?.stepId === step.id ? install.failure : null
+        const reason = failure ? t(updateCauseKey(failure)) : ''
         return (
           <StatusRow
             key={tool.id}
             compact={compact}
-            status={d.status}
+            status={updating ? 'busy' : d.status}
             title={name}
-            text={d.text}
+            text={updating ? t('health.tool.updating') : d.text}
             meta={
-              d.meta || d.command ? (
+              d.meta || d.command || failure ? (
                 <>
                   {d.meta && <span className="mono">{d.meta}</span>}
                   {d.command && (
@@ -136,13 +207,18 @@ export function ToolRows({ reloadKey = 0, compact }: { reloadKey?: number; compa
                       {t('setup.health.run')} <code className="mono">{d.command}</code>
                     </div>
                   )}
+                  {failure && <div role="status">{t('health.tool.failed', { reason })}</div>}
                 </>
               ) : undefined
             }
             action={
-              d.update ? (
-                <Button size="sm" loading={busyId === tool.id} aria-label={t(d.action === 'install' ? 'setup.health.installFor' : 'setup.health.howtoFor', { tool: name })} onClick={() => void update(tool)}>
-                  {t(d.action === 'install' ? 'setup.health.install' : 'setup.health.howto')}
+              updating ? (
+                <Button size="sm" aria-disabled={install?.cancelling || undefined} aria-label={t('health.tool.cancelFor', { tool: name })} onClick={() => !install?.cancelling && void Tools.CancelSetupInstall()}>
+                  {t('health.tool.cancel')}
+                </Button>
+              ) : d.update ? (
+                <Button size="sm" loading={busyId === tool.id} aria-label={t(here ? 'health.tool.updateFor' : d.action === 'install' ? 'setup.health.installFor' : 'setup.health.howtoFor', { tool: name })} onClick={() => void update(tool, here)}>
+                  {t(here ? 'health.tool.update' : d.action === 'install' ? 'setup.health.install' : 'setup.health.howto')}
                 </Button>
               ) : undefined
             }

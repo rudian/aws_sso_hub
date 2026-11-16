@@ -4,6 +4,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -439,4 +441,55 @@ func TestQuarantineStaleFlagAndNameCollision(t *testing.T) {
 	if b1, _ := os.ReadFile(first); string(b1) != "{bad" {
 		t.Fatalf("first copy lost: %q", b1)
 	}
+}
+
+// FU-02b: the suffix search stops on a name it cannot look at, and after a cap, instead of looping.
+func TestQuarantineStopsOnAnUnreadableNameAndCapsTheSuffix(t *testing.T) {
+	now := func() time.Time { return time.Unix(1700000000, 0) }
+	run := func(t *testing.T, p string) error {
+		f, _ := Open(p, Spec{Current: 1, Now: now})
+		if err := os.WriteFile(p, []byte("{bad"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		var d doc
+		if _, err := f.Load(&d); !errors.Is(err, ErrCorrupt) {
+			t.Fatal(err)
+		}
+		done := make(chan error, 1)
+		go func() { _, err := f.Quarantine(&doc{}); done <- err }()
+		select {
+		case err := <-done:
+			return err
+		case <-time.After(20 * time.Second):
+			t.Fatal("Quarantine does not end")
+			return nil
+		}
+	}
+	t.Run("cap", func(t *testing.T) {
+		p := filepath.Join(t.TempDir(), "d.json")
+		base := p + ".corrupt-1700000000"
+		_ = os.WriteFile(base, nil, 0o600)
+		for i := 1; i <= maxQuarantineSuffix; i++ {
+			_ = os.WriteFile(base+"-"+strconv.Itoa(i), nil, 0o600)
+		}
+		if err := run(t, p); err == nil || !strings.Contains(err.Error(), "already exist") {
+			t.Fatalf("%v", err)
+		}
+		if b, _ := os.ReadFile(p); string(b) != "{bad" {
+			t.Fatal("the damaged file must stay where it is")
+		}
+	})
+	t.Run("a name that cannot be looked at", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("name length limits differ")
+		}
+		// the damaged file's own name is just inside the limit; the quarantine name is not
+		p := filepath.Join(t.TempDir(), strings.Repeat("d", 240)+".json")
+		if err := run(t, p); err == nil {
+			t.Fatal("an error is expected")
+		}
+		if _, err := os.Stat(p); err != nil {
+			t.Fatal("the damaged file must stay where it is")
+		}
+	})
 }

@@ -103,6 +103,37 @@ func (o *Opener) OpenIsolated(ctx context.Context, rawURL, dir string) (*Isolate
 	return nil, nil
 }
 
+// ErrFocusUnsupported is returned by Focus where a window of the isolated browser cannot be brought forward
+// without asking the person for a permission: the caller opens the page again instead.
+var ErrFocusUnsupported = errors.New("browser: this system does not let the app bring that window forward")
+
+// Focus brings the instance's window to the front, using nothing that needs a permission.
+//
+//   - Windows: the started browser's own top-level window is restored and made the foreground window. Windows
+//     refuses that when the app does not hold the foreground right (the foreground lock); then Focus returns
+//     an error and the caller opens the page again.
+//   - macOS: ErrFocusUnsupported. The only calls that address one process of several of the same application
+//     are Accessibility (a permission), AppleScript to System Events (a permission) and
+//     NSRunningApplication.activate, which since macOS 14 is honoured only while the caller is the active
+//     app or the target yields; a press on a notification button is neither. `open -b` would raise whichever
+//     instance of the browser Launch Services picks, possibly the person's own.
+func (w *Isolated) Focus(ctx context.Context) error {
+	if w.goos != "windows" {
+		return ErrFocusUnsupported
+	}
+	if w.pid <= 0 || !w.o.running(w.pid) {
+		return errors.New("browser: the sign-in browser is no longer running")
+	}
+	return w.o.foreground(w.pid)
+}
+
+func (o *Opener) foreground(pid int) error {
+	if o.Foreground != nil {
+		return o.Foreground(pid)
+	}
+	return foregroundPID(pid)
+}
+
 // Close quits the browser instance (gracefully first, then by force) and deletes its profile directory.
 // It is safe to call more than once.
 func (w *Isolated) Close(ctx context.Context) error {

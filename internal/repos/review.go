@@ -66,6 +66,11 @@ func (e *Engine) forgetOffers(ids ...string) {
 	e.mu.Unlock()
 }
 
+// ForgetMovedOffers is forgetOffers for a caller outside the engine that wrote projects.json itself (the identity
+// engine's move into a project, a repository's own identity): the question about those repositories is out of
+// date.
+func (e *Engine) ForgetMovedOffers(ids ...string) { e.forgetOffers(ids...) }
+
 func (e *Engine) changed(ctx context.Context) api.ReposState {
 	st := e.emitState(ctx)
 	e.syncWatches()

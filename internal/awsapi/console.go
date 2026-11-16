@@ -15,6 +15,7 @@ import (
 
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/awsconfig"
+	"github.com/rudian/codepass/internal/awsguard"
 )
 
 // ErrConsoleUnsupported means the Identity Center region is in no partition with a known console sign-in
@@ -35,6 +36,7 @@ const maxSignInBody = 64 << 10
 // signInClient never follows redirects, so the credentials in the request body only reach the federation
 // endpoint.
 var signInClient = &http.Client{
+	Transport:     awsguard.Transport(nil), // tests: loopback only
 	Timeout:       30 * time.Second,
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 }

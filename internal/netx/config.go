@@ -146,7 +146,9 @@ func normalizeProxyURL(s string) string {
 func (c Config) ProxyFunc() func(*http.Request) (*url.URL, error) {
 	rules := parseNoProxy(c.NoProxy)
 	// A configured but unparseable proxy fails the request (no URL text in the
-	// error), like http.ProxyFromEnvironment and curl, instead of going direct.
+	// error), like curl, instead of going direct. (Go's own http.ProxyFromEnvironment drops an unparseable proxy
+	// and goes direct, which would send the request unprotected.) A request that NO_PROXY or loopback sends
+	// direct never uses the proxy, so a bad proxy setting does not fail it.
 	errBad := errors.New("netx: the proxy setting is not a valid URL")
 	parse := func(raw string) (*url.URL, error) {
 		if raw == "" {
@@ -162,20 +164,18 @@ func (c Config) ProxyFunc() func(*http.Request) (*url.URL, error) {
 	httpsU, httpsErr := parse(c.HTTPS)
 	return func(r *http.Request) (*url.URL, error) {
 		var u *url.URL
+		var bad error
 		switch r.URL.Scheme {
 		case "https":
-			u = httpsU
-			if httpsErr != nil {
-				return nil, httpsErr
-			}
+			u, bad = httpsU, httpsErr
 		case "http":
-			u = httpU
-			if httpErr != nil {
-				return nil, httpErr
-			}
+			u, bad = httpU, httpErr
 		}
-		if u == nil || bypass(rules, c.BypassSimple, r.URL.Hostname(), effectivePort(r.URL)) {
-			return nil, nil
+		if (u == nil && bad == nil) || bypass(rules, c.BypassSimple, r.URL.Hostname(), effectivePort(r.URL)) {
+			return nil, nil // no proxy for this scheme, or this host goes direct whatever the proxy says
+		}
+		if bad != nil {
+			return nil, bad
 		}
 		return u, nil
 	}

@@ -64,7 +64,7 @@ AWS SSO Hub: 无法获取 AWS 配置文件 'acme' 的 CodeCommit 凭证（未登
 
 - macOS 13 或更新版本（Apple 芯片或 Intel），或者 Windows 10/11 x64，并装有 WebView2 运行时（新版 Windows 已自带）。
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 2.22 或更新版本，git 和 `aws` 命令需要它。只登录的话不需要。
-- Git 2.39.1 或更新版本。
+- Git 2.44.0 或更新版本。
 - 已开通的 AWS IAM Identity Center **组织实例**，并且给你分配了权限集。如果公司还没开通，[教程](docs/guide.zh-CN.md#1-开始之前) 里有管理员的操作步骤。如果每家公司各有自己的 AWS Organization，它们在 app 里就是各自独立的门户。
 
 校验下载的文件，可以对照 Release 里的 `SHA256SUMS.txt`：

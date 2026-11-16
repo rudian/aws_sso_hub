@@ -156,10 +156,56 @@ func (in *Installer) Start(parent context.Context, setup api.SetupState) error {
 	}
 	steps := in.plan(setup)
 	in.setup = setup
+	in.cancelDL = false
 	in.asset, in.pkgPath = Asset{}, ""
 	in.st = api.InstallState{Running: true, Steps: steps, Log: []string{}}
 	ctx, cancel := context.WithCancel(parent)
 	in.cancel = cancel
+	in.done = make(chan struct{})
+	in.startedAt = time.Now()
+	in.emitLocked(true)
+	in.mu.Unlock()
+	go in.run(ctx)
+	return nil
+}
+
+// ErrNotUpdatable is returned by StartUpdate for a tool that no installer here manages.
+var ErrNotUpdatable = errors.New("toolinstall: only git and the AWS CLI are updated here")
+
+// StartUpdate updates one tool with the installer that manages it (brew upgrade on macOS, winget upgrade on
+// Windows) as a run of one step, with the same progress, log, failure causes and Cancel as an install. Unlike
+// an install run, Cancel stops the program at once (it is asked politely first, as for a download): the
+// person chose to update, and nothing else waits on it. The run does not re-check the gate: a tool that is
+// already the latest version is not an error.
+func (in *Installer) StartUpdate(parent context.Context, setup api.SetupState, tool api.SetupToolID) error {
+	if tool != api.SetupGit && tool != api.SetupAWSCLI {
+		return ErrNotUpdatable
+	}
+	in.mu.Lock()
+	if in.st.Running {
+		in.mu.Unlock()
+		return ErrRunning
+	}
+	cmd := brewCommand("upgrade", brewFormula(tool))
+	if in.cfg.GOOS == "windows" {
+		cmd = "winget " + strings.Join(wingetUpgradeArgs(tool)[:4], " ")
+	}
+	steps := []api.InstallStep{{ID: string(tool) + ":update", Tool: tool, Kind: api.StepInstall, State: api.StepQueued, Command: cmd}}
+	setup.Preflight.EnoughSpace = true // an upgrade needs no disk-space gate
+	setup.Tools = append([]api.SetupTool{}, setup.Tools...)
+	found := false
+	for _, t := range setup.Tools {
+		found = found || t.ID == tool
+	}
+	if !found {
+		setup.Tools = append(setup.Tools, api.SetupTool{ID: tool})
+	}
+	in.setup = setup
+	in.asset, in.pkgPath = Asset{}, ""
+	in.st = api.InstallState{Running: true, Steps: steps, Log: []string{}}
+	ctx, cancel := context.WithCancel(parent)
+	in.cancel = cancel
+	in.cancelDL = true
 	in.done = make(chan struct{})
 	in.startedAt = time.Now()
 	in.emitLocked(true)
@@ -233,6 +279,11 @@ func wingetArgs(id api.SetupToolID) []string {
 }
 
 // wingetShown is how many leading arguments of wingetArgs the screen shows as the command (not the switches).
+// wingetUpgradeArgs is the complete argument list of `winget upgrade` for one tool.
+func wingetUpgradeArgs(id api.SetupToolID) []string {
+	return []string{"upgrade", "--id", wingetID(id), "-e", "--accept-package-agreements", "--accept-source-agreements", "--silent"}
+}
+
 func wingetShown(id api.SetupToolID) int {
 	if id == api.SetupAWSCLI {
 		return 6
@@ -442,7 +493,7 @@ func (in *Installer) runStep(ctx context.Context, id string) *Failure {
 	case "winget:install":
 		return fail(api.CauseWingetMissing, "winget is not available")
 	}
-	tool, _, _ := strings.Cut(id, ":")
+	tool, kind, _ := strings.Cut(id, ":")
 	in.mu.Lock()
 	var row api.SetupTool
 	for _, t := range in.setup.Tools {
@@ -452,9 +503,9 @@ func (in *Installer) runStep(ctx context.Context, id string) *Failure {
 	}
 	in.mu.Unlock()
 	if in.cfg.GOOS == "windows" {
-		return in.stepWinget(ctx, id, row)
+		return in.stepWinget(ctx, id, row, kind == "update")
 	}
-	return in.stepBrew(ctx, id, row)
+	return in.stepBrew(ctx, id, row, kind == "update")
 }
 
 // ---- Homebrew.pkg ------------------------------------------------------------------------------------------
@@ -643,16 +694,22 @@ func (in *Installer) wingetEnv() []string {
 	return in.toolEnv("PATH=" + strings.Join(dirs, ";"))
 }
 
-func (in *Installer) brewEnv() []string {
+// brewEnv is the environment of brew. An update lets brew refresh its formula list first (an upgrade of a stale
+// list would find nothing newer); an install does not.
+func (in *Installer) brewEnv(update bool) []string {
 	p := in.cfg.PrefixDir
-	return in.toolEnv(
-		"PATH="+p+"/bin:"+p+"/sbin:/usr/bin:/bin:/usr/sbin:/sbin",
-		"HOMEBREW_NO_ANALYTICS=1", "HOMEBREW_NO_AUTO_UPDATE=1", "HOMEBREW_NO_ENV_HINTS=1",
+	extra := []string{
+		"PATH=" + p + "/bin:" + p + "/sbin:/usr/bin:/bin:/usr/sbin:/sbin",
+		"HOMEBREW_NO_ANALYTICS=1", "HOMEBREW_NO_ENV_HINTS=1",
 		"HOMEBREW_NO_INSTALL_CLEANUP=1", "NONINTERACTIVE=1", "NO_COLOR=1",
-	)
+	}
+	if !update {
+		extra = append(extra, "HOMEBREW_NO_AUTO_UPDATE=1")
+	}
+	return in.toolEnv(extra...)
 }
 
-func (in *Installer) stepBrew(ctx context.Context, id string, row api.SetupTool) *Failure {
+func (in *Installer) stepBrew(ctx context.Context, id string, row api.SetupTool, update bool) *Failure {
 	if st, err := os.Stat(in.cfg.BrewPath); err != nil || st.IsDir() {
 		return fail(api.CauseInstallerFailed, "brew is not installed at %s", in.cfg.BrewPath)
 	}
@@ -662,12 +719,12 @@ func (in *Installer) stepBrew(ctx context.Context, id string, row api.SetupTool)
 		verb = "upgrade"
 	}
 	in.mu.Unlock()
-	return in.runTool(ctx, Cmd{Path: in.cfg.BrewPath, Args: []string{verb, formula}, Env: in.brewEnv()}, func(exit int, out string) *Failure {
+	return in.runTool(ctx, Cmd{Path: in.cfg.BrewPath, Args: []string{verb, formula}, Env: in.brewEnv(update)}, func(exit int, out string) *Failure {
 		return &Failure{Cause: Brew(exit, out), Detail: errorLine(out), Code: exit}
 	})
 }
 
-func (in *Installer) stepWinget(ctx context.Context, id string, row api.SetupTool) *Failure {
+func (in *Installer) stepWinget(ctx context.Context, id string, row api.SetupTool, update bool) *Failure {
 	path := in.cfg.WingetPath
 	if path == "" {
 		for _, t := range in.setup.Tools {
@@ -679,7 +736,11 @@ func (in *Installer) stepWinget(ctx context.Context, id string, row api.SetupToo
 	if path == "" {
 		return fail(api.CauseWingetMissing, "winget is not available")
 	}
-	return in.runTool(ctx, Cmd{Path: path, Args: wingetArgs(row.ID), Env: in.wingetEnv()}, func(exit int, out string) *Failure {
+	args := wingetArgs(row.ID)
+	if update {
+		args = wingetUpgradeArgs(row.ID)
+	}
+	return in.runTool(ctx, Cmd{Path: path, Args: args, Env: in.wingetEnv()}, func(exit int, out string) *Failure {
 		cause := Winget(uint32(int32(exit)))
 		if cause == "" {
 			return nil // "no applicable upgrade" and "already installed" are success
@@ -712,6 +773,10 @@ func (in *Installer) runTool(ctx context.Context, c Cmd, classify func(exit int,
 	}
 	if exit == 0 {
 		return nil
+	}
+	if ctx.Err() != nil {
+		// A stop was asked for: a child that handles SIGINT or SIGTERM exits with 130 or 143 and is not a failure.
+		return fail(api.CauseCancelled, "cancelled")
 	}
 	f := classify(exit, strings.Join(tail, "\n"))
 	if f == nil {

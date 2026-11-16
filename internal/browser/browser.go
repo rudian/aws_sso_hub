@@ -49,6 +49,8 @@ type Opener struct {
 	Running func(pid int) bool
 	// Signal asks a process to quit, or forces it (macOS). nil = the operating system.
 	Signal func(pid int, force bool) error
+	// Foreground brings the main window of a process to the front (Windows). nil = the operating system.
+	Foreground func(pid int) error
 }
 
 const (

@@ -351,3 +351,123 @@ func TestFoldMatchKeepsTwoDifferentFolders(t *testing.T) {
 		t.Fatalf("two different folders became one record: %s %s", ia, ib)
 	}
 }
+
+// FU-18e: a legacy hash is imported once; the record that took it can be purged and a different repository at
+// the old path still gets nothing.
+func TestLegacyHashIsImportedOnce(t *testing.T) {
+	s, p := newStore(t)
+	a, _ := s.IDForPath("/code/acme_api")
+	legacy := map[string]api.TestResult{LegacyID("/code/acme_api"): {Status: api.TestOK, At: "2026-10-30T08:00:00Z", Profile: "acme"}}
+	if n, err := s.ImportLegacyTests(legacy); err != nil || n != 1 {
+		t.Fatalf("%d %v", n, err)
+	}
+	// the record is purged (its folder was deleted and 30 days passed)
+	if err := s.Mutate(func(d *Data) error {
+		kept := d.Repos[:0:0]
+		for _, r := range d.Repos {
+			if r.ID != a {
+				kept = append(kept, r)
+			}
+		}
+		d.Repos = kept
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := s.IDForPath("/code/acme_api") // a different repository at the old path: same hash
+	if n, _ := s.ImportLegacyTests(legacy); n != 0 {
+		t.Fatalf("imported %d a second time", n)
+	}
+	if s.LastTests()[b].Status != "" {
+		t.Fatalf("a new repository got the old result: %+v", s.LastTests()[b])
+	}
+	raw, _ := os.ReadFile(p)
+	if !strings.Contains(string(raw), "importedLegacy") {
+		t.Fatalf("the imported hash is not in projects.json: %s", raw)
+	}
+	// a hash that was not imported yet still is: it belongs to a record that appears later
+	legacy[LegacyID("/code/later")] = api.TestResult{Status: api.TestOK, At: "2026-10-31T08:00:00Z", Profile: "acme"}
+	c, _ := s.IDForPath("/code/later")
+	if n, _ := s.ImportLegacyTests(legacy); n != 1 || s.LastTests()[c].Status != api.TestOK {
+		t.Fatalf("imported %d", n)
+	}
+}
+
+// FU-18f: one folder reaching IDsForPaths under two spellings in one call does not flip the stored spelling:
+// the second call changes nothing and the file is not rewritten.
+func TestTwoSpellingsInOneCallDoNotRewriteTheFileEveryScan(t *testing.T) {
+	root := t.TempDir()
+	upper := filepath.Join(root, "Acme_API")
+	if err := os.MkdirAll(upper, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lower := filepath.Join(root, "acme_api")
+	if _, err := os.Stat(lower); err != nil {
+		t.Skip("case-sensitive volume")
+	}
+	old := pathFold
+	defer func() { pathFold = old }()
+	pathFold = true
+	s, p := newStore(t)
+	id, _ := s.IDForPath(upper)
+	for i := 0; i < 3; i++ {
+		before, _ := os.ReadFile(p)
+		st1, _ := os.Stat(p)
+		time.Sleep(20 * time.Millisecond)
+		got, err := s.IDsForPaths([]string{lower, upper}, "", time.Time{})
+		if err != nil || got[0] != id || got[1] != id {
+			t.Fatalf("%v %v", got, err)
+		}
+		after, _ := os.ReadFile(p)
+		st2, _ := os.Stat(p)
+		if string(before) != string(after) || !st2.ModTime().Equal(st1.ModTime()) {
+			t.Fatalf("round %d rewrote projects.json", i)
+		}
+	}
+	if path, _ := s.PathOf(id); path != upper {
+		t.Fatalf("the exactly named spelling is kept: %q", path)
+	}
+	// a stored third spelling is respelled once, to the first path of the call, and then stays
+	mixed := filepath.Join(root, "ACME_api")
+	s2, _ := newStore(t)
+	id2, _ := s2.IDForPath(mixed)
+	if _, err := s2.IDsForPaths([]string{lower, upper}, "", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := s2.PathOf(id2)
+	if first != lower && first != upper {
+		t.Fatalf("%q", first)
+	}
+	if _, err := s2.IDsForPaths([]string{lower, upper}, "", time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := s2.PathOf(id2); again != first {
+		t.Fatalf("flip-flop: %q then %q", first, again)
+	}
+}
+
+// FU-18g: on a case-sensitive volume a case-only rename (the old spelling is gone, the new one is there) keeps
+// the record and respells it, instead of marking it missing.
+func TestCaseOnlyRenameOnACaseSensitiveVolumeRespells(t *testing.T) {
+	root := t.TempDir()
+	newName := filepath.Join(root, "Acme_API")
+	if err := os.MkdirAll(newName, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldName := filepath.Join(root, "acme_api")
+	if _, err := os.Stat(oldName); err == nil {
+		t.Skip("case-insensitive volume")
+	}
+	old := pathFold
+	defer func() { pathFold = old }()
+	pathFold = true
+	s, _ := newStore(t)
+	id, _ := s.IDForPath(oldName) // recorded under the old spelling, which does not exist now
+	got, _ := s.IDForPath(newName)
+	if got != id {
+		t.Fatalf("a case-only rename made a second record: %s %s", got, id)
+	}
+	if p, _ := s.PathOf(id); p != newName {
+		t.Fatalf("stored spelling %q, want %q", p, newName)
+	}
+}

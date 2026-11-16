@@ -202,7 +202,9 @@ func TestReadExeFileVersionMalformed(t *testing.T) {
 }
 
 // A refusal must leave no staging folder and must not touch the installed exe: the gate reads the staged file only,
-// and the controller removes the Wails staging folder on refusal (removeStaging).
+// and the controller removes the Wails staging folder on refusal (removeStaging, called here with the folder the
+// controller computes: the one around installTarget). The controller's own path is covered by
+// TestControllerWindowsRefusalRemovesStagingAndMatchReachesReady (controller_windows_test.go, run on the Windows VM).
 func TestRefusalLeavesNoStagingFolder(t *testing.T) {
 	install := t.TempDir()
 	installed := filepath.Join(install, "codepass.exe")
@@ -220,7 +222,7 @@ func TestRefusalLeavesNoStagingFolder(t *testing.T) {
 	if codeOf(err) != CodeBundleVersion {
 		t.Fatalf("not refused: %v", err)
 	}
-	removeStaging(staged, install)
+	removeStaging(staged, filepath.Dir(installTarget(installed, "windows")))
 	if _, err := os.Stat(stage); !os.IsNotExist(err) {
 		t.Error("staging folder left behind")
 	}

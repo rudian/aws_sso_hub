@@ -52,6 +52,7 @@ export const mockSystemService: typeof SystemReal = {
       if (p.gitPath != null) s.gitPath = p.gitPath
       if (p.autoBindOnAdd != null) s.autoBindOnAdd = p.autoBindOnAdd
       if (p.privateSignIn != null) s.privateSignIn = p.privateSignIn
+      if (p.updateCheckOff != null) s.updateCheckOff = p.updateCheckOff
       if (p.collapsedPortals) s.collapsedPortals = [...p.collapsedPortals]
       if (p.lastCloneProfile != null) s.lastCloneProfile = p.lastCloneProfile
       if (p.lastCloneRegion != null) s.lastCloneRegion = p.lastCloneRegion
@@ -405,7 +406,8 @@ function runStep(w: ToolWorld, i: number): void {
     }
     later(150, next)
   } else {
-    if (step.command?.startsWith('brew')) logLine(w, `==> Pouring ${step.tool === 'awscli' ? 'awscli--2.40.3' : 'git--2.56.1'}.arm64_tahoe.bottle.tar.gz`)
+    if (step.id.endsWith(':update') && step.command?.startsWith('brew')) logLine(w, `==> Upgrading ${step.tool === 'awscli' ? 'awscli' : 'git'}`)
+    else if (step.command?.startsWith('brew')) logLine(w, `==> Pouring ${step.tool === 'awscli' ? 'awscli--2.40.3' : 'git--2.56.1'}.arm64_tahoe.bottle.tar.gz`)
     pushInstall(w)
     later(step.id === 'homebrew:install' ? 1500 : 600, done)
   }
@@ -440,11 +442,31 @@ export const mockToolService: typeof ToolReal = {
       w.timers.push(setTimeout(() => runStep(w, 0), 50))
     }),
 
+  // The Health page's "Update" (FU-15e): the same run with one step, `<tool>:update`. Like the Go installer's, Cancel
+  // stops it at once.
+  StartToolUpdate: (toolId) =>
+    run(READ, () => {
+      const w = tw()
+      const id = toolId as string
+      if (id !== 'git' && id !== 'awscli') throw fail(ErrorCode.ErrInvalidInput, 'only git and the AWS CLI are updated here', { field: 'tool' })
+      if (w.install.running) throw fail(ErrorCode.ErrInvalidInput, 'a setup run is already going', { field: 'run' })
+      const f = id === 'awscli' ? 'awscli' : 'git'
+      const command = w.platform === 'windows' ? `winget upgrade --id ${id === 'awscli' ? 'Amazon.AWSCLI' : 'Git.Git'} -e` : `brew upgrade ${f}`
+      w.install = { ...emptyInstall(), running: true, steps: [{ id: `${id}:update`, tool: id as SetupToolID, kind: 'install', state: 'queued', command }] }
+      pushInstall(w)
+      w.timers.push(setTimeout(() => runStep(w, 0), 50))
+    }),
+
   CancelSetupInstall: () =>
     run(READ, () => {
       const w = tw()
       if (!w.install.running) return
       w.install.cancelling = true
+      if ((w.install.steps ?? []).some((s) => s.id.endsWith(':update'))) {
+        w.timers.forEach(clearTimeout)
+        finishRun(w, undefined, true)
+        return
+      }
       pushInstall(w)
     }),
 

@@ -21,6 +21,7 @@ import (
 	"github.com/aws/smithy-go"
 
 	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsguard"
 )
 
 // Session identifies an sso-session (or a legacy profile when Name is empty).
@@ -132,6 +133,9 @@ func (m *Manager) oidcClient(s Session) *ssooidc.Client {
 		if ep != "" {
 			o.BaseEndpoint = aws.String(ep)
 		}
+		if c := awsguard.Client(); c != nil {
+			o.HTTPClient = c
+		}
 	})
 }
 
@@ -140,6 +144,9 @@ func (m *Manager) portalClient(s Session) *awssso.Client {
 	return awssso.NewFromConfig(aws.Config{Region: s.Region}, func(o *awssso.Options) {
 		if ep != "" {
 			o.BaseEndpoint = aws.String(ep)
+		}
+		if c := awsguard.Client(); c != nil {
+			o.HTTPClient = c
 		}
 	})
 }

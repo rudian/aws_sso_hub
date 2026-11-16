@@ -55,10 +55,24 @@ func (s *Store) IDsForPaths(paths []string, provider Provider, at time.Time) ([]
 	ids := make([]string, len(paths))
 	err := s.Mutate(func(d *Data) error {
 		changed := false
+		// A record that one of the paths names exactly keeps its spelling: another path that folds onto it is
+		// the same folder reached through another spelling (a scan root stored in another case), and following it
+		// would rewrite the file on every scan. Otherwise a record is respelled at most once per call.
+		exact := map[string]bool{}
+		for _, p := range paths {
+			clean := filepath.Clean(p)
+			for _, r := range d.Repos {
+				if r.Path == clean {
+					exact[r.ID] = true
+				}
+			}
+		}
+		respelled := map[string]bool{}
 		for i, p := range paths {
 			if r, respell := d.findPath(p); r != nil {
 				ids[i] = r.ID
-				if respell {
+				if respell && !respelled[r.ID] && !exact[r.ID] {
+					respelled[r.ID] = true
 					r.Path, changed = filepath.Clean(p), true
 				}
 				if r.Provider == "" && provider != "" {
@@ -375,6 +389,9 @@ func (s *Store) Reattach(oldID, newID string) error {
 		old.Path = cur.Path
 		old.MissingSince = nil
 		old.OriginURL = cur.OriginURL
+		// The moved copy was shown (or waiting) as it is now: the row must not jump back into the review set
+		// because the old record was still waiting there.
+		old.Pending = old.Pending && cur.Pending
 		if old.Provider == "" {
 			old.Provider = cur.Provider
 		}
@@ -416,7 +433,9 @@ func (s *Store) SetLastTest(id string, r api.TestResult) error {
 
 // ImportLegacyTests copies connection test results that 0.0.1 kept in settings.json under the path hash
 // (legacy) into the matching records that have no result yet, and returns how many it copied. settings.json is
-// only read by the caller and is never written. Running it again copies nothing already copied.
+// only read by the caller and is never written. Every hash is imported once: running it again copies nothing
+// already copied, and a repository that later takes the same old path gets no result (the hash is recorded in
+// projects.json).
 func (s *Store) ImportLegacyTests(legacy map[string]api.TestResult) (int, error) {
 	if len(legacy) == 0 {
 		return 0, nil
@@ -428,15 +447,22 @@ func (s *Store) ImportLegacyTests(legacy map[string]api.TestResult) (int, error)
 		for _, r := range d.Repos {
 			carried[r.LegacyID]++
 		}
+		done := map[string]bool{}
+		for _, h := range d.ImportedLegacy {
+			done[h] = true
+		}
 		for i := range d.Repos {
 			r := &d.Repos[i]
 			t, ok := legacy[r.LegacyID]
 			// A hash carried by two records is ambiguous (a relocated folder's old path was reused): skip it.
-			if !ok || r.LegacyID == "" || r.LastTest != nil || carried[r.LegacyID] > 1 {
+			// A hash that was imported once is never imported again.
+			if !ok || r.LegacyID == "" || r.LastTest != nil || carried[r.LegacyID] > 1 || done[r.LegacyID] {
 				continue
 			}
 			t.RepoID, t.Detail = r.ID, ""
 			r.LastTest = &t
+			d.ImportedLegacy = append(d.ImportedLegacy, r.LegacyID)
+			done[r.LegacyID] = true
 			n++
 		}
 		if n == 0 {

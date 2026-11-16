@@ -825,3 +825,172 @@ func TestRemoveStaleDownload(t *testing.T) {
 		t.Errorf("only Homebrew.pkg goes")
 	}
 }
+
+// FU-15e: the Health "Update" action runs the installer that manages the tool: brew upgrade on macOS (brew
+// refreshes its list first), winget upgrade on Windows; progress and failure causes as for an install.
+func TestStartUpdateMac(t *testing.T) {
+	r := newRig(t)
+	r.putBrew(r.brewBody(0, "==> Upgrading git", ""))
+	in := New(r.cfg())
+	if err := in.StartUpdate(context.Background(), brewReady(), api.SetupGit); err != nil {
+		t.Fatal(err)
+	}
+	if st := in.State(); !st.Running || len(st.Steps) != 1 || st.Steps[0].ID != "git:update" || st.Steps[0].Command != "brew upgrade git" {
+		t.Fatalf("%+v", st)
+	}
+	in.Wait()
+	st := r.finalCheck(in)
+	if st.Failure != nil || st.Cancelled || stepStates(st) != "git:update=done" {
+		t.Fatalf("%+v %s", st.Failure, stepStates(st))
+	}
+	if calls := r.read("brew-calls"); calls != "upgrade git\n" {
+		t.Errorf("brew calls: %q", calls)
+	}
+	if env := r.read("brew-env"); strings.Contains(env, "HOMEBREW_NO_AUTO_UPDATE") || !strings.Contains(env, "NONINTERACTIVE=1") {
+		t.Errorf("an update lets brew refresh its list: %s", env)
+	}
+	if len(st.Log) == 0 || st.Log[len(st.Log)-1] != "==> Upgrading git" {
+		t.Errorf("log: %v", st.Log)
+	}
+	// an install after an update is a normal run again
+	if err := in.Start(context.Background(), brewReady()); err != nil {
+		t.Fatal(err)
+	}
+	in.Wait()
+	if env := r.read("brew-env"); !strings.Contains(env, "HOMEBREW_NO_AUTO_UPDATE=1") {
+		t.Errorf("an install keeps the auto-update off: %s", env)
+	}
+}
+
+func TestStartUpdateRefusesOtherToolsAndSecondRuns(t *testing.T) {
+	r := newRig(t)
+	r.putBrew(r.brewBody(0, "", ""))
+	in := New(r.cfg())
+	for _, id := range []api.SetupToolID{api.SetupHomebrew, api.SetupWinget, "nope"} {
+		if err := in.StartUpdate(context.Background(), brewReady(), id); err != ErrNotUpdatable {
+			t.Errorf("%s: %v", id, err)
+		}
+	}
+	release := filepath.Join(r.dir, "release")
+	r.putBrew(r.brewBody(0, "", release))
+	if err := in.StartUpdate(context.Background(), brewReady(), api.SetupAWSCLI); err != nil {
+		t.Fatal(err)
+	}
+	if err := in.StartUpdate(context.Background(), brewReady(), api.SetupGit); err != ErrRunning {
+		t.Errorf("second start: %v", err)
+	}
+	os.WriteFile(release, nil, 0o600)
+	in.Wait()
+}
+
+func TestStartUpdateFailureIsClassified(t *testing.T) {
+	r := newRig(t)
+	r.putBrew(r.brewBody(1, "Error: git is not installed", ""))
+	st := r.runUpdate(r.cfg(), brewReady(), api.SetupGit)
+	if st.Failure == nil || st.Failure.StepID != "git:update" || st.Failure.Tool != api.SetupGit || st.Failure.Command != "brew upgrade git" {
+		t.Fatalf("%+v", st.Failure)
+	}
+	if st.Failure.Line != "Error: git is not installed" {
+		t.Errorf("the line that explains: %q", st.Failure.Line)
+	}
+	// brew itself missing
+	r2 := newRig(t)
+	st = r2.runUpdate(r2.cfg(), brewReady(), api.SetupGit)
+	if st.Failure == nil || st.Failure.Cause != api.CauseInstallerFailed {
+		t.Fatalf("%+v", st.Failure)
+	}
+}
+
+func (r *rig) runUpdate(cfg Config, s api.SetupState, tool api.SetupToolID) api.InstallState {
+	r.t.Helper()
+	in := New(cfg)
+	if err := in.StartUpdate(context.Background(), s, tool); err != nil {
+		r.t.Fatal(err)
+	}
+	in.Wait()
+	return r.finalCheck(in)
+}
+
+// Cancel stops an update at once (the program is asked to stop); it is no failure.
+func TestUpdateCancelStopsTheProgram(t *testing.T) {
+	r := newRig(t)
+	r.putBrew(r.brewBody(0, "==> Upgrading git", filepath.Join(r.dir, "never")))
+	in := New(r.cfg())
+	if err := in.StartUpdate(context.Background(), brewReady(), api.SetupGit); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, func() bool { return strings.Contains(r.read("brew-calls"), "upgrade git") })
+	start := time.Now()
+	in.Cancel()
+	in.Wait()
+	if time.Since(start) > 8*time.Second {
+		t.Errorf("cancel took %s", time.Since(start))
+	}
+	st := r.finalCheck(in)
+	if !st.Cancelled || st.Failure != nil || st.Running || stepStates(st) != "git:update=skipped" {
+		t.Fatalf("%+v %s", st, stepStates(st))
+	}
+}
+
+func TestStartUpdateWindows(t *testing.T) {
+	r := newRig(t)
+	winget := r.script("winget", fmt.Sprintf("echo \"$@\" >> '%s/winget-calls'\necho 'Found Git'\nexit 0\n", r.dir))
+	cfg := r.cfg()
+	cfg.GOOS, cfg.WingetPath = "windows", winget
+	setup := api.SetupState{Platform: "windows", Preflight: api.Preflight{EnoughSpace: true},
+		Tools: []api.SetupTool{{ID: api.SetupWinget, Status: api.ToolOK}, rowOf(api.SetupGit, api.ToolOK, ""), rowOf(api.SetupAWSCLI, api.ToolOK, "")}}
+	st := r.runUpdate(cfg, setup, api.SetupAWSCLI)
+	if st.Failure != nil || st.Steps[0].Command != "winget upgrade --id Amazon.AWSCLI -e" {
+		t.Fatalf("%+v %+v", st.Failure, st.Steps)
+	}
+	want := "upgrade --id Amazon.AWSCLI -e --accept-package-agreements --accept-source-agreements --silent\n"
+	if calls := r.read("winget-calls"); calls != want {
+		t.Errorf("winget calls: %q", calls)
+	}
+	// "no applicable upgrade" (already the latest) is success; a refusal by policy is a cause
+	for code, cause := range map[uint32]api.FailureCause{0x8A15002B: "", 0x8A15010F: api.CausePolicy, 0x8A150107: api.CauseNetwork} {
+		c2 := cfg
+		c2.Runner = runnerFunc(func(ctx context.Context, c Cmd, onLine func(string)) (int, error) { return int(code), nil })
+		st := r.runUpdate(c2, setup, api.SetupGit)
+		if cause == "" && st.Failure != nil || cause != "" && (st.Failure == nil || st.Failure.Cause != cause) {
+			t.Errorf("%#x: %+v", code, st.Failure)
+		}
+	}
+	// winget missing from the state: the run fails with its own cause
+	c3 := cfg
+	c3.WingetPath = ""
+	st = r.runUpdate(c3, api.SetupState{Platform: "windows", Tools: []api.SetupTool{rowOf(api.SetupGit, api.ToolOK, "")}}, api.SetupGit)
+	if st.Failure == nil || st.Failure.Cause != api.CauseWingetMissing {
+		t.Fatalf("%+v", st.Failure)
+	}
+}
+
+// FU-12c: a child that handles the polite stop and exits with 130 after the context ended is cancelled, not failed.
+func TestAChildThatExitsAfterAStopIsCancelledNotFailed(t *testing.T) {
+	r := newRig(t)
+	r.putBrew(r.brewBody(0, "", ""))
+	cfg := r.cfg()
+	started := make(chan struct{})
+	cfg.Runner = runnerFunc(func(ctx context.Context, c Cmd, onLine func(string)) (int, error) {
+		close(started)
+		<-ctx.Done()
+		return 130, nil // exited on SIGINT with its own code, not killed
+	})
+	in := New(cfg)
+	if err := in.StartUpdate(context.Background(), brewReady(), api.SetupGit); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	in.Cancel()
+	in.Wait()
+	st := r.finalCheck(in)
+	if !st.Cancelled || st.Failure != nil {
+		t.Fatalf("cancelled=%v failure=%+v", st.Cancelled, st.Failure)
+	}
+	// without a stop, 130 is an ordinary failure
+	cfg.Runner = runnerFunc(func(ctx context.Context, c Cmd, onLine func(string)) (int, error) { return 130, nil })
+	st = r.runUpdate(cfg, brewReady(), api.SetupGit)
+	if st.Failure == nil || st.Cancelled {
+		t.Fatalf("%+v", st)
+	}
+}

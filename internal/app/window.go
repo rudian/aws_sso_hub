@@ -57,6 +57,7 @@ type Lifecycle struct {
 
 // NewLifecycle returns a Lifecycle with the default hooks (no tasks running, answer "quit").
 func NewLifecycle() *Lifecycle {
+	watchSessionEnd()
 	return &Lifecycle{
 		tasksRunning: func() bool { return false },
 		quitDecision: func(context.Context) QuitAnswer { return QuitNow },

@@ -37,7 +37,7 @@ func (c *Container) StartUpdates(o UpdateOptions) *update.Controller {
 		c.Log.Warn("cannot record the running version", "err", err)
 	}
 	var ctl *update.Controller
-	auto := &autoChecker{on: func() bool { return readUpdatePrefs(updatePrefsFile(c)).AutoCheck }, now: time.Now,
+	auto := &autoChecker{on: func() bool { return c.Settings.UpdateCheckOn() }, now: time.Now,
 		state: func() update.State { return ctl.State() }}
 	ctl = update.NewController(update.ControllerConfig{
 		Quit:         o.Quit,

@@ -106,11 +106,21 @@ mkdir -p "$OUT_BASE"
 OUT_DIR="$(mktemp -d "$(cd "$OUT_BASE" && pwd -P)/codepass-release.XXXXXX")"
 # Recheck the physical folder: a ".." after a missing component is not resolved by phys_path.
 case "$(cd "$OUT_DIR" && pwd -P)/" in "$ROOT"/*) rm -rf "$OUT_DIR"; die "the output folder must be outside the repository ($OUT_BASE)" ;; esac
+# A dry run makes a throwaway key under OUT_DIR, and relkit refuses a key folder inside a git work tree: say so now,
+# not after the build, the signing and the archive.
+if [ "$DRY" = 1 ] && [ "$(git -C "$OUT_DIR" rev-parse --is-inside-work-tree 2>/dev/null || true)" = true ]; then
+  rm -rf "$OUT_DIR"; die "the output folder is inside a git work tree ($OUT_BASE); a dry run's throwaway key cannot be made there. Use a folder outside every repository."
+fi
 STEPS_FILE="$OUT_DIR/steps.log"; : >"$STEPS_FILE"
 log "output folder: $OUT_DIR"
 
 # ---------------------------------------------------------------- 1. checks
 HEAD0="$(git -C "$ROOT" rev-parse HEAD)" || die "cannot read HEAD"
+# The tag must point at the commit that is built. A local tag of that name has to equal HEAD0: checked now, so a
+# stale tag does not cost a full build and notarization before anyone finds it.
+if tg="$(git -C "$ROOT" rev-parse -q --verify "refs/tags/$TAG^{commit}" 2>/dev/null)"; then
+  [ "$tg" = "$HEAD0" ] || die "the local tag $TAG points at $tg, not at the commit to build ($HEAD0). Move or delete the tag, then run again."
+fi
 if [ "$DRY" = 1 ]; then
   tree_is_clean "$ROOT" || warn "the working tree is not clean (allowed only in a dry run; a real release refuses, and builds only what is committed)"
 else
@@ -297,7 +307,7 @@ step_done verify-archive
 build_relkit "$OUT_DIR"; RELKIT="$OUT_DIR/relkit"
 if [ "$DRY" = 1 ]; then
   # Always a throwaway key: a dry run never signs with the real one, whatever the environment says.
-  "$RELKIT" keygen -dir "$OUT_DIR/test-key" >/dev/null
+  "$RELKIT" keygen -dir "$OUT_DIR/test-key" >/dev/null || die "cannot make the throwaway test key in $OUT_DIR/test-key (is the output folder inside a git work tree?)"
   KEY="$OUT_DIR/test-key/current.priv"; log "manifest: signed with a throwaway test key"
   # Optional cross-check of the real key's PUBLIC half only; nothing is signed with it.
   if [ -n "${CODEPASS_EXPECT_PUBKEY:-}" ] && [ -n "${CODEPASS_SIGNING_KEY_FILE:-}" ] && [ -f "$CODEPASS_SIGNING_KEY_FILE" ]; then
@@ -358,11 +368,8 @@ If Codepass.app exists but does not start: quit the app, then
 Then download this release again.
 BODYEOF
 CREATE=("$GH" release create "$TAG" --repo "${REPO:-OWNER/NAME}" --draft --title "$TAG" --notes-file "$BODY")
-# The tag must point at the built commit. A local tag of that name has to equal HEAD0. When the target is this
-# source repository (origin), --target pins the new tag to HEAD0 instead of the default branch's tip.
-if tg="$(git -C "$ROOT" rev-parse -q --verify "refs/tags/$TAG^{commit}" 2>/dev/null)"; then
-  [ "$tg" = "$HEAD0" ] || die "the local tag $TAG points at $tg, not at the built commit $HEAD0"
-fi
+# The local tag was checked against HEAD0 in step 1. When the target is this source repository (origin), --target
+# pins the new tag to HEAD0 instead of the default branch's tip.
 origin_url="$(git -C "$ROOT" remote get-url origin 2>/dev/null || true)"
 case "${origin_url%.git}" in *"/${REPO:-OWNER/NAME}"|*":${REPO:-OWNER/NAME}") CREATE+=(--target "$HEAD0") ;; esac
 [ "$PRERELEASE" = 1 ] && CREATE+=(--prerelease)

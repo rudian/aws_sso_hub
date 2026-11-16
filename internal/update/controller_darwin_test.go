@@ -621,3 +621,40 @@ func TestStalledDownloadEndsWithANetworkError(t *testing.T) {
 		t.Error("the controller stayed busy")
 	}
 }
+
+// FU-09b: a Restart whose helper answers "error:" leaves the update where it was: the error is shown, nothing
+// was quit, the staging folder and its record stay for Close or the next Check to clean up.
+func TestFailedRestartKeepsTheStagingFolderForCleanup(t *testing.T) {
+	e := newCtlEnv(t, "1.0.0-rc.1") // no CODEPASS_TEST_HELPER_WAITS: TestMain's helper answers "error:"
+	e.stage(t)
+	err := e.c.Restart(context.Background())
+	if err == nil {
+		t.Fatal("the helper refused, Restart must fail")
+	}
+	if st := e.c.State(); st.Phase != PhaseError || st.Code != CodeRestartFailed || st.Step != StepRestart {
+		t.Fatalf("state %+v", st)
+	}
+	if e.c.restartPending() {
+		t.Error("a failed restart is not a hand-off")
+	}
+	if e.quit != 0 {
+		t.Errorf("the app was asked to quit %d times", e.quit)
+	}
+	if len(e.strays()) != 1 {
+		t.Fatalf("the staging folder must stay: %v", e.strays())
+	}
+	rec := readStagedRecord(e.c.cfg.StagedRecord)
+	if rec == "" {
+		t.Fatal("the staged record must be written again")
+	}
+	if _, err := os.Stat(rec); err != nil {
+		t.Errorf("the record names a folder that is not there: %v", err)
+	}
+	e.c.Close()
+	if len(e.strays()) != 0 {
+		t.Errorf("Close left %v", e.strays())
+	}
+	if _, err := os.Stat(e.c.cfg.StagedRecord); err == nil {
+		t.Error("Close left the staged record")
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/aws/smithy-go"
 
 	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/awsguard"
 )
 
 // RepoMeta is the subset of repository metadata the app shows.
@@ -49,6 +50,9 @@ func NewFactory(endpoint string) Factory {
 		}
 		if endpoint != "" {
 			opts.BaseEndpoint = aws.String(endpoint)
+		}
+		if c := awsguard.Client(); c != nil {
+			opts.HTTPClient = c
 		}
 		return &client{c: cc.New(opts)}
 	}

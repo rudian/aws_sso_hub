@@ -106,6 +106,7 @@ type Container struct {
 	signInWin     map[string][]signInWindow
 	signInDone    map[string]time.Time
 	signInOpening int           // isolated browsers being started right now
+	signInClosing int           // closes handed to the background that have not finished (Shutdown waits)
 	signInDelay   time.Duration // how long a successful sign-in's window stays open (the success page)
 	startedAt     time.Time
 
@@ -156,6 +157,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		return nil, err
 	}
 	c.Settings, c.FirstRun = st, first
+	c.migrateUpdatePrefs()
 	c.initNotify(o) // before the accounts engine: the engine is given the notice log
 	if dropped := st.DroppedToolPaths(); len(dropped) > 0 && o.Logger != nil {
 		o.Logger.Warn("ignoring invalid tool paths in the settings file", "settings", dropped)
@@ -506,7 +508,10 @@ func (c *Container) openSignIn(raw string) (api.SignInWindow, error) {
 		return api.SignInWindow{}, errQuitting
 	}
 	if c.private != nil && !c.Paths.Sandbox && c.Settings.PrivateSignIn() {
-		ctx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+		// A launch under way when the app quits is not cancelled: it returns its handle, and openIsolated
+		// (which sees the quit) closes that window. A cancelled launch could start the browser and still
+		// report an error, leaving a window nobody closes.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.ctx), 15*time.Second)
 		defer cancel()
 		if c.openIsolated(ctx, raw) {
 			return api.SignInWindow{Private: true, Isolated: true}, nil
@@ -615,17 +620,37 @@ func (c *Container) signInEnded(pages []string, ok bool) {
 			ws = append(ws, c.signInWin[p]...)
 			delete(c.signInWin, p)
 		}
+		if len(ws) > 0 {
+			c.signInClosing++ // counted before the lock is released: Shutdown cannot miss these windows
+		}
 		c.signInMu.Unlock()
-		c.closeSignIn(ws)
+		c.closeSignInCounted(ws)
 	}()
 }
 
-// closeSignIn closes isolated browsers in the background.
+// closeSignIn closes isolated browsers in the background. Shutdown waits for closes in flight.
 func (c *Container) closeSignIn(ws []signInWindow) {
 	if len(ws) == 0 {
 		return
 	}
+	c.signInMu.Lock()
+	c.signInClosing++
+	c.signInMu.Unlock()
+	c.closeSignInCounted(ws)
+}
+
+// closeSignInCounted is closeSignIn for a caller that has counted the close in signInClosing already.
+func (c *Container) closeSignInCounted(ws []signInWindow) {
+	if len(ws) == 0 {
+		return
+	}
 	go func() {
+		defer func() {
+			c.signInMu.Lock()
+			c.signInClosing--
+			c.signInIdle.Broadcast()
+			c.signInMu.Unlock()
+		}()
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 		for _, w := range ws {
@@ -638,14 +663,15 @@ func (c *Container) closeSignIn(ws []signInWindow) {
 
 // closeSignInWindows closes every isolated sign-in browser that is still open (app shutdown).
 func (c *Container) closeSignInWindows() {
-	// opens in progress finish first (within the budget): a window that arrives later closes itself
-	t := time.AfterFunc(8*time.Second, func() {
+	// one 8 s budget for the whole quit: the wait for opens, the closes and the closes handed to the background
+	deadline := time.Now().Add(8 * time.Second)
+	// opens in progress finish first: a window that arrives later closes itself
+	t := time.AfterFunc(time.Until(deadline), func() {
 		c.signInMu.Lock()
 		c.signInIdle.Broadcast()
 		c.signInMu.Unlock()
 	})
 	defer t.Stop()
-	deadline := time.Now().Add(8 * time.Second)
 	c.signInMu.Lock()
 	for c.signInOpening > 0 && time.Now().Before(deadline) {
 		c.signInIdle.Wait()
@@ -656,11 +682,17 @@ func (c *Container) closeSignInWindows() {
 		delete(c.signInWin, p)
 	}
 	c.signInMu.Unlock()
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
 	defer cancel()
 	for _, w := range ws {
 		_ = w.Close(ctx)
 	}
+	// closes that were handed to the background just before the quit finish too, within the same deadline
+	c.signInMu.Lock()
+	for c.signInClosing > 0 && time.Now().Before(deadline) {
+		c.signInIdle.Wait()
+	}
+	c.signInMu.Unlock()
 }
 
 // removeStaleSignIn ends isolated sign-in browsers left behind by an earlier run (a crash) and deletes their

@@ -540,3 +540,142 @@ func TestDamagedNotificationsFileDoesNotStopTheApp(t *testing.T) {
 		})
 	}
 }
+
+// FU-22a: the page of a finished sign-in is forgotten. A second sign-in whose page is slow to open, and a press
+// of "Sign in again" meanwhile, open nothing and start nothing.
+func TestButtonDuringASlowStartDoesNotReopenTheFinishedSignInsPage(t *testing.T) {
+	w, fake := notifyWorld(t)
+	NewNotifyService(w.c).SetReady(true)
+	if _, err := w.c.Accounts.Login(context.Background(), "initech", api.LoginModeBrowser); err != nil {
+		t.Fatal(err)
+	}
+	w.c.notifyc.mu.Lock()
+	left := w.c.notifyc.authURL["initech"]
+	w.c.notifyc.mu.Unlock()
+	if left != "" {
+		t.Fatalf("a finished sign-in leaves its page behind: %q", left)
+	}
+	// the finished sign-in's page is still known to the window list, as in the field
+	gate := make(chan struct{})
+	w.rt.mu.Lock()
+	w.rt.gate, w.rt.browser = gate, nil
+	before := len(w.rt.attempts)
+	firstPage := ""
+	if len(w.rt.urls) > 0 {
+		firstPage = w.rt.urls[len(w.rt.urls)-1]
+	}
+	w.rt.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	done := make(chan struct{})
+	go func() { defer close(done); _, _ = w.c.Accounts.Login(ctx, "initech", api.LoginModeBrowser) }()
+	waitCond(t, func() bool { st, _ := w.c.Accounts.SessionStatus("initech"); return st.State == api.SessionSigningIn })
+	regs := w.oidc.RegCount()
+	w.c.emit(api.EventSessionEnded, endedStatus("initech"))
+	waitCond(t, func() bool { return len(fake.Sent()) == 1 })
+	_ = fake.Respond("signin:initech", notify.ButtonID)
+	time.Sleep(100 * time.Millisecond)
+	w.rt.mu.Lock()
+	got := len(w.rt.attempts)
+	var reopened bool
+	for _, u := range w.rt.attempts[before:] {
+		if firstPage != "" && u == firstPage {
+			reopened = true
+		}
+	}
+	w.rt.mu.Unlock()
+	if reopened {
+		t.Fatal("the press reopened the finished sign-in's page")
+	}
+	if w.oidc.RegCount() != regs || len(navigations(w)) != 0 {
+		t.Fatalf("pages %d->%d, registrations %d->%d, %+v", before, got, regs, w.oidc.RegCount(), navigations(w))
+	}
+	close(gate)
+	cancel()
+	<-done
+}
+
+// FU-22a: each way a sign-in's page is forgotten, checked on its own: a press afterwards opens nothing.
+func TestFinishedOrReplacedSignInPageIsNotReopened(t *testing.T) {
+	const page = "http://127.0.0.1:1/authorize?state=first"
+	for name, forget := range map[string]func(w *world){
+		"failed or cancelled": func(w *world) {
+			w.c.emit(api.EventSessionChanged, api.SessionStatus{Portal: "initech", State: api.SessionSignedOut})
+		},
+		"new sign-in starts": func(w *world) {
+			w.c.emit(api.EventLoginProgress, api.LoginProgress{Portal: "initech", Phase: api.LoginPhaseStarting})
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			w, _ := notifyWorld(t)
+			w.c.emit(api.EventLoginProgress, api.LoginProgress{Portal: "initech", Phase: api.LoginPhaseWaiting, AuthorizeURL: page})
+			w.c.notifyc.mu.Lock()
+			set := w.c.notifyc.authURL["initech"]
+			w.c.notifyc.mu.Unlock()
+			if set != page {
+				t.Fatalf("the page is not remembered: %q", set)
+			}
+			forget(w)
+			w.c.focusSignIn("initech")
+			w.rt.mu.Lock()
+			defer w.rt.mu.Unlock()
+			if len(w.rt.attempts) != 0 {
+				t.Fatalf("a forgotten page was opened: %v", w.rt.attempts)
+			}
+		})
+	}
+}
+
+// FU-22c: a successful sign-in takes the portal's delivered notice back and starts its record over; so does
+// a sign-out.
+func TestSignInAndSignOutRemoveTheDeliveredNotice(t *testing.T) {
+	w, fake := notifyWorld(t)
+	w.c.Notify.Store().Mark("initech", "ended", "k1")
+	if _, err := w.c.Accounts.Login(context.Background(), "initech", api.LoginModeBrowser); err != nil {
+		t.Fatal(err)
+	}
+	waitCond(t, func() bool { return len(fake.Removed()) == 1 })
+	if r := fake.Removed(); r[0] != "signin:initech" {
+		t.Fatalf("%v", r)
+	}
+	if k := w.c.Notify.Store().Last("initech", "ended"); k != "" {
+		t.Fatalf("the record starts over: %q", k)
+	}
+	if _, err := w.c.Accounts.Logout(context.Background(), "initech"); err != nil {
+		t.Fatal(err)
+	}
+	waitCond(t, func() bool { return len(fake.Removed()) == 2 })
+}
+
+// FU-22d: the heads-up names the minutes actually left.
+func TestMinutesLeft(t *testing.T) {
+	now := time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC)
+	at := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
+	for _, c := range []struct {
+		name, ends string
+		lead, want int
+	}{
+		{"learned inside the window", at(42 * time.Minute), 60, 40},
+		{"rounds to five", at(43 * time.Minute), 60, 45},
+		{"at most the lead", at(2 * time.Hour), 15, 15},
+		{"exactly the lead", at(15 * time.Minute), 15, 15},
+		{"a minute left", at(time.Minute), 15, 5},
+		{"end unknown", "", 30, 30},
+		{"end passed", at(-time.Minute), 30, 30},
+	} {
+		if got := minutesLeft(c.ends, now, c.lead); got != c.want {
+			t.Errorf("%s: %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
+func TestHeadsUpNamesTheMinutesLeft(t *testing.T) {
+	w, fake := notifyWorld(t)
+	w.c.now = func() time.Time { return time.Date(2026, 11, 16, 10, 0, 0, 0, time.UTC) }
+	w.c.emit(api.EventSessionReminder, api.SessionStatus{Portal: "initech", State: api.SessionExpiring, LoginAt: "2026-11-16T09:00:00Z",
+		SessionEndsAt: "2026-11-16T10:10:00Z"})
+	waitCond(t, func() bool { return len(fake.Sent()) == 1 })
+	if b := fake.Sent()[0].Body; !strings.Contains(b, "10") || strings.Contains(b, "15") {
+		t.Fatalf("%q", b)
+	}
+}

@@ -27,6 +27,20 @@ func waitEvent(t *testing.T, ch chan Event, d time.Duration) (Event, bool) {
 
 func drain(ch chan Event, d time.Duration) []Event { return collect(ch, d) }
 
+// withoutScanHints drops the events a loaded machine legitimately sends (FSEvents' MustScanSubDirs or dropped
+// events arrive as an Overflow with no path): the "silent" tests fail on an event that names a path, not on
+// a request to rescan.
+func withoutScanHints(evs []Event) []Event {
+	var out []Event
+	for _, e := range evs {
+		if e.Overflow && len(e.Paths) == 0 {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
+}
+
 func startNative(t *testing.T, dir string) (*Watcher, chan Event) {
 	t.Helper()
 	w := New(nativeOpts())
@@ -90,7 +104,7 @@ func TestNativeNodeModulesIsSilent(t *testing.T) {
 		os.WriteFile(filepath.Join(nm, fmt.Sprintf("f%d.js", i)), []byte("x"), 0o644)
 		os.WriteFile(filepath.Join(dir, ".git", "objects", "ab", fmt.Sprintf("o%d", i)), []byte("x"), 0o644)
 	}
-	if evs := drain(ch, 1200*time.Millisecond); len(evs) != 0 {
+	if evs := withoutScanHints(drain(ch, 1200*time.Millisecond)); len(evs) != 0 {
 		t.Fatalf("got %d events: %+v", len(evs), evs[0])
 	}
 }

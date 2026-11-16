@@ -68,7 +68,6 @@ clean_repo
 printf 'Zorblax Industries \x00\x01\x02 binary' > "$REPO/pic.png"
 expect "binary files are skipped" 0 "clean" "$LIST"
 clean_repo
-printf 'Zorblax Industries \x00\x01 bytes' > /dev/null
 mkdir -p "$REPO/docs/screenshots"; printf 'Zorblax Industries \x00\x01\x02 png' > "$REPO/docs/screenshots/a-01.png"
 expect "docs/screenshots: a binary file with a listed word stays clean" 0 "clean" "$LIST"
 put docs/screenshots/readme.txt "Zorblax Industries"
@@ -357,6 +356,15 @@ git -C "$REPO" rm -q -r . >/dev/null 2>&1; git -C "$REPO" commit -qm "cleanup" -
 
 # case-insensitive home paths
 clean_repo
+put src/h.ts 'p = "c:/us''ers/jordan/code"'
+expect "lower-case drive-letter home path with forward slashes" 1 "home-path" "$LIST"
+clean_repo
+put src/h.ts 'p = "D:/Us''ers/jordan/code"'
+expect "drive-letter home path with forward slashes" 1 "home-path" "$LIST"
+clean_repo
+put src/h.ts 'p = "c:/us''ers/alex/code"'
+expect "allowed home name passes with forward slashes" 0 "clean" "$LIST"
+clean_repo
 put src/h.ts 'p = "c:\\us''ers\\jordan\\code"'
 expect "lower-case Windows home path" 1 "home-path" "$LIST"
 clean_repo
@@ -374,6 +382,15 @@ clean_repo
 put k.txt "-----BEGIN PRIV""ATE KEY-----"
 expect "private key block (PKCS8)" 1 "secret-shape" "$LIST"
 clean_repo
+put k.asc "-----BEGIN PGP PRIV""ATE KEY BLOCK-----"
+expect "PGP private key block" 1 "k.asc:1: secret-shape" "$LIST"
+clean_repo
+put c.json '{"secret''AccessKey": "abcdefghij0123456789abcdefghij0123456789"}'
+expect "camelCase secretAccessKey value" 1 "c.json:1: secret-shape" "$LIST"
+clean_repo
+put c.json '{"secret''AccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"}'
+expect "camelCase secretAccessKey value marked EXAMPLE passes" 0 "clean" "$LIST"
+clean_repo
 put c.ini "aws_secret_access_""key = abcdefghij0123456789abcdefghij0123456789"
 expect "assigned AWS secret value" 1 "c.ini:1: secret-shape" "$LIST"
 clean_repo
@@ -386,8 +403,43 @@ clean_repo
 put m.ts "mail('pat@""users.noreply.github.com')"
 expect "noreply address is not allowed" 1 "email" "$LIST"
 
-# ---- the repository passes its own check (tracked files; the list holds an invented word and the AI vendor)
-printf 'zzinvented-''word\nanthrop''ic\n' > "$W/self.txt"
+# --help prints the header only
+out="$("$CHECK" --help 2>&1)"
+case "$out" in *"set -u"*|*"fail_setup"*) FAILN=$((FAILN + 1)); echo "FAIL --help prints code" ;; *Exit\ codes*) PASS=$((PASS + 1)); echo "ok   --help prints the header, not the code" ;; *) FAILN=$((FAILN + 1)); echo "FAIL --help misses the header" ;; esac
+
+# history: a "-diff" or binary attribute must not hide added lines (an in-tree .gitattributes, and the user's own
+# core.attributesFile); a real binary file still stays out
+clean_repo
+put keep.txt "fine"
+git -C "$REPO" add -A && git -C "$REPO" commit -qm "base6"
+B6="$(git -C "$REPO" rev-parse HEAD)"
+put .gitattributes "*.dat -diff"
+put leak.dat "owner quuxington"
+git -C "$REPO" add -A && git -C "$REPO" commit -qm "add dat"
+git -C "$REPO" rm -q leak.dat .gitattributes && git -C "$REPO" commit -qm "remove dat"
+expect "history: -diff attribute in the tree does not hide an added name" 1 "leak.dat" "$LIST" --commits "$B6..HEAD"
+clean_repo
+put keep.txt "fine"
+git -C "$REPO" add -A && git -C "$REPO" commit -qm "base7"
+B7="$(git -C "$REPO" rev-parse HEAD)"
+put leak.dat "owner quuxington"
+git -C "$REPO" add -A && git -C "$REPO" commit -qm "add dat 2"
+git -C "$REPO" rm -q leak.dat && git -C "$REPO" commit -qm "remove dat 2"
+printf '*.dat -diff\n' > "$W/user-attrs"
+printf '[core]\n\tattributesFile = %s\n' "$W/user-attrs" > "$W/user-gitconfig"
+out="$(GIT_CONFIG_GLOBAL="$W/user-gitconfig" CODEPASS_SCRUB_LIST="$LIST" "$CHECK" --root "$REPO" --commits "$B7..HEAD" 2>&1)"; rc=$?
+if [ "$rc" = 1 ] && case "$out" in *leak.dat*) true ;; *) false ;; esac; then PASS=$((PASS + 1)); echo "ok   history: the user's core.attributesFile does not hide an added name"; else FAILN=$((FAILN + 1)); echo "FAIL history with a user attributes file (exit $rc)"; echo "$out" | sed 's/^/     | /'; fi
+clean_repo
+git -C "$REPO" commit -qm "base8" --allow-empty
+B8="$(git -C "$REPO" rev-parse HEAD)"
+printf 'owner quuxington \x00\x01 data' > "$REPO/real.bin"
+git -C "$REPO" add -A && git -C "$REPO" commit -qm "add a real binary"
+expect "history: a real binary file is still skipped" 0 "clean" "$LIST" --commits "$B8..HEAD"
+git -C "$REPO" rm -q real.bin && git -C "$REPO" commit -qm "rm bin"
+
+# ---- the repository passes its own check (tracked files; the list holds one invented word. The research notes name
+# the AI vendor on purpose, so the vendor is not on this list.)
+printf 'zzinvented-''word\n' > "$W/self.txt"
 out="$(CODEPASS_SCRUB_LIST="$W/self.txt" "$CHECK" --root "$HERE/.." --tracked 2>&1)"; rc=$?
 if [ "$rc" = 0 ]; then PASS=$((PASS + 1)); echo "ok   the repository passes its own check"; else FAILN=$((FAILN + 1)); echo "FAIL the repository fails its own check"; echo "$out" | sed 's/^/     | /'; fi
 

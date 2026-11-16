@@ -6,12 +6,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/rudian/codepass/internal/api"
+	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/paths"
 	"github.com/rudian/codepass/internal/repos"
 )
 
@@ -141,6 +144,10 @@ func TestOtherRemoteTokenIsMasked(t *testing.T) {
 		"bbuser": {"https://alex_acme@bitbucket.org/globex/api-main.git", false},
 		"bbtok":  {"https://x-token-auth@bitbucket.org/globex/api-main.git", false},
 		"userpw": {"https://user:pw@bitbucket.org/globex/api-main.git", true},
+		// FU-11e: a long Bitbucket account name is not a token; a name that starts like one is
+		"bblong":  {"https://alexander.very-long-account-name@bitbucket.org/globex/api-main.git", false},
+		"bbatbb":  {"https://ATBBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@bitbucket.org/globex/api-main.git", true},
+		"bbatatt": {"https://ATATT3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@bitbucket.org/globex/api-main.git", true},
 	} {
 		f.sb.InitRepo(t, "code/"+name, map[string]string{"origin": c.url})
 		f.scan()
@@ -199,7 +206,9 @@ func TestWatchRemovedAndStoppedResubscribe(t *testing.T) {
 }
 
 // Background fetch never prompts and never runs the repository's own hooks.
-func TestBackgroundFetchDoesNotPromptOrRunHooks(t *testing.T) {
+// (The repository's own hooks are covered by TestBackgroundFetchSkipsRepositoryHooks: a fetch that fails with a
+// 401 never reaches a ref transaction, so a hook assertion here could not fail.)
+func TestBackgroundFetchDoesNotPrompt(t *testing.T) {
 	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
@@ -209,14 +218,7 @@ func TestBackgroundFetchDoesNotPromptOrRunHooks(t *testing.T) {
 	defer srv.Close()
 	f := newFixture(t)
 	dir := f.sb.InitRepo(t, "code/web", map[string]string{"origin": srv.URL + "/acme/web.git"})
-	marker := filepath.Join(f.sb.Root, "hook-ran")
-	hook := filepath.Join(dir, ".git", "hooks", "reference-transaction")
-	if err := os.MkdirAll(filepath.Dir(hook), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(hook, []byte("#!/bin/sh\ntouch '"+marker+"'\n"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	_ = dir
 	ctx := context.Background()
 	f.state()
 	st := f.reviewAll()
@@ -233,9 +235,6 @@ func TestBackgroundFetchDoesNotPromptOrRunHooks(t *testing.T) {
 	}
 	if log := f.sb.AskpassLog(t); log != "" {
 		t.Errorf("askpass was called: %q", log)
-	}
-	if _, err := os.Stat(marker); err == nil {
-		t.Error("the repository's hook ran")
 	}
 }
 
@@ -299,4 +298,69 @@ func TestMovedNeverReviewedRepositoryStaysFound(t *testing.T) {
 	if len(st.Repos) != 0 || len(st.Found) != 1 {
 		t.Fatalf("repos %d found %d", len(st.Repos), len(st.Found))
 	}
+}
+
+// FU-11a: adding a CodeCommit repository that is shown already writes nothing, so a projects.json that cannot be
+// written does not turn a successful add into E_FILE_IO.
+func TestAddFolderOfAShownCodeCommitRepositoryWritesNothing(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("directory permissions do not apply")
+	}
+	ctx := context.Background()
+	f := newFixture(t)
+	dir := f.newRepo("acme_api", ccURL("acme_api"))
+	data := t.TempDir()
+	eng, _, _ := engineWith(t, f, data)
+	if st, err := eng.Scan(ctx); err != nil || len(st.Repos) != 1 {
+		t.Fatalf("%v %+v", err, st)
+	}
+	if err := os.Chmod(data, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(data, 0o755)
+	res, err := eng.AddFolder(ctx, dir)
+	if err != nil || len(res.State.Repos) != 1 {
+		t.Fatalf("%v %+v", err, res.State.Repos)
+	}
+}
+
+// FU-11f: a watch that keeps dying is not subscribed again at once every time, and costs no status read each time.
+func TestWatchThatKeepsStoppingBacksOff(t *testing.T) {
+	f := newFixture(t)
+	dir := f.newRepo("a", ccURL("a_repo"))
+	f.sb.CommitFile(t, dir, "README.md", "x\n")
+	w := newFakeWatch()
+	eng := repos.New(repos.Deps{
+		Paths: paths.Paths{Home: f.sb.Home}, Git: func(ctx context.Context) (*gitx.Git, error) { return f.sb.Git, nil },
+		Store: f.store, Registry: f.reg, Watch: w, GOOS: "darwin", Now: func() time.Time { return f.clock },
+		WatchRetryBase: 400 * time.Millisecond,
+	})
+	defer eng.Close()
+	ctx := context.Background()
+	if _, err := eng.Scan(ctx); err != nil {
+		t.Fatal(err)
+	}
+	subs := func() int { return strings.Count(w.logged(), "+a") }
+	if subs() != 1 {
+		t.Fatalf("log %q", w.logged())
+	}
+	w.fireEvent(dir, repos.WatchStopped) // the first stop: subscribed again at once
+	waitFor(t, func() bool { return subs() == 2 })
+	w.fireEvent(dir, repos.WatchStopped) // a second one right away: it waits
+	time.Sleep(150 * time.Millisecond)
+	if subs() != 2 {
+		t.Fatalf("subscribed again at once after a quick second stop: %q", w.logged())
+	}
+	waitFor(t, func() bool { return subs() == 3 }) // after the wait it is back
+}
+
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	for i := 0; i < 200; i++ {
+		if cond() {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatal("timed out")
 }

@@ -149,6 +149,7 @@ type Settings struct {
 	GitPath         string           `json:"gitPath"`         // "" = auto-detect
 	AutoBindOnAdd   bool             `json:"autoBindOnAdd"`   // bind a hand-added repository to its detected SSO profile
 	PrivateSignIn   bool             `json:"privateSignIn"`   // open the sign-in page in a private browser window (default true)
+	UpdateCheckOff  bool             `json:"updateCheckOff"`  // the daily automatic update check is off (zero value = checks on); a manual check always works
 
 	CollapsedPortals []string `json:"collapsedPortals"` // portal names collapsed on the Accounts page
 	LastCloneProfile string   `json:"lastCloneProfile"` // AWS profile of the last successful clone
@@ -171,6 +172,7 @@ type SettingsPatch struct {
 	GitPath         *string           `json:"gitPath,omitempty"`
 	AutoBindOnAdd   *bool             `json:"autoBindOnAdd,omitempty"`
 	PrivateSignIn   *bool             `json:"privateSignIn,omitempty"`
+	UpdateCheckOff  *bool             `json:"updateCheckOff,omitempty"`
 
 	CollapsedPortals []string `json:"collapsedPortals,omitempty"` // nil = unchanged; empty slice = clear
 	LastCloneProfile *string  `json:"lastCloneProfile,omitempty"`
@@ -270,7 +272,8 @@ const (
 	FixRepairPrefix SetupFix = "repair-prefix" // macOS: /opt/homebrew exists without a working brew; the user repairs it
 	FixOpenStore    SetupFix = "open-store"    // Windows: winget is missing; open the Store page for App Installer
 	// FixUseDetected: the tool path chosen in Settings is missing or too old, but automatic detection finds an
-	// acceptable copy. The setup run clears the chosen path (a normal, backed-up settings write); nothing is installed.
+	// acceptable copy. The setup run clears the chosen path with the normal settings write, which keeps no copy of it (the person can
+	// choose it again in Settings); nothing is installed.
 	FixUseDetected SetupFix = "use-detected"
 )
 
@@ -289,7 +292,8 @@ type SetupTool struct {
 	Elsewhere bool `json:"elsewhere,omitempty"`
 	// Override is true when the row was judged on a program path the user chose in Settings (git, AWS CLI). The
 	// setup run clears that path first, because a chosen path that blocks the gate cannot be changed from the
-	// setup screen.
+	// setup screen. The cleared path is not backed up (settings.json has no backup); the person can choose it again
+	// in Settings.
 	Override bool `json:"override,omitempty"`
 }
 

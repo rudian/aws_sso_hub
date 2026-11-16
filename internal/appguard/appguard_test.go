@@ -59,10 +59,15 @@ type fakeFiles struct {
 	recycle  bool
 	recycled []string
 	recErr   error
+	// beforeMove runs at the start of every Rename and Recycle (tests assert what happened before)
+	beforeMove func()
 }
 
 func (f *fakeFiles) Exists(p string) bool { return f.exist[p] }
 func (f *fakeFiles) Rename(a, b string) error {
+	if f.beforeMove != nil {
+		f.beforeMove()
+	}
 	if f.err != nil {
 		return f.err
 	}
@@ -74,6 +79,9 @@ func (f *fakeFiles) Rename(a, b string) error {
 func (f *fakeFiles) TrashDir() string { return f.trash }
 func (f *fakeFiles) CanRecycle() bool { return f.recycle }
 func (f *fakeFiles) Recycle(p string) error {
+	if f.beforeMove != nil {
+		f.beforeMove()
+	}
 	if f.recErr != nil {
 		return f.recErr
 	}
@@ -281,22 +289,21 @@ func TestParsePS(t *testing.T) {
 	}
 }
 
-func TestParseTasklist(t *testing.T) {
-	got := parseTasklist("\"System\",\"4\",\"Services\",\"0\",\"8 K\"\r\n\"AWS SSO Hub.exe\",\"512\",\"Console\",\"1\",\"90 K\"\r\n")
-	if len(got) != 2 || got[1].PID != 512 || !isOldApp(got[1].Path) {
-		t.Fatalf("%+v", got)
-	}
-}
-
-func TestOldAppStartedAgainDuringPromptIsQuitNotTrashed(t *testing.T) {
-	d, term, files, pr := setup(nil, cTrash)
+func TestOldAppStartedAgainDuringPromptIsQuitBeforeTrash(t *testing.T) {
+	d, term, files, _ := setup(nil, cTrash)
 	cl := &changingLister{lists: [][]Proc{{{200, oldExe}}, {{300, oldExe}}, {}}}
 	d.Lister = cl
+	files.beforeMove = func() {
+		if len(term.quit) != 1 || term.quit[0] != 300 {
+			t.Errorf("the bundle was moved before the relaunched instance (pid 300) was quit: %v", term.quit)
+		}
+	}
 	if Run(d) != Proceed || len(term.quit) != 1 || term.quit[0] != 300 {
 		t.Fatalf("the new instance must be signalled: %v", term.quit)
 	}
-	_ = files
-	_ = pr
+	if len(files.moves) != 1 {
+		t.Fatalf("the bundle is moved to the Trash once the relaunched instance has quit: %v", files.moves)
+	}
 }
 
 func TestStillRunningAfterQuitNeverTrashesOrProceeds(t *testing.T) {

@@ -3,9 +3,10 @@
 // (default: nothing offered, so every other screen stays free of the banner). ?tasks=2 is read by the page, not here.
 import * as UpdateReal from '../../../bindings/github.com/rudian/codepass/internal/app/updateservice'
 import { UpdatePhase } from '../models'
-import type { UpdatePreferences, UpdateState } from '../models'
+import type { UpdateState } from '../models'
 import { mockEmit } from '../events'
 import { nowISO } from './clock'
+import { getWorld } from './world'
 import { READ, SLOW, WRITE, run } from './util'
 
 export type UpdateScenario = 'none' | 'available' | 'downloading' | 'ready' | 'uptodate' | 'check-failed' | 'download-failed' | 'verify-failed' | 'blocked'
@@ -20,7 +21,6 @@ export const MOCK_NOTES = ['历史页可以按文件筛选，并显示每一行�
 interface UState {
   scenario: UpdateScenario
   state: UpdateState
-  prefs: UpdatePreferences
   timers: ReturnType<typeof setTimeout>[]
 }
 
@@ -55,7 +55,7 @@ let u: UState
 
 export function resetUpdateMock(scenario: UpdateScenario = queryScenario()): void {
   if (u) u.timers.forEach(clearTimeout)
-  u = { scenario, state: initial(scenario), prefs: { autoCheck: true }, timers: [] }
+  u = { scenario, state: initial(scenario), timers: [] }
 }
 resetUpdateMock()
 
@@ -117,12 +117,15 @@ export const mockUpdateService: typeof UpdateReal = {
       return u.state
     }),
 
-  GetPreferences: () => run(READ, () => u.prefs),
+  // the preference lives in the settings (plan 3.1), as in the app
+  GetPreferences: () => run(READ, () => ({ autoCheck: !getWorld().settings.updateCheckOff })),
 
   SetAutoCheck: (on) =>
     run(WRITE, () => {
-      u.prefs = { autoCheck: on }
-      return u.prefs
+      const s = getWorld().settings
+      s.updateCheckOff = !on
+      mockEmit('settings:changed', structuredClone(s))
+      return { autoCheck: on }
     }),
 
   OpenDownloadPage: () =>

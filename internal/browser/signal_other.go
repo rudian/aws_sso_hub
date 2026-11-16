@@ -33,3 +33,6 @@ func startProcess(name string, args []string) (int, error) {
 func processRunning(int) bool { return false }
 
 func releaseProcess(int) {}
+
+// foregroundPID is for Windows only (see Isolated.Focus).
+func foregroundPID(int) error { return ErrFocusUnsupported }

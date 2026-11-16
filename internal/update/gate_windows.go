@@ -17,7 +17,9 @@ func GateSupported() bool { return true }
 // swapped for an older or different build is refused. It reads the staged file only and never touches the installed
 // exe; every failure is a *Refusal, and the caller removes the staging folder.
 //
-// g.BundleID and g.Requirement are macOS values and are ignored here.
+// g.BundleID, g.Requirement and g.RequireGatekeeper are macOS values and are ignored here. Use
+// update.ProductionGate() on Windows too: Controller.validate() only needs Requirement to be non-empty, which
+// ProductionGate sets on every system, so no placeholder value and no change to validate() is needed.
 func VerifyBundle(path, wantVersion string, g Gate) error {
 	if err := verifyExe(path, wantVersion); err != nil {
 		return refuseErr(err)

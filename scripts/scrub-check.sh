@@ -20,16 +20,17 @@
 #
 # Built-in rules (no list needed):
 #   attribution   AI co-author / "generated with" / session lines
-#   home-path     /Users/<name>, /home/<name>, C:\Users\<name> other than the generic fixture names
+#   home-path     /Users/<name>, /home/<name>, C:\Users\<name> or C:/Users/<name> other than the generic fixture names
 #   account-id    12-digit numbers other than the generic fixture account IDs
 #   team-id       a 10-character Apple Team ID other than the two public ones the code pins
 #   directory-id  an AWS SSO directory ID (d-xxxxxxxxxx) other than the generic fixture ones (one repeated digit, d-1234567890)
 #   email         addresses outside example domains and the public hosts the fixtures use
-#   secret-shape  access-key and token shapes that are not obviously fake
+#   secret-shape  access-key and token shapes (also secret_access_key / secretAccessKey values and private key
+#                 blocks, PGP ones too) that are not obviously fake
 #
 # Skipped: binary files. Symlinks are scanned as their link text. Lock files and go.sum get only the
-# block list and the home-path rule. Allowed product strings are removed from a
-# line (and from a file name) before the block list sees it.
+# block list and the home-path rule. An allowed product string excuses a block-list match only when the match
+# lies entirely inside it (in a line, and in a file name).
 
 set -u
 export LC_ALL=C
@@ -45,7 +46,7 @@ while [ $# -gt 0 ]; do
       if [ "$1" = --root ]; then ROOT="$2"; else RANGE="$2"; fi
       shift 2 ;;
     --tracked) TRACKED=1; shift ;;
-    -h|--help) sed -n '2,34p' "$0"; exit 0 ;;
+    -h|--help) awk 'NR > 1 { if ($0 !~ /^#/) exit; print }' "$0"; exit 0 ;;
     *) echo "scrub-check: unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -198,7 +199,7 @@ run_rules() {
   # POSIX forms are case-sensitive (an IAM console URL holds /home#/users/details); Windows paths are not
   : > "$T/g.all"
   xgrep "$T/g.out" -noE '(/Users|/home)/[A-Za-z0-9_][A-Za-z0-9_.-]*' "$txt"; cat "$T/g.out" >> "$T/g.all"
-  xgrep "$T/g.out" -noiE '[A-Za-z]:\\+Users\\+[A-Za-z0-9_][A-Za-z0-9_.-]*' "$txt"; cat "$T/g.out" >> "$T/g.all"
+  xgrep "$T/g.out" -noiE '[A-Za-z]:[\\/]+Users[\\/]+[A-Za-z0-9_][A-Za-z0-9_.-]*' "$txt"; cat "$T/g.out" >> "$T/g.all"
   awk -F: -v allow="$ALLOW_HOME_NAMES" 'BEGIN { allow = tolower(allow) } {
       m = $0; sub(/^[0-9]+:/, "", m); n = m; sub(/^.*[\/\\]/, "", n); n = tolower(n)
       if (index(allow, " " n " ") == 0) print $1 }' "$T/g.all" > "$T/nums"
@@ -241,9 +242,9 @@ run_rules() {
   # secret shapes (obvious fakes carry EXAMPLE or are too short to be real)
   xgrep "$T/g.out" -noE '\b(AKIA|ASIA)[A-Z0-9]{16}\b|\bghp_[A-Za-z0-9]{36}\b|\bgithub_pat_[A-Za-z0-9_]{40,}\b|\bglpat-[A-Za-z0-9_-]{20,}\b|\bxox[bpa]-[A-Za-z0-9-]{20,}\b' "$txt"
   awk -F: '{ m = $0; sub(/^[0-9]+:/, "", m); if (toupper(m) !~ /EXAMPLE/) print $1 }' "$T/g.out" > "$T/nums"
-  xgrep "$T/g.out" -noiE -e 'aws_secret_access_key["'"'"']?[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+]{40}' "$txt"
+  xgrep "$T/g.out" -noiE -e 'secret_?access_?key["'"'"']?[[:space:]]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9/+]{40}' "$txt"
   awk -F: '{ m = $0; sub(/^[0-9]+:/, "", m); if (toupper(m) !~ /EXAMPLE/) print $1 }' "$T/g.out" >> "$T/nums"
-  xgrep "$T/g.out" -noE -e '-----BEGIN [A-Z ]*PRIVATE KEY-----' "$txt"; cut -d: -f1 < "$T/g.out" >> "$T/nums"
+  xgrep "$T/g.out" -noE -e '-----BEGIN [A-Z ]*PRIVATE KEY( BLOCK)?-----' "$txt"; cut -d: -f1 < "$T/g.out" >> "$T/nums"
   lines_to_report "secret-shape" "$T/nums" "$meta"
 }
 
@@ -323,10 +324,15 @@ if [ -n "$RANGE" ]; then
 
   # added lines of every commit (a name added and removed again still ships in history)
   : > "$T/meta"; : > "$T/text"; : > "$T/lmeta"; : > "$T/ltext"
-  git -C "$ROOT" "${HIST[@]}" log --root -p --src-prefix=a/ --dst-prefix=b/ --diff-merges=first-parent --no-ext-diff --no-textconv --no-color --format='commit %H' "$RANGE" > "$T/log.p" 2>/dev/null || fail_setup "git log failed for '$RANGE' (a missing object?)"
-  awk -v m="$T/meta" -v x="$T/text" -v lm="$T/lmeta" -v lx="$T/ltext" '
+  git -C "$ROOT" "${HIST[@]}" log --root -p --full-index --src-prefix=a/ --dst-prefix=b/ --diff-merges=first-parent --no-ext-diff --no-textconv --no-color --format='commit %H' "$RANGE" > "$T/log.p" 2>/dev/null || fail_setup "git log failed for '$RANGE' (a missing object?)"
+  : > "$T/bins"
+  awk -v m="$T/meta" -v x="$T/text" -v lm="$T/lmeta" -v lx="$T/ltext" -v bins="$T/bins" '
       /^commit [0-9a-f]{40}$/ { sha = substr($2, 1, 10); hdr = 0; hunk = 0; next }
-      /^diff --git / { hdr = 1; hunk = 0; path = "?"; next }
+      /^diff --git / { hdr = 1; hunk = 0; path = "?"; idx = ""; dp = $0; sub(/^diff --git a\/.* b\//, "", dp); dpath = dp; next }
+      hdr && /^index / { split($2, ids, /\.\./); idx = ids[2]; next }
+      # A "-diff" or binary attribute turns a text file into "Binary files ... differ" and hides its added lines:
+      # remember the new blob; it is read and scanned below when it is text.
+      hdr && /^Binary files / { printf "%s\t%s\t%s\n", sha, dpath, idx >> bins; next }
       hdr && /^\+\+\+ / {
         p = substr($0, 5); sub(/\t.*$/, "", p)
         if (p ~ /^"b\//) { path = substr(p, 4); sub(/"$/, "", path) }
@@ -338,6 +344,17 @@ if [ -n "$RANGE" ]; then
         if (lock) { printf "commit-%s:%s\t0\n", sha, path >> lm; print substr($0, 2) >> lx }
         else { printf "commit-%s:%s\t0\n", sha, path >> m; print substr($0, 2) >> x }
       }' "$T/log.p"
+  # Files git showed as "Binary files ... differ": when the new blob is text (an attribute, not the content,
+  # made it binary) every line of it is scanned as if it had been added.
+  while IFS="$(printf '\t')" read -r bsha bpath bblob; do
+    case "$bblob" in ""|*[!0-9a-f]*) continue ;; esac
+    case "$bblob" in *[!0]*) ;; *) continue ;; esac   # all zeros: the file was deleted
+    git -C "$ROOT" cat-file blob "$bblob" > "$T/bin.blob" 2>/dev/null || fail_setup "cannot read a changed file in '$RANGE' (a missing object?)"
+    rc=0; grep -qI '' "$T/bin.blob" 2>/dev/null || rc=$?
+    [ "$rc" = 0 ] || continue
+    if printf '%s\n' "$bpath" | grep -qE "$LOCK_RE"; then BM="$T/lmeta"; BX="$T/ltext"; else BM="$T/meta"; BX="$T/text"; fi
+    awk -v lab="commit-$bsha:$bpath" -v m="$BM" -v x="$BX" '{ printf "%s\t0\n", lab >> m; print $0 >> x }' "$T/bin.blob"
+  done < "$T/bins"
   run_rules "$T/text" "$T/meta" all
   run_rules "$T/ltext" "$T/lmeta" lock
 fi

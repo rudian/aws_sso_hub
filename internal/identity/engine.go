@@ -45,6 +45,10 @@ type Deps struct {
 	Emit         func(name string, data any)
 	// OnWrite is told about every global config write (the file watcher records it).
 	OnWrite func(path string, content []byte)
+	// OnRecordData is told, after a change was saved, which repositories now carry data of their own in
+	// projects.json (a project, an identity of their own): a "moved here?" question about one of them is out of
+	// date, because answering yes would delete that data. nil = nobody is told.
+	OnRecordData func(repoIDs ...string)
 }
 
 // Engine implements the author identity backend.

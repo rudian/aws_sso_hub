@@ -53,3 +53,13 @@ export function OpenInstallPage(tool: api$0.SetupToolID): $CancellablePromise<vo
 export function StartSetupInstall(): $CancellablePromise<void> {
     return $Call.ByID(3820434285);
 }
+
+/**
+ * StartToolUpdate updates git or the AWS CLI with the installer that manages it (brew upgrade on macOS, winget
+ * upgrade on Windows): the Health page's "Update" action. It returns at once; progress and the failure cause
+ * arrive as EventToolInstall, exactly as for an install, and CancelSetupInstall stops it. Any other tool, or a
+ * run already going, is E_INVALID_INPUT.
+ */
+export function StartToolUpdate(tool: api$0.SetupToolID): $CancellablePromise<void> {
+    return $Call.ByID(3964887190, tool);
+}

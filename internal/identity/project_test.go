@@ -443,3 +443,37 @@ func TestFollowAction(t *testing.T) {
 		}
 	}
 }
+
+// FU-14h: a move into a project and an identity of its own tell the caller which repository now carries data, so
+// the repositories engine drops a pending "moved here?" question about it.
+func TestMoveAndOwnIdentityTellWhoCarriesData(t *testing.T) {
+	var told []string
+	r := newRig(t, func(d *Deps) { d.OnRecordData = func(ids ...string) { told = append(told, ids...) } })
+	r.setGlobal("Alex Global", "global@example.com")
+	repo := r.repo(filepath.Join(r.root, "work"), "acme_api")
+	pa := r.project("acme")
+	pv, err := r.eng.PreviewMove(bg, repo.ID, pa.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.eng.ApplyMove(bg, repo.ID, pa.ID, pv.PlanHash); err != nil {
+		t.Fatal(err)
+	}
+	if len(told) != 1 || told[0] != repo.ID {
+		t.Fatalf("told %v after a move into a project", told)
+	}
+	// out of every project: it carries no project data, nobody is told
+	told = nil
+	pv, _ = r.eng.PreviewMove(bg, repo.ID, "")
+	if _, err := r.eng.ApplyMove(bg, repo.ID, "", pv.PlanHash); err != nil || len(told) != 0 {
+		t.Fatalf("%v told %v", err, told)
+	}
+	req := api.RepoIdentityRequest{RepoID: repo.ID, Mode: api.RepoModeOwn, Identity: ptr(globex())}
+	rv, err := r.eng.PreviewRepo(bg, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.eng.ApplyRepo(bg, req, rv.PlanHash); err != nil || len(told) != 1 || told[0] != repo.ID {
+		t.Fatalf("%v told %v after an identity of its own", err, told)
+	}
+}
