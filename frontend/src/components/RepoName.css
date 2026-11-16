@@ -1,0 +1,3 @@
+/* Own class names: the global .repo-name rule belongs to the Repos table cell and stacks its children. */
+.repo-nm { display: inline; min-width: 0; }
+.remote-name { font-weight: var(--fw-regular); font-size: 11px; color: var(--text-3); padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm); margin-left: 4px; white-space: nowrap; }

@@ -11,7 +11,7 @@ import type { BindOutcome } from '../../api/models'
 import { I18nProvider } from '../../i18n'
 import { ActionsProvider } from '../../shell/AppActions'
 import { AccountsProvider } from '../../state/accounts'
-import { CloneModal } from './CloneModal'
+import { CloneModal, folderNameReason } from './CloneModal'
 
 interface FakeSettings {
   lastCloneProfile: string
@@ -162,7 +162,7 @@ describe('CloneModal selection', () => {
     await click(rowPick('acme_auth'))
     expect(selected()).toEqual(['acme_api', 'acme_docs'])
     await settle()
-    expect(text()).toContain('named after it')
+    expect(text()).toContain('named above')
     expect(cloneBtn().textContent).toBe('Clone 2 repositories')
   })
 
@@ -480,5 +480,150 @@ describe('CloneModal remembers the last account', () => {
     await settle()
     expect(accountSelect().value).toBe('acme')
     expect(selected()).toEqual(['acme_api'])
+  })
+})
+
+describe('CloneModal local folder name', () => {
+  const nameInput = (repo: string) => document.querySelector<HTMLInputElement>(`input[aria-label="Local folder name for ${repo}"]`) as HTMLInputElement
+  const startBtnDisabled = () => cloneBtn().disabled
+
+  it('a ticked row has a folder-name field pre-filled with the remote name, and the destination line follows it', async () => {
+    await mount({ initialProfile: 'acme' })
+    await click(rowCheck('acme_api'))
+    await settle()
+    expect(nameInput('acme_api').value).toBe('acme_api')
+    await setInput(nameInput('acme_api'), 'api-main')
+    await settle()
+    expect(text()).toContain('Clones into /work/api-main')
+    expect(text()).toContain('differs from remote')
+  })
+
+  it('passes the typed name as the folder argument, per repository', async () => {
+    const spy = vi.spyOn(Repos, 'Clone').mockImplementation((async (req: { repoName: string }) => ok(req.repoName)) as unknown as typeof Repos.Clone)
+    await mount({ initialProfile: 'acme' })
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_auth'))
+    await setInput(nameInput('acme_api'), 'api-main')
+    await settle()
+    await click(cloneBtn())
+    await settle()
+    const calls = spy.mock.calls.map((c) => c[0] as { repoName: string; folderName: string })
+    expect(calls.find((c) => c.repoName === 'acme_api')?.folderName).toBe('api-main')
+    expect(calls.find((c) => c.repoName === 'acme_auth')?.folderName).toBe('')
+  })
+
+  it('shows inline errors and blocks the button before anything is cloned', async () => {
+    const spy = spyClone(async (n) => ok(n))
+    await mount({ initialProfile: 'acme' })
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_auth'))
+    await settle()
+    await setInput(nameInput('acme_api'), 'a/b')
+    expect(text()).toContain('The name cannot contain / or \\')
+    expect(startBtnDisabled()).toBe(true)
+    await setInput(nameInput('acme_api'), 'x')
+    await setInput(nameInput('acme_auth'), 'x')
+    expect(text()).toContain('Two repositories cannot use the same folder name')
+    expect(startBtnDisabled()).toBe(true)
+    await setInput(nameInput('acme_auth'), 'CON')
+    expect(text()).toContain('reserved Windows name')
+    await setInput(nameInput('acme_auth'), 'y')
+    await settle()
+    expect(startBtnDisabled()).toBe(false)
+    await setInput(nameInput('acme_api'), 'a/b')
+    expect(startBtnDisabled()).toBe(true)
+    await click(cloneBtn())
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('treats names that differ only by case as the same folder', async () => {
+    await mount({ initialProfile: 'acme' })
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_auth'))
+    await settle()
+    await setInput(nameInput('acme_api'), 'Shared')
+    await setInput(nameInput('acme_auth'), 'shared')
+    expect(text()).toContain('Two repositories cannot use the same folder name')
+    expect(startBtnDisabled()).toBe(true)
+  })
+
+  it('shows the server\'s refusal of a folder name inline, before cloning', async () => {
+    const spy = spyClone(async (n) => ok(n))
+    vi.spyOn(Repos, 'PreviewClone').mockRejectedValue({ code: ErrorCode.ErrInvalidInput, message: 'bad', params: { field: 'folderName', reason: 'too-long' } })
+    await mount({ initialProfile: 'acme' })
+    await click(rowCheck('acme_api'))
+    await settle()
+    await settle()
+    expect(text()).toContain('The name is too long')
+    expect(startBtnDisabled()).toBe(true)
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('single select: a taken name is an inline error and blocks the button', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_changelog'))
+    await settle()
+    await setInput(nameInput('acme_changelog'), 'acme_api')
+    await settle()
+    expect(text()).toContain('This folder already exists')
+    expect(nameInput('acme_changelog').getAttribute('aria-invalid')).toBe('true')
+    expect(startBtnDisabled()).toBe(true)
+  })
+
+  it('multi select: a typed name that exists is an inline error and blocks the button', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_handbook'))
+    await click(rowCheck('acme_usage'))
+    await settle()
+    await setInput(nameInput('acme_handbook'), 'acme_api')
+    await settle()
+    expect(document.getElementById('clone-name-err-acme_handbook')?.textContent).toBe('This folder already exists')
+    expect(nameInput('acme_handbook').getAttribute('aria-invalid')).toBe('true')
+    expect(startBtnDisabled()).toBe(true)
+  })
+
+  it('multi select: renaming a taken row to a free name shows no stale error before the preview returns', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_handbook'))
+    await click(rowCheck('acme_usage'))
+    await settle()
+    const err = () => document.getElementById('clone-name-err-acme_handbook')?.textContent ?? ''
+    await setInput(nameInput('acme_handbook'), 'acme_handbook-2')
+    expect(err()).toBe('')
+    expect(nameInput('acme_handbook').getAttribute('aria-invalid')).not.toBe('true')
+    await settle()
+    expect(err()).toBe('')
+    expect(nameInput('acme_handbook').getAttribute('aria-invalid')).not.toBe('true')
+  })
+
+  it('single select: the command block stays while a new name is being previewed', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_auth'))
+    await settle()
+    expect(text()).toContain('Command to run')
+    await setInput(nameInput('acme_auth'), 'auth-2')
+    expect(text()).toContain('Command to run')
+    await settle()
+    expect(text()).toContain('Command to run')
+  })
+})
+
+describe('folderNameReason', () => {
+  const cases: [string, string][] = [
+    ['api-main', ''], ['acme_api', ''], ['a.b', ''], ['.hidden', ''], ['con-sole', ''], ['console', ''], ['nulled', ''],
+    ['COM0', ''], ['COM10', ''], ['LPT0', ''], ['com', ''], ['lpt', ''], ['données', ''], ['仓库', ''], ['a b', ''],
+    ['', 'empty'], ['   ', 'empty'], ['.', 'dots'], ['..', 'dots'],
+    ['a/b', 'separator'], ['a\\b', 'separator'], ['/abs', 'separator'], ['../x', 'separator'],
+    ['CON', 'reserved'], ['con', 'reserved'], ['Prn', 'reserved'], ['AUX', 'reserved'], ['NUL', 'reserved'], ['COM1', 'reserved'],
+    ['com9', 'reserved'], ['LPT1', 'reserved'], ['lpt9', 'reserved'], ['CON.txt', 'reserved'], ['nul.tar.gz', 'reserved'],
+    ['com1.old', 'reserved'], ['COM\u00b9', 'reserved'], ['LPT\u00b2', 'reserved'], ['CONIN$', 'reserved'],
+    ['aux.', 'trailing'], ['api.', 'trailing'], ['api ', 'trailing'], ['api. ', 'trailing'], ['x..', 'trailing'],
+    ['a:b', 'badChar'], ['a*b', 'badChar'], ['a?b', 'badChar'], ['a|b', 'badChar'], ['a<b', 'badChar'], ['a>b', 'badChar'],
+    ['a"b', 'badChar'], ['a\x00b', 'badChar'], ['a\nb', 'badChar'], ['a\x7fb', 'badChar'],
+    ['a'.repeat(255), ''], ['a'.repeat(256), 'tooLong'],
+    ['\u4ed3'.repeat(85), ''], ['\u4ed3'.repeat(86), 'tooLong'], ['\u00e9'.repeat(127) + 'a', ''], ['\u00e9'.repeat(128), 'tooLong'],
+  ]
+  it.each(cases)('%j -> %j', (name, reason) => {
+    expect(folderNameReason(name)).toBe(reason)
   })
 })
