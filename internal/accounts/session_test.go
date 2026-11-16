@@ -223,6 +223,11 @@ func TestRefusedRenewalEndsAtTokenExpiry(t *testing.T) {
 	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 0 {
 		t.Fatalf("%+v", rec)
 	}
+	// a token renewed elsewhere that outlives the recorded end proves it wrong
+	h.writeTokenKeepClient(t, 50*time.Minute)
+	if st := h.status("initech"); st.SessionEndExact || st.SessionEndsAt == h.clock().Add(10*time.Minute).Format(time.RFC3339) {
+		t.Fatalf("%+v", st)
+	}
 	// refused after the token expired: expired, end unknown
 	h2 := newHarness(t, true)
 	h2.writeToken(-time.Minute, "CID-a")
@@ -489,7 +494,8 @@ func TestTickEmitsOnSessionCrossing15Min(t *testing.T) {
 
 func TestTickReminder(t *testing.T) {
 	h := newHarness(t, true)
-	h.writeToken(time.Hour, "CID-a")
+	h.store.autoRenew = false
+	h.writeToken(10*time.Minute, "CID-a")
 	h.setRecord(8*time.Hour-10*time.Minute, "CID-a", 480)
 	h.setEnd(10 * time.Minute)
 	h.eng.Tick(bg)
@@ -511,7 +517,8 @@ func TestTickReminder(t *testing.T) {
 	// notice disabled
 	h3 := newHarness(t, true)
 	h3.store.notice = false
-	h3.writeToken(time.Hour, "CID-a")
+	h3.store.autoRenew = false
+	h3.writeToken(10*time.Minute, "CID-a")
 	h3.setRecord(8*time.Hour-10*time.Minute, "CID-a", 480)
 	h3.setEnd(10 * time.Minute)
 	h3.eng.Tick(bg)

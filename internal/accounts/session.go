@@ -39,9 +39,10 @@ func normMinutes(m int) int {
 
 // sessionEnd returns when the session of the current sign-in ends and whether that is exact: the end AWS
 // showed (record SessionEndsAt), else LoginAt plus the learned (or default) length, but never before the
-// access token expires.
+// access token expires. A token that expires after the recorded end (renewed elsewhere after a refusal)
+// proves that end wrong.
 func sessionEnd(rec api.SessionRecord, loginAt time.Time, minutes int, tokenExpires time.Time) (time.Time, bool) {
-	if t, err := time.Parse(time.RFC3339, rec.SessionEndsAt); err == nil && t.After(loginAt) {
+	if t, err := time.Parse(time.RFC3339, rec.SessionEndsAt); err == nil && t.After(loginAt) && !tokenExpires.After(t) {
 		return t, true
 	}
 	ends := loginAt.Add(time.Duration(minutes) * time.Minute)
