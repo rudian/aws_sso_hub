@@ -114,7 +114,9 @@ describe('mock ToolService', () => {
     await call(mockToolService.StartSetupInstall())
     await vi.advanceTimersByTimeAsync(5_000)
     let st = await call(mockToolService.GetInstallState())
-    expect(st.failure).toMatchObject({ cause: 'prefix_exists', stepId: 'homebrew:install', exitCode: 20 })
+    expect(st.failure).toMatchObject({ cause: 'prefix_exists', stepId: 'homebrew:install', exitCode: -1, line: '/opt/homebrew already exists' })
+    // the password window is never reached for a repair-prefix row
+    expect(st.log).toEqual([])
     expect((await call(mockToolService.GetSetupState())).blocked).toBe(true)
     resetToolMock('nowinget', 'windows')
     await call(mockToolService.StartSetupInstall())
@@ -140,6 +142,15 @@ describe('mock ToolService', () => {
     }
   })
 
+  it('verify-step failures are logged as "verify: <detail>" while failure.line is the detail', async () => {
+    resetToolMock('missing', 'darwin', 'bad_signature', 'homebrew:install')
+    await call(mockToolService.StartSetupInstall())
+    await vi.advanceTimersByTimeAsync(5_000)
+    const st = await call(mockToolService.GetInstallState())
+    expect(st.failure?.line).toBe('signature: Status: no signature')
+    expect(st.log?.at(-1)).toBe('verify: signature: Status: no signature')
+  })
+
   it('needs_admin reports the unsigned exit code, as Go does', async () => {
     resetToolMock('missing', 'windows', 'needs_admin', 'git:install')
     await call(mockToolService.StartSetupInstall())
@@ -156,5 +167,55 @@ describe('mock ToolService', () => {
     const st = await call(mockToolService.GetInstallState())
     expect(st.finished && !st.failure && (st.steps ?? []).length === 0).toBe(true)
     expect((await call(mockToolService.GetSetupState())).blocked).toBe(false)
+  })
+
+  it('failure lines carry no osascript prefix and no code tail, as the Go installer reports them', async () => {
+    for (const cause of ['cancelled', 'auth_denied', 'not_admin', 'unknown_signer', 'damaged_download'] as const) {
+      resetToolMock('missing', 'darwin', cause, 'homebrew:install')
+      await call(mockToolService.StartSetupInstall())
+      await vi.advanceTimersByTimeAsync(5_000)
+      const line = (await call(mockToolService.GetInstallState())).failure?.line ?? ''
+      expect(line, cause).not.toMatch(/execution error/)
+      expect(line, cause).not.toMatch(/\(-?\d+\)$/)
+    }
+    resetToolMock('missing', 'darwin', 'cancelled', 'homebrew:install')
+    await call(mockToolService.StartSetupInstall())
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect((await call(mockToolService.GetInstallState())).failure?.line).toBe('User canceled.')
+  })
+
+  it('a scripted prefix_exists on the pkg script keeps its exit code and the script prefix', async () => {
+    resetToolMock('missing', 'darwin', 'prefix_exists', 'homebrew:install')
+    await call(mockToolService.StartSetupInstall())
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect((await call(mockToolService.GetInstallState())).failure).toMatchObject({ exitCode: 20, line: 'codepass-pkg: /opt/homebrew already exists' })
+  })
+
+  it('chosen-missing: the run clears the chosen path (override off, no path) and still installs the tool', async () => {
+    resetToolMock('chosen-missing', 'darwin')
+    expect((await call(mockToolService.GetSetupState())).tools?.[2]).toMatchObject({ id: 'awscli', status: 'missing', fix: 'install', override: true, blocking: true })
+    await call(mockToolService.StartSetupInstall())
+    const during = (await call(mockToolService.GetSetupState())).tools?.[2]
+    expect(during?.override).toBeFalsy()
+    expect(during?.path).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(5_000)
+    const st = await call(mockToolService.GetInstallState())
+    expect(st.steps?.map((x) => x.id)).toEqual(['awscli:install'])
+    expect(st.finished && !st.failure).toBe(true)
+    expect((await call(mockToolService.GetSetupState())).blocked).toBe(false)
+  })
+
+  it('every blocking override row is cleared at start, not only the first', async () => {
+    resetToolMock('chosen-git', 'darwin')
+    await call(mockToolService.StartSetupInstall())
+    expect((await call(mockToolService.GetSetupState())).tools?.some((t) => t.override)).toBe(false)
+  })
+
+  it('outdated: the gate is open and the AWS CLI is older than recommended', async () => {
+    resetToolMock('outdated', 'darwin')
+    const s = await call(mockToolService.GetSetupState())
+    expect(s.blocked).toBe(false)
+    expect(s.ready).toBe(3)
+    expect(s.tools?.[2]).toMatchObject({ id: 'awscli', status: 'outdated', version: '2.17.0', blocking: false })
   })
 })

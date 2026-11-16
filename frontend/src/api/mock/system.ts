@@ -150,9 +150,10 @@ export type { World }
 
 // ---- tools gate and installers (F1-12) ---------------------------------------------------------------------
 // A scripted ToolService for the setup screen (F1-15) and the Health rows. The scenario comes from the query:
-//   ?setup=ready|missing|old-git|chosen-git|noadmin|managed|lowdisk|partial|proxy|nowinget   (default ready: the gate is open)
+//   ?setup=ready|missing|old-git|chosen-git|chosen-missing|outdated|noadmin|managed|lowdisk|partial|proxy|nowinget   (default ready: the gate is open)
 //   partial always ends with prefix_exists and nowinget with winget_missing, as the Go installer does
 //   &setupFail=<cause>[&setupFailAt=<step id>]   the run fails with that cause at that step (default: the first install step)
+//   &setupRun=1   the run starts by itself when the page first asks for the state (screenshots: the page cannot be clicked)
 // Typed against the generated toolservice module. Inside this file the enums are written as their string values
 // (Lit turns a generated enum into the union of its values); the service methods hand the values back as the
 // generated types, which are the same strings at run time.
@@ -166,24 +167,33 @@ type SetupState = Lit<G.SetupState>
 type SetupTool = Lit<G.SetupTool>
 type SetupToolID = Lit<G.SetupToolID>
 
-export type SetupScenario = 'ready' | 'missing' | 'old-git' | 'chosen-git' | 'noadmin' | 'managed' | 'lowdisk' | 'partial' | 'proxy' | 'nowinget'
-const SETUP_SCENARIOS: SetupScenario[] = ['ready', 'missing', 'old-git', 'chosen-git', 'noadmin', 'managed', 'lowdisk', 'partial', 'proxy', 'nowinget']
+export type SetupScenario = 'ready' | 'missing' | 'old-git' | 'chosen-git' | 'chosen-missing' | 'outdated' | 'noadmin' | 'managed' | 'lowdisk' | 'partial' | 'proxy' | 'nowinget'
+const SETUP_SCENARIOS: SetupScenario[] = ['ready', 'missing', 'old-git', 'chosen-git', 'chosen-missing', 'outdated', 'noadmin', 'managed', 'lowdisk', 'partial', 'proxy', 'nowinget']
 
 const FAIL_EXIT: Partial<Record<FailureCause, number>> = {
   damaged_download: 15, bad_signature: 12, unknown_signer: 13, not_notarized: 14, prefix_exists: 20, disk_full: 11,
   cancelled: 1, auth_denied: 1, not_admin: 1, network: 1, proxy_auth: 1, policy: 1, installer_failed: 1, needs_admin: 2316632089 /* 0x8A150019 as Go reports it: the uint32 */, winget_missing: -1,
 }
+// The failure lines the Go installer reports: osascript's "N:M: execution error: " prefix and its "(code)" tail are
+// already stripped (osaLines in internal/toolinstall), so none of these carries either.
+// Causes of the verify step: Go logs them as "verify: <detail>" while failure.line is just the detail.
+const VERIFY_CAUSES: FailureCause[] = ['bad_signature', 'unknown_signer', 'not_notarized', 'damaged_download']
 const FAIL_LINE: Partial<Record<FailureCause, string>> = {
   network: 'Error: Failure while executing; `curl --fail https://ghcr.io/v2/homebrew/core/git/blobs/sha256` exited with 28.',
   disk_full: 'Error: No space left on device @ io_write',
-  cancelled: 'execution error: User canceled. (-128)',
-  auth_denied: 'execution error: The administrator user name or password was incorrect. (-60005)',
-  bad_signature: 'codepass-pkg: signature: Status: no signature',
-  unknown_signer: 'codepass-pkg: Team ID is ABCDEFGHIJ, expected 927JGANW46',
+  cancelled: 'User canceled.',
+  auth_denied: 'The administrator user name or password was incorrect.',
+  not_admin: 'The administrator user name or password was incorrect.',
+  bad_signature: 'signature: Status: no signature',
+  unknown_signer: 'Team ID is ABCDEFGHIJ, expected 927JGANW46',
+  not_notarized: 'not notarized',
   damaged_download: 'size 154000000, expected 154292112',
   prefix_exists: 'codepass-pkg: /opt/homebrew already exists',
+  policy: 'codepass-pkg: installer failed (exit 1). Last lines: installer: installation is blocked by your administrator',
   installer_failed: 'Error: git: unexpected failure in post_install',
 }
+/** A row with fix repair-prefix fails before the password window, with no exit code and brew's prefix in the line. */
+const REPAIR_PREFIX_LINE = '/opt/homebrew already exists'
 
 interface ToolWorld {
   scenario: SetupScenario
@@ -227,6 +237,12 @@ function buildTools(scn: SetupScenario, platform: 'darwin' | 'windows'): { tools
     case 'chosen-git':
       // the git path chosen in Settings is too old, a usable git is found by detection: the run clears the chosen path
       return { tools: [brew, { id: 'git', status: 'too-old', version: '2.43.0', min: '2.44.0', path: '/Users/alex/tools/git', blocking: true, fix: 'use-detected', override: true }, aws], pre }
+    case 'outdated':
+      // older than recommended, not below the minimum: the gate is open and Health offers an Update
+      return { tools: [brew, git, { ...aws, status: 'outdated', version: '2.17.0' }], pre }
+    case 'chosen-missing':
+      // the AWS CLI path chosen in Settings points at nothing and no other copy is found: clearing it does not make the gate open
+      return { tools: [brew, git, { id: 'awscli', status: 'missing', path: '/Users/alex/tools/aws', blocking: true, fix: 'install', override: true }], pre }
     case 'noadmin':
       return { tools: [missing('homebrew'), missing('git'), missing('awscli')], pre: { ...pre, admin: 'no' } }
     case 'managed':
@@ -256,7 +272,14 @@ export function resetToolMock(scenario?: SetupScenario, platform?: 'darwin' | 'w
 }
 
 function tw(): ToolWorld {
-  if (!toolWorld) resetToolMock()
+  if (!toolWorld) {
+    resetToolMock()
+    if (queryParam('setupRun') === '1') {
+      // the same call the button makes, one tick later so the page has asked for the state first
+      const w = toolWorld as ToolWorld | undefined
+      w?.timers.push(setTimeout(() => void mockToolService.StartSetupInstall(), 300))
+    }
+  }
   return toolWorld as ToolWorld
 }
 
@@ -336,18 +359,22 @@ function runStep(w: ToolWorld, i: number): void {
   const scripted = w.failCause !== undefined && (w.failAt ? w.failAt === step.id : step.kind === 'install' || i === steps.length - 1)
   const failCause = forced ?? (scripted ? w.failCause : undefined)
   const failHere = failCause !== undefined
-  step.state = step.id === 'homebrew:install' ? 'waiting-os' : 'running'
+  const repairPrefix = forced === 'prefix_exists' && row0?.fix === 'repair-prefix'
+  // the password window is never reached for a repair-prefix row
+  step.state = step.id === 'homebrew:install' && !repairPrefix ? 'waiting-os' : 'running'
   pushInstall(w)
   const done = (): void => {
     if (failCause) {
       const cause = failCause
+      const line = repairPrefix ? REPAIR_PREFIX_LINE : FAIL_LINE[cause]
       const failure: InstallFailure = {
-        tool: step.tool, stepId: step.id, cause, exitCode: FAIL_EXIT[cause] ?? 1,
+        tool: step.tool, stepId: step.id, cause, exitCode: repairPrefix ? -1 : (FAIL_EXIT[cause] ?? 1),
         ...(step.command ? { command: step.command } : {}),
         ...(cause === 'network' || cause === 'proxy_auth' ? { proxy: w.pre.proxy.hostPort ?? '' } : {}),
-        ...(FAIL_LINE[cause] ? { line: FAIL_LINE[cause] } : {}),
+        ...(line ? { line } : {}),
       }
-      if (FAIL_LINE[cause]) logLine(w, FAIL_LINE[cause] as string)
+      // Go's fail() paths (the repair-prefix refusal) keep their text in failure.line only; the log stays empty.
+      if (line && !repairPrefix) logLine(w, VERIFY_CAUSES.includes(cause) ? `verify: ${line}` : line)
       finishRun(w, failure, false)
       return
     }
@@ -391,11 +418,16 @@ export const mockToolService: typeof ToolReal = {
     run(READ, () => {
       const w = tw()
       if (w.install.running) throw fail(ErrorCode.ErrInvalidInput, 'a setup run is already going', { field: 'run' })
-      // A chosen tool path that blocks the gate is cleared first; detection then finds the tool.
+      // Like the Go service: every blocking row judged on a path chosen in Settings gets that path cleared, then the
+      // rows are judged again. Detection finds the tool for use-detected; any other row stays as it is without the path.
       for (const t of w.tools) {
-        if (t.blocking && t.override && t.fix === 'use-detected') {
+        if (!t.blocking || !t.override) continue
+        if (t.fix === 'use-detected') {
           const [version, path] = FOUND[t.id] ?? ['1.0.0', '']
           Object.assign(t, { status: 'ok', version, path, blocking: false, fix: '', elsewhere: false, override: false })
+        } else {
+          t.override = false
+          delete t.path
         }
       }
       w.install = { ...emptyInstall(), running: true, steps: planSteps(w) }

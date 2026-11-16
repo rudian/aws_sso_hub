@@ -1,0 +1,77 @@
+/* The setup screen (design 5.1). Drafted in docs/design/codepass-mockup/mockup.css; the shared stylesheet is not touched. */
+.setup { min-height: 100%; height: 100%; display: grid; grid-template-rows: var(--titlebar-h) 1fr; background: var(--bg); }
+.setup__bar { -webkit-app-region: drag; --wails-draggable: drag; }
+.setup__wrap { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 620px); gap: var(--sp-12); justify-content: center; align-content: center; padding: 0 var(--sp-8) var(--sp-12); min-width: 0; }
+.setup__intro { display: flex; flex-direction: column; gap: var(--sp-4); padding-top: var(--sp-6); min-width: 0; }
+.setup__mark { width: 64px; height: 64px; margin-left: -7px; }
+.setup__title { font-size: 30px; line-height: 1.2; font-weight: var(--fw-semibold); letter-spacing: var(--tracking-display); margin: 0; }
+.setup__lead { font-size: 15px; color: var(--text-2); line-height: 1.65; max-width: 34em; margin: 0; }
+.setup__notes { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); font-size: var(--fs-13); color: var(--text-2); }
+.setup__notes li { display: grid; grid-template-columns: 18px 1fr; gap: var(--sp-3); }
+.setup__notes svg { width: 16px; height: 16px; color: var(--text-3); margin-top: 3px; }
+
+.setup__card { display: flex; flex-direction: column; min-width: 0; align-self: center; }
+.setup__card .card__header { border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.setup__card .card__title { margin: 0; }
+.setup__card .spacer { flex: 1; }
+.setup__count { font-size: var(--fs-12); color: var(--text-3); }
+.setup__tools { list-style: none; margin: 0; padding: 0; }
+
+.tool-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: var(--sp-3) var(--sp-4); align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-subtle); transition: background var(--dur-2) var(--ease-out); }
+.tool-row__icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+.tool-row__icon svg { width: 18px; height: 18px; }
+.tool-row__name { font-weight: var(--fw-semibold); display: flex; align-items: center; gap: var(--sp-2); }
+.tool-row__why { font-size: var(--fs-12); color: var(--text-3); }
+.tool-row__state { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-13); color: var(--text-2); white-space: nowrap; }
+.tool-row__state > span { display: inline-flex; align-items: center; gap: 6px; }
+.tool-row__state .ok { color: var(--ok); }
+.tool-row__state .bad { color: var(--danger); }
+.tool-row__state .warn { color: var(--warn); }
+.tool-row__state .info { color: var(--info); gap: 8px; }
+.tool-row__state .muted { color: var(--text-3); }
+.tool-row__state .mono { font-family: var(--font-mono); }
+.tool-row__state .ok .mono { color: var(--text-2); }
+.tool-row__state svg { width: 16px; height: 16px; }
+.tool-row.is-current { background: color-mix(in srgb, var(--info) 5%, var(--surface)); }
+.tool-row__note { grid-column: 2 / -1; font-size: var(--fs-12); color: var(--text-3); line-height: 1.5; margin-top: calc(var(--sp-2) * -1); }
+.tool-row__progress { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-12); color: var(--text-3); }
+.tool-row__progress .mono { font-family: var(--font-mono); }
+.tool-row__slow { color: var(--text-2); }
+
+.tool-steps { list-style: none; margin: 2px 0 0; padding: 0; display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+.tool-steps__item { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); }
+.tool-steps__mark { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid currentColor; box-sizing: border-box; }
+.tool-steps__item.is-done { color: var(--ok); }
+.tool-steps__item.is-done .tool-steps__mark { background: currentColor; }
+.tool-steps__item.is-running, .tool-steps__item.is-waiting-os { color: var(--info); }
+.tool-steps__item.is-running .tool-steps__mark, .tool-steps__item.is-waiting-os .tool-steps__mark { background: currentColor; animation: pulse 1.6s var(--ease-in-out) infinite; }
+
+.setup__fail { margin: var(--sp-4) var(--sp-5); }
+.setup__proxy { margin-top: 4px; font-size: var(--fs-12); color: var(--text-2); }
+
+.setup__logwrap { position: relative; border-top: 1px solid var(--border-subtle); background: var(--term-bg); }
+.setup__log { margin: 0; background: var(--term-bg); color: var(--term-fg); font: 12px/1.6 var(--font-mono); padding: var(--sp-3) var(--sp-5); max-height: 132px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.setup__log.is-expanded { max-height: 320px; overflow: auto; }
+.setup__log:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.setup__line--dim { color: var(--term-dim); }
+.setup__line--bad { color: var(--term-danger); }
+.setup__log .g { color: var(--term-ok); }
+.setup__logtoggle { position: absolute; top: 6px; right: var(--sp-3); font: inherit; font-size: var(--fs-11, 11px); color: var(--term-dim); background: color-mix(in srgb, var(--term-bg) 85%, transparent); border: 0; padding: 2px 6px; border-radius: var(--r-sm); cursor: default; }
+.setup__logtoggle:hover { color: var(--term-fg); }
+.setup__logtoggle:focus-visible { outline: 2px solid var(--focus); }
+
+.setup__foot { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); background: var(--surface-2); border-top: 1px solid var(--border-subtle); border-radius: 0 0 var(--r-lg) var(--r-lg); font-size: var(--fs-12); color: var(--text-3); }
+.setup__foottext { min-width: 0; flex: 1 1 auto; line-height: 1.5; }
+.setup__foot .spacer { flex: 0 0 0; }
+.setup__foot .btn { flex: none; }
+.setup__primary { min-width: 132px; }
+
+/* the check of a ready row draws once when the card turns green (design 5.1 "Done") */
+.setup--done .tool-row__state .ok svg path:last-child { stroke-dasharray: 30; animation: draw var(--dur-4) var(--ease-out) both; }
+
+@media (max-width: 1080px) {
+  .setup__wrap { grid-template-columns: minmax(0, 560px); gap: var(--sp-8); }
+}
+
+/* a running run keeps the primary button dark (the shared .btn:disabled would grey it) */
+.setup__primary.is-loading:disabled { opacity: 1; }
