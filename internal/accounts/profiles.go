@@ -175,7 +175,7 @@ func (e *Engine) ConsoleSignInURL(ctx context.Context, profile string) (string, 
 	if pd.name == "" {
 		return "", api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", p.SSOSession)
 	}
-	creds, cerr := e.d.Sessions.RoleCredentials(ctx, pd.sess, p.AccountID, p.Role)
+	creds, cerr := e.d.Sessions.FreshRoleCredentials(ctx, pd.sess, p.AccountID, p.Role)
 	if cerr != nil {
 		return "", sso.ToAppError(cerr, pd.name)
 	}

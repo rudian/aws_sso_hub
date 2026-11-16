@@ -1096,22 +1096,6 @@ export interface LoginProgress {
     "expiresAt"?: string;
 }
 
-/**
- * SignInWindow says how a sign-in page was opened (AccountService.OpenSignInPage).
- */
-export interface SignInWindow {
-    /**
-     * a private browser window
-     */
-    "private": boolean;
-
-    /**
-     * Isolated: a separate browser instance with a fresh, throw-away profile, so no other user's web session
-     * can be reused. The app closes it when the sign-in ends.
-     */
-    "isolated": boolean;
-}
-
 export interface LoginResult {
     "portal": string;
     "expiresAt": string;
@@ -1711,6 +1695,22 @@ export enum Severity {
     SeverityWarn = "warn",
     SeverityDanger = "danger",
 };
+
+/**
+ * SignInWindow says how a sign-in page was opened (AccountService.OpenSignInPage).
+ */
+export interface SignInWindow {
+    /**
+     * a private browser window
+     */
+    "private": boolean;
+
+    /**
+     * Isolated: a separate browser instance with a fresh, throw-away profile, so no other user's web session
+     * can be reused. The app closes it when the sign-in ends.
+     */
+    "isolated": boolean;
+}
 
 export interface StaticIdentity {
     "profile": string;

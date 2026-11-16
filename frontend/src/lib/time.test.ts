@@ -83,4 +83,10 @@ describe('formatSessionLength', () => {
     expect(formatSessionLength(15, 'en')).toBe('15 minutes')
     expect(formatSessionLength(4320, 'en')).toBe('3 days')
   })
+  it('formats lengths measured from AWS', () => {
+    expect(formatSessionLength(500, 'en')).toBe('8 hours 20 minutes')
+    expect(formatSessionLength(500, 'zh-CN')).toBe('8小时20分钟')
+    expect(formatSessionLength(61, 'en')).toBe('1 hour 1 minute')
+    expect(formatSessionLength(57, 'en')).toBe('57 minutes')
+  })
 })
