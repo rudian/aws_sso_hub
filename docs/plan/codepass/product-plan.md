@@ -12,10 +12,11 @@ Status of facts: an external claim carries a source tag `[S#]` (section 11). `[R
 
 ## 0. The plan in one page
 
-- **AWS SSO Hub becomes Codepass**: the one window the owner works in all day. Accounts (AWS SSO, GitHub, Bitbucket), projects that group repositories, a full git client, pull requests, AI coding tasks (Claude Code, Codex, OpenCode; several at once per repository), and a code editor for the whole repository with code intelligence for Go and TypeScript / JavaScript.
-- **One release, v1.0.0.** Work happens on the `codepass` branch and merges into `main` at release. There are eight internal milestones (0 to 7). Each one ends in a signed build that the owner uses daily and that updates itself through a private test channel. Nothing is published before everything is done.
+- **AWS SSO Hub becomes Codepass**: the one window the owner works in all day. Accounts (AWS SSO, GitHub, Bitbucket), projects that group repositories, a full git client, pull requests, AI coding tasks (Claude Code, Codex, OpenCode; several at once per repository), and a code editor for the whole repository with code intelligence for Go, TypeScript / JavaScript and PHP (PHP added by the owner on 2026-11-16).
+- **One release, v1.0.0.** Work happens on the `codepass` branch and merges into `main` at release. There are nine internal milestones (0 to 8; milestone 8, added on 2026-11-16, runs right after milestone 3). Each one ends in a signed build that the owner uses daily and that updates itself through a private test channel. Nothing is published before everything is done.
 - **Platforms:** macOS on Apple silicon, macOS 15 or later (arm64 only); Windows 10 1809+ and Windows 11, amd64.
-- **Size, honestly:** about 35 weeks of the implement-and-review loop (32 before the owner's new requirements and the spike findings added ten tasks). This is an estimate, not a measurement. The owner decided that nothing moves to 1.1 (decision 4).
+- **Size, honestly:** about 43 weeks of the implement-and-review loop (32 before the owner's first requirements and the spike findings added ten tasks; 35 before the owner's second batch of 2026-11-16 added the 0.0.2 carry-over, system notifications, PHP code intelligence and milestone 8). This is an estimate, not a measurement. The owner decided that nothing moves to 1.1 (decision 4).
+- **The owner's second batch (2026-11-16)**, with the why: one app instead of a JetBrains IDE, Warp, the Bitbucket website, Claude Desktop (opened only for the weekly usage) and Sublime Text (where ideas wait for usage). It adds: the fixes of AWS SSO Hub 0.0.2 (4.2, task F1-21); system notifications with a "Sign in again" button when an AWS sign-in expires (4.15); several AI accounts per tool with a switch that keeps the conversation, and the usage meter (4.16); tickets and the queue that runs them within the usage (4.17); PHP code intelligence (4.12). 4.16 and 4.17 cover Claude Code and Codex alike.
 - **The four decisions are made** (`tasks.md`, "Owner decisions (FINAL)"): the tools gate stays closed; one classic GitHub token per account; the Windows build ships unsigned; everything ships in 1.0.0. Six smaller questions the spikes raised are listed there under "Open questions for the owner".
 - **Where the plan differs from the owner's first wording, with the reason:**
   1. Bitbucket is not SSH-only. API tokens work for git over HTTPS and for the REST API [S1][S2]. The app still uses one SSH key per account for git, and a token for pull requests.
@@ -64,7 +65,7 @@ Status of facts: an external claim carries a source tag `[S#]` (section 11). `[R
 
 Full detail, copy and states are in `ui-design.md` sections 4 and 5. Summary:
 
-**Sidebar (management layout):** Projects, AI tasks, Pull requests, Accounts; sign-in status (one row per AWS portal, GitHub account, Bitbucket account); Git settings, Health, Tutorial; the keep-awake chip while it is held; Settings (dot when an update is ready). The Terminal helper page is removed; its job moves into the workspace.
+**Sidebar (management layout):** Projects, AI tasks, Tickets (milestone 8; 4.17), Pull requests, Accounts; the AI usage chip (4.16); sign-in status (one row per AWS portal, GitHub account, Bitbucket account); Git settings, Health, Tutorial; the keep-awake chip while it is held; Settings (dot when an update is ready). The Terminal helper page is removed; its job moves into the workspace.
 
 **Projects page:** today's Repositories table, grouped into collapsible project sections (the same component as portal sections on Accounts). Rows show provider mark, the repository's local folder name (and "remote: NAME" as secondary text when the two differ), account chip, branch and sync counts, status, AI badge. Drag or bulk-move between projects. Repositories in no project sit in "Ungrouped". New in revision 2: "Hide repository" and a one-time review of newly found repositories (4.4).
 
@@ -102,6 +103,10 @@ Not tabs: the **working-tree switcher** in the header (main workspace, or any AI
 | `sessions/<task-id>/` | Per task: the session-only hook plugin, the saved scrollback of an ended session (mode 0600; a setting turns saving off). Never in a backup or an export. Removed by "Free up space" (4.8a). | `internal/tasks`, `internal/terminal` |
 | `recovery/` | Mirrors of unsaved editor buffers, one file per open buffer, removed on save or discard | `internal/editorfs` |
 | `known_hosts` | The providers' pinned SSH host keys, app-managed | `internal/sshx` |
+| `notifications.json` | `schemaVersion`, whether the app asked for notification permission, the last notice sent per portal sign-in (4.15). No notification text. | `internal/notify` |
+| `ai-accounts.json` | `schemaVersion`, the AI accounts per tool: label, colour, order, the config folder path (empty for the default account), which shared parts are linked, the last usage reading with its time (4.16). **No token, no email address, nothing read from a tool's account file.** | `internal/aiaccounts` |
+| `tickets.json` | `schemaVersion`, tickets (text, repository, tool, state, order, the linked task) and the queue's own state (4.17). Ticket text is the owner's own writing: it is in a backup, and in an export only when the owner ticks "tickets". | `internal/tickets` |
+| `ai-accounts/<tool>/<slug>/` | The config folder of one **extra** AI account. The tool owns everything inside (its sign-in, its account file). The app creates the folder and the links to the shared parts, nothing else. Never in a backup or an export. | the tool; links by `internal/aiaccounts` |
 
 Every file: atomic write (temp file + rename), a `schemaVersion`, forward migration with a backup snapshot before the first write of a new version, and a refusal to load a file whose version is newer than the app understands (the app says so instead of overwriting it).
 
@@ -134,8 +139,23 @@ AIToolConfig   { tool:"claude"|"codex"|"opencode", command, extraArgs:[...], ena
 RepoAIConfig   { defaultTool?, defaultIsolation?: "worktree"|"main", setupCommand?, preselectAwsProfile:false }
 
 AITask         { id, repoId, title, tool, isolation, worktreePath?, branch?, baseBranch, baseCommit,
-                 state, createdAt, endedAt?, exitCode?, toolSessionId (created by the app at task creation) }
+                 state, createdAt, endedAt?, exitCode?, toolSessionId (created by the app at task creation),
+                 aiAccountId (the account of the current session; changes on a switch, 4.16), ticketId? }
    state       = "starting" | "running" | "waiting" | "done" | "failed" | "stopped"
+   limit       = none | { window:"session"|"weekly"|"model", resetsAt?, continuesBy:"tool"|"queue"|"nobody" }   (memory only; 4.16)
+
+AIAccount      { id, tool:"claude"|"codex", label, color, order, configDir? (empty = the tool's own default folder),
+                 linked:[...shared parts], isDefault, lastUsage?: UsageReading }
+UsageReading   { readAt, source:"tool-report"|"unknown", creditsOn?: bool,
+                 windows:[{ kind:"session"|"weekly"|"weekly-model", model?, usedPercent, resetsAt? }] }
+
+Ticket         { id, text (Markdown), repoId?, tool?, isolation?, order, createdAt, updatedAt,
+                 state, taskId?, note?: "limit"|"needs-you"|... , endedAt? }
+   state       owner: "editing" | "on-hold" | "queued"
+               system: "running" | "waiting-reset" | "needs-you" | "done" | "failed" | "skipped"
+
+Queue          { paused: bool, pausedReason?, currentTicketId?, settings: QueueSettings }   (one for the whole app)
+QueueSettings  { reservePercent:0, allowCredits:false, autoSwitch:true, askBeforeEach:false, queueNote: text }
 
 TerminalSession { id, repoId?, taskId?, cwd, kind:"shell"|"ai", pid, cols, rows, startedAt }   (memory only)
 ```
@@ -154,6 +174,7 @@ TerminalSession { id, repoId?, taskId?, cwd, kind:"shell"|"ai", pid, cols, rows,
 | SSH private keys | `~/.ssh/codepass_<provider>_<login>_ed25519`, mode 0600; on Windows an ACL that allows only the user | `ssh` needs a file or an agent. Keys the app creates have no passphrase, and the UI says so. Any process of the user, including an AI task, can read them. |
 | GitHub / Bitbucket API tokens, macOS | Keychain, through **Security.framework** called from Go (cgo is already on) | The keychain item then trusts Codepass's code signature only. A library that shells out to `/usr/bin/security` would make the item readable by that tool, and so by any process, without a prompt [R11]. |
 | The same, Windows | Windows Credential Manager | Readable by any process running as the user. The UI says so. |
+| AI tool sign-ins (Claude Code, Codex, OpenCode) | **Not the app's.** Each tool keeps its own sign-in in its own config folder or in its own keychain entry for that folder. Codepass never reads, copies, stores or sends one (4.16). | Any process of the user, including an AI task, can read what the tool stores in a file. An extra account's folder under `~/.codepass/ai-accounts/` may hold that tool's sign-in as a file (Codex's `auth.json`; Claude Code's fallback file when the Keychain refuses); the folder is mode 0700 and is never in a backup or an export. |
 | Update signing public keys (two: current and next) | Compiled into the binary | The trust anchor cannot be replaced by a download. |
 | Update signing private key, Developer ID certificate | The owner's Mac only. Never in GitHub Actions or any CI secret. | Release builds are made on the owner's Mac (4.14). |
 
@@ -223,6 +244,8 @@ Rule: Homebrew is required on every Mac, winget on every Windows PC, plus git an
 
 After the first scan, repositories that were already listed stay; newly found ones go through the one-time review (4.4).
 
+A data folder written by AWS SSO Hub 0.0.2 upgrades like a 0.0.1 one: its extra session fields in `settings.json` (`sessions.*.sessionEndsAt`, `sessions.*.newSession`) are read as they are and kept, and nothing else in that folder differs.
+
 ### 4.3 Add a GitHub or Bitbucket account
 
 Four steps (`ui-design.md` 5.11): account; SSH key (create one, or use an existing key that no other account in the app uses); give the public key to the provider and verify with `ssh -T` using exactly that key; API token.
@@ -278,7 +301,8 @@ Rules that the review added:
 3. **Launch without building shell text:** `$SHELL -l -i -c '"$@"' codepass <tool> <args...>` in a PTY in the task folder. The description travels as the first message in argument form only: after `--` for Claude Code and Codex (their positional prompt), as `--prompt=<text>` for OpenCode, so a description that starts with a dash is never read as a flag (a description of `--dangerously-skip-permissions` is just text). The user's login shell still applies (PATH, version managers, a `claude` shell function), but no task value is spliced into a command string [R11]. Windows: the tool's executable is started directly under ConPTY with an argument list. Two consequences found in milestone 0: a shell function puts its own flags **before** the app's, so anything the app passes must not depend on flag order (4.8); and a tool started through a function runs in its own process group, so stopping a task kills by terminal session, not by group (4.8). OpenCode is always started with `--standalone`: without it OpenCode hands work to a shared background service that outlives the task, ignores the task's environment and cannot be stopped with it [M0 S0-03].
 4. **Environment, built explicitly:** `TERM=xterm-256color`, `COLORTERM=truecolor`, a UTF-8 `LANG` (apps launched from Finder get none, which breaks Chinese input in zsh), the proxy variables; `AWSSSOHUB_*` and `WAILS_*` variables removed.
 5. **Installed on first use:** if the tool is missing, the terminal area shows the exact brew (or winget / npm) command and "Install and start". Detection uses only `--version` (`opencode auth list` starts OpenCode's background service).
-6. Sign-in to each AI tool is the tool's own. The app stores no AI credentials.
+6. Sign-in to each AI tool is the tool's own. The app stores no AI credentials. With several accounts per tool (4.16) this stays true: the launcher only adds the chosen account's folder variable (`CLAUDE_CONFIG_DIR` or `CODEX_HOME`) to the environment in point 4; the default account adds nothing.
+7. **Helper calls run in print mode, under the same account.** The naming call (point 1) and the usage reading (4.16) are short headless calls. They run with the same account variable as the task. Claude Code documents that in print mode an `ANTHROPIC_API_KEY` in the environment "is always used when present" [U]: with such a key in the shell profile, these calls would be billed to the API key instead of the plan. The start-up probe (4.16) detects that; the helper calls then do not run, naming uses its quiet fallback, the meter reads "unknown", and the UI says why.
 
 **What a task can do, stated in the UI:** it runs as the user. It can read `~/.aws/config` and use any signed-in AWS profile, read every passphrase-less SSH key, and run any command. The app never passes a flag that skips a tool's permission prompts, and shows each tool's approval or sandbox mode in the task header. "Start tasks with this repository's AWS account selected" is a convenience setting, off by default, and is described as a convenience, not a safeguard.
 
@@ -297,11 +321,11 @@ Why the app creates the worktree instead of `claude --worktree`: that flag place
 | stopped | The owner stopped it, or the app quit | app |
 
 - **Hooks are injected per launch, never written into the user's own settings** [M0 S0-03].
-  - Claude Code: a **session-only plugin** passed with `--plugin-dir` (a folder with `.claude-plugin/plugin.json` and `hooks/hooks.json`); a `--settings` file is only the fallback. Two `--settings` flags do not merge: the last one wins and the earlier ones are ignored entirely. The owner's `claude` shell function passes `--settings`, so a second one from the app would either lose the app's hooks or drop the owner's settings, depending on order. Plugin hooks add to whichever settings win. Only the events the state needs are subscribed (`SessionStart`, `UserPromptSubmit`, `Notification`, `PermissionRequest`, `Stop`, `SessionEnd`); tool-call hooks would add a process start to every tool call.
+  - Claude Code: a **session-only plugin** passed with `--plugin-dir` (a folder with `.claude-plugin/plugin.json` and `hooks/hooks.json`); a `--settings` file is only the fallback. Two `--settings` flags do not merge: the last one wins and the earlier ones are ignored entirely. The owner's `claude` shell function passes `--settings`, so a second one from the app would either lose the app's hooks or drop the owner's settings, depending on order. Plugin hooks add to whichever settings win. Only the events the state needs are subscribed (`SessionStart`, `UserPromptSubmit`, `Notification`, `PermissionRequest`, `Stop`, `SessionEnd`); tool-call hooks would add a process start to every tool call. **Added for the usage limit and the queue (4.16, 4.17):** `StopFailure` (a turn ended by an API error; its error kind `rate_limit` is the "limit reached" signal) and one `PreToolUse` hook whose matcher is the single tool name `AskUserQuestion` (the AI asks the person a question), so it runs for that tool only [U].
   - OpenCode 2.x: a plugin given through `OPENCODE_CONFIG_CONTENT` (no file written), with `--standalone`.
   - Codex: its lifecycle hooks if they can be supplied per launch without a trust prompt; otherwise `-c notify=[...]`, which reports only "turn complete" and replaces a user's own `notify`, so it is used only when the user has none; otherwise the fallback. Not verified (Codex was not installed): `manual-checks.md` A8.
-  - The hook command is the app's own binary in a tiny "report" mode. The launcher sets `CODEPASS_TASK` in the task's environment; report mode sends only **task ID, event, session ID and permission mode** to the running app over a local socket and exits at once. Hook payloads carry the prompt, tool input and the last assistant message; none of that is forwarded or logged.
-  - Byte-identical before and after a task: `~/.claude/settings.json`, `~/.codex/config.toml`, `~/.config/opencode/opencode.json`, `~/.config/opencode/service.json`. (`~/.claude.json` and the tools' data folders are rewritten by the tools themselves.)
+  - The hook command is the app's own binary in a tiny "report" mode. The launcher sets `CODEPASS_TASK` in the task's environment; report mode sends only **task ID, event, session ID and permission mode** to the running app over a local socket and exits at once. Hook payloads carry the prompt, tool input and the last assistant message; none of that is forwarded or logged. **Three more fields, each a value from a fixed list and never free text** (4.16, 4.17): the error kind of `StopFailure` (`rate_limit`, `overloaded`, `authentication_failed`, `billing_error`, `server_error`, `other`); the notification type (`permission_prompt`, `idle_prompt`, `elicitation_dialog`, `quota_auto_resume_fired`, `quota_auto_resume_stale`, `quota_auto_resume_disabled`, `other`); and the end marker of a queued ticket (`done`, `question`, `none`), which report mode works out locally by comparing the last line of the last assistant message with two fixed words. A value outside a list is sent as `other`.
+  - Byte-identical before and after a task, **in the config folder of the account the task ran under** (4.16; the paths below are the default account's): `~/.claude/settings.json`, `~/.codex/config.toml`, `~/.config/opencode/opencode.json`, `~/.config/opencode/service.json`. (`~/.claude.json` and the tools' data folders are rewritten by the tools themselves.)
 - **Fallback when no hook exists** [R-S6]: "output is flowing" alone is wrong both ways (a tool that redraws while idle looks busy forever; a 20-minute silent build looks idle). The foreground process of the terminal is the tool itself (`TIOCGPGRP` on the PTY plus one `ps` call on macOS; a process-tree walk on Windows), and with the app's launch form the shell exits together with the tool. So the fallback can only tell **alive** from **exited**, never working from waiting. States are advisory; the terminal is one click away.
 - **Resume uses session IDs the app creates** when the task is created: Claude Code `--session-id <uuid>` (from the tool's help text; not run yet), OpenCode `--session ses_<id>` (verified: created if absent); Codex's ID is captured from its hook or `notify`. The ID seen in hook events is the cross-check. Not `--continue`, which is ambiguous with several sessions in one folder. Claude Code keeps conversations per folder, so resume runs in the same folder.
 - "Waiting" raises the sidebar count, the repository row badge and a system notification when the window is not focused.
@@ -315,8 +339,9 @@ Why the app creates the worktree instead of `claude --worktree`: that flag place
 | Codex | approval policy and sandbox mode | `on-request`, `never`; `read-only`, `workspace-write`, `danger-full-access` | hook payloads (documentation); `~/.codex/config.toml`, read-only |
 | OpenCode | permission rules | `allow`, `ask`, `deny` per action | the merged config; no event carries it, so it may read "unknown" |
 
-The owner's own Claude Code default is `bypassPermissions`. The header will show exactly that, and "waiting for permission" will be rare for him.
-- A soft cap (default 6) asks before starting more: all sessions of one tool share one sign-in and one usage allowance.
+The owner's own Claude Code default is `bypassPermissions`. The header will show exactly that, and "waiting for permission" will be rare for the owner.
+- A soft cap (default 6) asks before starting more: all sessions that run under one account share that account's usage allowance. (With several accounts per tool, 4.16, sessions under different accounts do not share one. The cap still counts all running tasks, because it is also about memory and attention.)
+- **A session that hits a usage limit** is `waiting` with a limit note, not `failed`: 4.16 says how it is detected per tool and what the session bar offers.
 
 ### 4.8a Disk space of ended sessions
 
@@ -327,6 +352,8 @@ Owner requirement (2026-11-16). Every ended session shows the disk it holds in t
 | Claude Code | `~/.claude/projects/<folder slug>/<session-id>.jsonl`, the folder `<session-id>/` beside it (sub-agent records), `~/.claude/file-history/<session-id>/` | the app deletes exactly these paths. Layout not verified yet: `manual-checks.md` A6 |
 | Codex | the file under `~/.codex/sessions/` whose name ends in `-<session-id>.jsonl` | the app deletes that file. Not verified: A8 |
 | OpenCode | rows in OpenCode's own database | `opencode session delete <id>`; no file is touched and no size can be shown |
+
+`~/.claude` and `~/.codex` in this table mean **the config folder of the account the session ran under** (4.16). After an account switch a session may have files in the shared, linked folders (one copy, reached from every account) or, with the copy fallback, one copy per account; the preview lists every copy with its full path.
 
 Rules: one session's data can be deleted, or several through "Free up space", and **always after a preview that lists every path and its size**. What is deleted is exactly the previewed list. A session that is starting, running, waiting, or has programs still running is never eligible. A path is listed only when its name contains the full stored session ID; no pattern or prefix match. A workspace with commits that exist in no other branch and no remote needs its own confirmation; those commits stay recoverable for 14 days (4.6), uncommitted files do not, and the dialog says so. Deletion does not go through the system trash (the point is to free space).
 
@@ -380,7 +407,7 @@ A full code browser and editor for the whole repository, with GoLand / WebStorm-
 - **Browse:** project file tree with git status colours and letters, filter, "changed files only", compact single-child folders, context menu (new, rename, delete to trash, reveal, file history).
 - **Edit:** multiple tabs with preview tabs, dirty markers and save; split view; multiple cursors; find and replace in file; go to line; breadcrumbs; change bars in the gutter with inline hunk diff and revert.
 - **Navigate:** quick open (Cmd/Ctrl+P), go to symbol in file and outline, find in files with a results panel and replace all, palette (Cmd/Ctrl+K).
-- **Code intelligence through language servers, Go (gopls) and TypeScript / JavaScript (the TypeScript 7 native server, `tsc --lsp -stdio`; typescript-language-server for projects on TypeScript 5 or 6):** go to definition, peek definition, find references, hover, autocomplete, diagnostics, workspace symbols. Other languages (Python, Java, SQL, YAML, JSON, Markdown, Dockerfile, shell): syntax highlighting, outline from the editor's parser, bracket matching, find.
+- **Code intelligence through language servers, Go (gopls) and TypeScript / JavaScript (the TypeScript 7 native server, `tsc --lsp -stdio`; typescript-language-server for projects on TypeScript 5 or 6):** go to definition, peek definition, find references, hover, autocomplete, diagnostics, workspace symbols. **PHP** gets the same (owner, 2026-11-16: the owner also works in PhpStorm); the server is chosen by E5-11's research before any code (Intelephense: Node runtime, free tier, not open source; Phpactor: open source, needs PHP 8.1+), installed on consent like the others, and a fresh task workspace without `vendor/` holds diagnostics back the way one without `node_modules` does. Other languages (Python, Java, SQL, YAML, JSON, Markdown, Dockerfile, shell): syntax highlighting, outline from the editor's parser, bracket matching, find.
 - **Which TypeScript server** [M0 S0-06]: typescript-language-server 6.1.0 does not start in a TypeScript 7 workspace (TypeScript 7 has no `tsserver.js`), and `brew install typescript-language-server` pulls in TypeScript 7. Rule: the workspace has `node_modules/typescript` 7 or later, or none (a fresh task workspace) -> the native server from the `typescript` package, started as `tsc --lsp -stdio`. The workspace has TypeScript 5.x or 6.x -> typescript-language-server, which then uses the workspace's own `tsserver.js`. The native server reports diagnostics only when asked (pull), which the editor library does not do by itself; the app adds that.
 - **"Installed automatically" hides toolchains:** gopls needs Go (`brew install gopls` does not bring it) [R-S10]. On macOS the native TypeScript server needs no Node; typescript-language-server brings Node with it. The app asks before installing a toolchain and shows its size. Windows: winget has Go and Node but not the servers, so the servers come from `go install` and `npm -g`; Node is needed only to run `npm`, and the app starts the native `tsc.exe` directly. The Windows path is not verified (`manual-checks.md` B12).
 - **Resources** [R-S5] [M0 S0-06]: one server per language per open working folder. Measured: gopls 0.3 to 1.3 GB depending on cache state (1.1 GB on 2,003 files), typescript-language-server about 0.9 GB, the native TypeScript server about 0.3 GB. Idle servers, and servers whose page has not pulled for 10 minutes, shut down; at most **2** run at once by default (4 on machines with 32 GB or more). A fresh task workspace without `node_modules` holds TypeScript diagnostics back and shows a hint instead of a flood of errors.
@@ -419,6 +446,230 @@ Milestone 0 built this against a fake releases API and a real signed `.app`: 17 
 10. **Windows** has no Authenticode check while the build is unsigned; trust rests on the manifest signature and digest. The Windows gate (file version equals manifest version) is written and run on a VM in milestone 1.
 
 UI: a quiet banner and a dot on Settings, never a modal on launch; download, verify, replace, reopen with progress; with AI tasks running the choice is "Reopen now" or "Reopen when no task is running" (an interactive session never exits by itself). If the app cannot replace itself (read-only location, no write access to Applications) it says so **before** downloading, names the folder, and says how to fix it.
+
+### 4.15 System notifications
+
+Owner's requirement (2026-11-16): when an AWS sign-in expires, macOS shows a notification that names the account, with a button that starts the sign-in again.
+
+Research: `docs/research/notifications.md` [N]. Short result: the button is possible on macOS and on Windows. Nothing was run yet; the manual checks M1 to M10 and W1 to W4 in that file are acceptance for the task that builds this.
+
+**One service for the whole app.** `internal/notify` is the only code that talks to the operating system about notifications. Every feature sends through it.
+
+| Kind | Sent by | Built |
+|---|---|---|
+| Sign-in heads-up | accounts engine (the existing reminder) | now |
+| Sign-in ended | accounts engine | now |
+| "Codepass is still running" | window close with tasks running (design 4.4) | milestone 2 (A2-08) |
+| AI task is waiting | task lifecycle (4.7, design 5.6) | milestone 2 (A2-11) |
+| Ticket queue: needs you, paused for the limit, continued on another account, queue finished | the queue (4.17) | milestone 8; the same service, texts in design 6 |
+
+- **Why one service.** The framework has a single response callback for the whole app, and button texts are registered once per kind [N 1]. One owner avoids two features overwriting each other.
+- **What a sender gives:** a kind, a stable ID, the title and body already in the person's language, and a small data map with identifiers only. The service adds the buttons for that kind, checks the setting and the permission, sends, and later routes the click back to the feature.
+- **The service wraps the framework's notification service and starts it itself.** A start failure (a bare binary has no bundle identifier) is caught and logged; the app then runs with in-app toasts only. The framework's service is never registered directly, because a service that fails to start stops the app [N 1, limit 6].
+- **Started at app start**, so a click on an old notification reaches the app even when that click is what launched it.
+- **Button texts follow the language.** They are registered at start and again when the language changes.
+- **Format rules for every kind:** title and body only; one button at most; no sound for a heads-up or for "still running", the default sound for "ended" and "task waiting".
+
+**Sign-in: when a notification is sent.** "Sign-in" here means one portal sign-in (one `sso-session`), not one profile. A portal with five accounts gets one notification, not five.
+
+1. **Heads-up, before the end.** The existing reminder: setting `reminders.expiryNotice` (on) and `reminders.leadMinutes` (15, 30 or 60). The engine already emits `session:reminder` once per sign-in when the time left drops below the lead time. The service now turns that event into a system notification. Nothing listens to the event today, so until now this setting did nothing visible.
+2. **Ended.** Sent once when the app sees that the sign-in is over: the session state becomes `expired`. That is: AWS showed the end and the end has passed, or AWS refused a renewal and the last token ran out, or the token ran out and the app cannot renew it. New setting, on by default (see "Settings" below).
+
+**What it says.** One line names the portal, one line names who and what.
+
+- Title: the kind and the portal's display name. "登录已过期：acme / Sign-in expired: acme".
+- Body, first part: the Identity Center user when the app knows it, then the AWS accounts this sign-in covers. One account: its name. Two: both names. Three or more: the first name and a count, "acme-prod 等 3 个账户 / acme-prod and 2 more". Accounts are the distinct account names of the portal's profiles, in the order of the Accounts page.
+- Body, second part: what to do, or how long is left. Full copy for both languages is in the design (ui-design 6).
+- The Identity Center user is left out when the app does not know it. It is never guessed from a profile name.
+- The time in a heads-up always says "about" ("大约 15 分钟后 / in about 15 minutes"), because the end is an estimate until AWS shows it.
+
+**Text that never appears** in a title, a body or the data map: tokens, the device code, any URL or start-URL host, account IDs, role names, email addresses other than the Identity Center user name, file paths. Reason: a notification is shown on the lock screen, kept by the system after the app quits, and on Windows the whole notification is stored inside the button's argument [N 3.2]. The data map holds the kind, the portal name and the sign-in time it was sent for, nothing else.
+
+**The button "重新登录 / Sign in again".** Both sign-in kinds have it, and it is the only button.
+
+- It starts that portal's sign-in exactly like the button on the pass: the isolated sign-in window (a separate browser instance with a throw-away profile), the same progress on the Accounts page, the same result handling.
+- It does not bring the Codepass window forward. The browser window is what the person needs next.
+- A sign-in for that portal is already running: nothing new starts; its browser window is brought forward.
+- The portal is already signed in again (a stale notification): no new sign-in. The Accounts page opens at that portal with the toast "已经登录了 / Already signed in". "Signed in again" means: the portal's current sign-in is newer than the one the notification was sent for. So the heads-up button, pressed while that same sign-in is still running, does start a sign-in: signing in again before the end is the point (see the last paragraph).
+- The portal no longer exists: the Accounts page opens, with nothing selected.
+- The app was not running: the click starts Codepass, and the sign-in starts as soon as accounts are loaded. The startup checks (old app running, tools gate) come first; if one of them blocks, the click is dropped and the window shows the gate.
+- Sandbox mode never starts a real browser, as today.
+
+**A click on the notification itself** shows the Codepass window (also when it was hidden or the app was closed) and opens the Accounts page scrolled to that portal, with the pass highlighted once.
+
+**When not to notify.**
+
+- **Already signed in again.** A successful sign-in removes that portal's delivered notification (macOS) and resets its record. No "ended" notice is sent for a sign-in that was replaced before it ended.
+- **Signed out by the person.** Signing out in the app is not "expired". Nothing is sent, and a delivered heads-up is removed.
+- **Duplicates.** One heads-up and one "ended" per sign-in, keyed by the portal and the sign-in time. Both use the same notification ID per portal, so on macOS "ended" replaces the heads-up instead of adding a second entry. The last key sent per portal is stored (see "Storage"), so a restart inside the lead time does not send the heads-up twice.
+- **A sign-in that ended while the app was closed.** No notification at start, however long ago it ended. Reason: the person has just opened the app and the passes show the state at once; a banner for something already on screen is noise, and on Monday morning it would be one banner per portal. At start, every portal that is already expired is marked as "told".
+- **A sign-in that ended while the computer slept.** The app was running, so one "ended" notice is sent when the app sees it after waking. Reason: the person has not been told, and the window may be hidden.
+- **A heads-up right after signing in.** Skipped when the sign-in itself happened inside the lead time (a session shorter than the lead time). The person signed in a moment ago.
+- **A renewal that fails for a network reason is not "expired".** Offline, a proxy error or a timeout leaves the state as it is; the app tries again on the next tick and shows the existing inline error. "Ended" is sent only when AWS says so or a known end has passed. An estimated end that passes while the token still works is also not "expired".
+- **Several portals at once.** Each gets its own notification. They are different sign-ins and each needs its own button.
+- **Window in front.** Sign-in notifications are sent even when Codepass is the front app (the person may be in a workspace, far from the Accounts page). The "AI task is waiting" kind keeps its own rule: only when the window is not focused.
+
+**Automatic renewal is unchanged.** "Renew sign-in automatically" (`reminders.autoRenew`) keeps renewing the one-hour access token inside the session and sends no notification, whether it works or not.
+
+**Permission on macOS.**
+
+- macOS asks the person once, the first time the app requests it [N 2.4]. Codepass requests it **the first time a portal is signed in while the window is in front**, not at first launch. Reason: at that moment the question has an obvious reason, and a person who uses no AWS account is not asked until another kind needs it (the first AI task start; the first "still running" notice).
+- The request runs in the background and never blocks the window. The app stores that it asked.
+- **Allowed:** nothing is shown.
+- **Not asked yet:** Settings shows one hint row with "允许通知 / Allow notifications".
+- **Turned off** (asked before, and macOS says no): Settings shows a hint with "打开系统设置 / Open System Settings". The app never asks again by itself and shows no banner about it elsewhere. While the Codepass window is visible, the same text and button appear as an in-app toast instead. While it is hidden, nothing appears; the passes and the sidebar badge still show the state.
+- The app cannot see Focus modes or a banner style of "None". So no screen may depend on a notification having been seen.
+
+**Windows.** The same service, kinds, texts and button. Differences, all from the framework [N 3]:
+
+- No permission question, and the app cannot tell whether notifications are off. Settings shows one help line instead of a state.
+- A shown notification cannot be replaced or removed. A heads-up may still be in the notification centre after "ended" arrives, and both may remain after signing in. The stale-click rules above cover it.
+- Whether the portable, unsigned exe can show notifications without a Start-menu shortcut is not confirmed (manual check W1). If it cannot, notifications on Windows need the installer, and the portable exe falls back to in-app toasts.
+
+**Sandbox mode and tests use a fake.** `AWSSSOHUB_SANDBOX` always selects it; so do unit and end-to-end tests. The fake records each notification, can report any permission state, and has a "respond" call that presses the button or the body, so the routing code is the same as for a real click. In sandbox mode it also shows each notification as an in-app toast. Reason beyond testability: the development build has the same bundle identifier as the installed app, so a real notification from it would use, and could change, the installed app's notification permission [N 2.9]. Real notifications in a development build are opt-in with one environment variable, for the manual checks only.
+
+**Settings.** `settings.json` takes only fields whose zero value is safe (3.1), because one run of the old app drops unknown fields. The new switch is therefore stored as "off": `reminders.endedNoticeOff` (absent or false = notify). The existing `reminders.expiryNotice` and `reminders.leadMinutes` keep their meaning.
+
+**Storage.** `notifications.json` in the data folder (`schemaVersion`; "asked for permission: yes/no"; per portal, the key of the last heads-up and the last "ended" notice sent). It holds no secret and no text from a notification. It is not part of an export.
+
+**The session length is the administrator's.** An IAM Identity Center administrator sets how long a session lasts, and the app cannot change or extend it; that is why the button signs in again instead of "extending", and why signing in again from the heads-up, before the end, is the way to keep working without a gap.
+
+### 4.16 AI accounts and the usage meter
+
+Owner's requirements (2026-11-16): several accounts per AI tool; when one account's usage is used up, the running session continues on another account with its conversation; and the app shows the usage, so Claude Desktop need not be opened for it. The owner also decided that Codex gets the same as Claude Code.
+
+Research: `docs/research/claude-usage-accounts.md` [U]. **Nothing in this section has been run.** The checks R1-M1, R2-M1 to M4 and R5-M1 to M5 in that file are acceptance for the tasks that build it; Codex was not installed when it was written. The numbered choices below are the planner's, written so the owner can correct them.
+
+**Scope (planner's decision 1).** Claude Code and Codex get accounts, the meter, the queue's usage check and switch-and-resume. OpenCode gets none of these in 1.0: it shows no usage and no limit signal [U R6]. Its tasks and tickets still run.
+
+**An account is a label and a config folder (decision 2).**
+
+- Each tool already has one variable that moves its whole state: `CLAUDE_CONFIG_DIR` for Claude Code (documented by Anthropic for "multiple accounts side by side") and `CODEX_HOME` for Codex (documented as the state folder; its use for accounts follows from the code, not from a docs page) [U R2, R5b].
+- **The default account** is the tool's own default folder (`~/.claude`, `~/.codex`) with the variable **unset**. The app never moves it, never writes into it and never sets the variable to that path (Claude Code picks a different Keychain entry when the variable is set, even to the default path [U R2]).
+- **An extra account** is a folder `~/.codepass/ai-accounts/<tool>/<slug>/` (mode 0700, no space in the path, so the owner can use it in any terminal with the same variable). `<slug>` comes from the label.
+- **Sign-in is the tool's own.** "Add account" creates the folder and opens an app terminal that runs the tool's login command with the variable set (`claude auth login`, `codex login`). Codepass never sees, reads or stores a token, and never touches a tool's Keychain entry. Removing an account runs the tool's logout in that folder first, then deletes the folder after a preview of its paths.
+- **Who the account is** comes from the tool, on demand: `claude auth status` (JSON; exit 0 when signed in) and `codex login status`. The app shows "signed in / not signed in" and the sign-in kind. It stores neither an email address nor a plan name; the owner's label is the name.
+- **Shared parts, with the owner's consent once, in the add-account sheet.** Each extra folder gets links to the default folder for:
+  - Claude Code: `projects/` and `file-history/` (needed so another account can resume a conversation), and by default `settings.json`, `CLAUDE.md`, `agents/`, `skills/`, `commands/`, `plugins/` (so the tool behaves the same under every account). Each of the second group can be unticked.
+  - Codex: `sessions/` (needed for resume) and `config.toml`, both always linked: `config.toml` holds the owner's approval policy and sandbox mode, and those must be the same under every Codex account, so a switch never changes what the AI may do. By default also `AGENTS.md`, the prompts folder and the other shared parts found at the first install (hooks file, skills); each of these can be unticked. The exact names are not verified [U R5b].
+  - **Never shared:** the account file and the sign-in (`.claude.json`, `.credentials.json`; `auth.json`). So user-scope MCP servers and folder trust are set up once per account; the sheet says so.
+  - Links are plain symbolic links (Windows: directory junctions; files copied once instead, with a note). The app creates them, lists them in the account's details, and removes only links it created.
+- **If linked resume does not work** (R2-M2 step 6; R5-M4): no links for the session folders; at switch time the app copies that one session's files into the other account's folder (the same paths 4.8a lists).
+
+**The launcher and the shell (decision 3).** The account's variable goes into the task's explicit environment (4.7 point 4). The owner's login shell runs after that and could override it. So at app start a probe runs once in the login shell and reports only **which of these names are set, never a value**: `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`, `OPENAI_API_KEY`, `CODEX_API_KEY`. Results:
+
+| Found in the shell | What the app does and says |
+|---|---|
+| `CLAUDE_CONFIG_DIR` or `CODEX_HOME` | The shell decides the account, not Codepass. Accounts for that tool are shown but cannot be chosen; one line names the variable and says to remove it from the shell profile. |
+| An API key or token variable | The tool would use it instead of the plan sign-in. The meter for that tool reads "unknown"; helper calls in print mode do not run (4.7 point 7); a warn line names the variable. Tasks still start: which credential a tool uses is the owner's choice. |
+| None | Nothing is shown. |
+
+**Reading the usage (decision 4).** Always through the tool, in the account's folder. Never a credential, never an undocumented endpoint.
+
+| Tool | How | What comes back |
+|---|---|---|
+| Claude Code | `claude -p "/usage"` with JSON output, run in an empty folder under the app's data folder; the structured `usage_report` on the reply [U R1] | per window: kind (session, weekly for all models, weekly for one model), percent used, reset time; whether usage credits are on. The type is marked experimental by Anthropic. |
+| Codex | a short-lived `codex app-server` (stdio), `initialize`, then `account/rateLimits/read`, then exit [U R5a] | two windows (told apart by their length in minutes), percent used, reset time, plan, credits |
+
+- **When:** at most once every 5 minutes per account while a meter is on screen; once before each queued ticket (4.17); once after a limit signal. A tool's own "rate limited until" answer is respected and shown as the reading's age.
+- **Not confirmed yet:** that either call works as described and spends no model request (R1-M1, R5-M1). **If a call fails or is not available,** the meter says "未知，运行过一次会话后才知道 / Unknown until a session has run" for Claude Code (then the last limit signal is all the app knows) and "未知 / Unknown" for Codex; nothing else changes.
+- A reading is a snapshot with its time. The app never counts tokens itself and never estimates.
+- The numbers are the account's, not the app's: use in the tool's other apps counts too [U R1].
+
+**When a limit is reached in a running session (decision 10).**
+
+| Tool | Signal | Reset time known from |
+|---|---|---|
+| Claude Code | hook `StopFailure` with the error kind `rate_limit`; later `Notification` types `quota_auto_resume_fired`, `_stale`, `_disabled` [U R1] | a usage reading taken right after the signal |
+| Codex | no hook. After each turn end or exit, and every 5 minutes while a session runs, the app takes a reading; a window at 100% or a "limit reached" flag while the session is not working means the limit [U R5a] | the reading |
+
+- The session becomes `waiting` with a limit note (4.8). The session bar shows a banner: which limit, when it resets, and two actions: "在 B 上继续 / Continue on B" when another account of that tool has room, and "等待 / Wait".
+- **Claude Code continues by itself.** Since 2.1.234 an interactive session waits and continues after the reset, up to three times (`autoContinueAtUsageLimit`, on by default) [U R1]. The app reads the effective setting, read-only, and the banner says "Claude Code 会在 3:45 自己继续 / Claude Code continues by itself at 3:45". The app does not send a second "continue". Only the owner can change that setting, in the tool.
+- **Codex does not.** "Wait" for a Codex session means: the app resumes it at the reset with `codex resume <id>` and the message "continue", if the owner ticked "到时自动继续 / Continue automatically" in the banner (off for an interactive session; the queue always does it, 4.17).
+- **Usage credits.** With credits on, neither tool stops at the limit: it keeps going and bills at API rates [U R1, R5a]. The meter shows "已开启用量额度 / Usage credits are on" beside that account. An interactive session is the owner's own business and is not stopped. The queue's rule is in 4.17.
+
+**Switch and resume (decision 9).** "Continue on B" for a session of account A:
+
+1. Only between turns. A session that is working is asked to stop first (the normal Stop, with its confirm).
+2. The confirm says what it costs: "B 上的第一轮会把整段对话重新发送一遍，会用掉 B 的一部分用量。 / The first turn on B sends the whole conversation again and uses part of B's allowance." [U R2]
+3. The tool is stopped. With the copy fallback, the session's files are copied.
+4. The tool starts again in the same task folder with B's variable: `claude --resume <id>` or `codex resume <id>`, with the first message "continue" when the session was mid-task. The task keeps its record; `aiAccountId` changes; the session bar shows the account.
+5. **If resume fails** (the tool reports an error or exits within a few seconds without a turn): nothing more is tried on that conversation. The app offers "在 B 上新开一个会话 / Start a new session on B" in the same workspace with the ticket or task text plus "Continue from the current state of the branch." The work on the branch is kept; the conversation is not, and the dialog says so in those words.
+
+Cross-account resume is **not verified for either tool**. For Codex the risk is concrete: its session file records the account that created it [U R5b]. Until R2-M2 and R5-M4 pass, the builder treats step 5 as a likely path, not an edge case.
+
+**Auto-switch** is a setting per tool, on by default once a tool has two accounts: at a limit, the app picks the first account in the owner's order that has room (below 100% minus the reserve on every window) and does steps 1 to 5 without the confirm. It tells the owner by a banner on the session bar and, for a queued ticket, a notification. It never switches a session that is working, never switches twice within one turn, and never switches back by itself.
+
+**What the UI shows** (design 5.16): an AI accounts group on the Accounts page; a usage chip in the sidebar with a popover that lists every account of both tools; the account chip and the limit banner on the session bar; the account picker in the New task sheet when a tool has more than one.
+
+**Terms.** Short quotes, links and what was not found are in [U R3] and [U R5d]. Three of them bear on this section. Anthropic's Claude Code legal page: "developers may not collect, store, or intermediate Claude.ai credentials or session tokens — sign-in to a Claude account must complete through Anthropic's own flow"; the same page: it does not "prevent an end user from signing in to the unmodified Claude Code binary with their own Claude subscription"; and "Advertised usage limits for Pro, Max, and Ultra plans assume ordinary, individual usage". No clause was found, for either company, about one person holding several subscriptions. The design above keeps every sign-in inside the tool. Whether to use several subscriptions is the owner's decision.
+
+### 4.17 Tickets and the queue
+
+Owner's requirement (2026-11-16): today, ideas for later are typed into a text editor while the weekly usage is nearly used up. Codepass gets tickets with the owner's three states, 编辑中 (editing), 暂不执行 (on hold) and 待执行 (queued). Queued tickets run one at a time. Each must finish completely before the next starts. Before each one the app checks the usage, and the queue pauses when the limit is reached.
+
+Research: [U R4, R5c]. As in 4.16, nothing here has been run, and the numbered choices are the planner's for the owner to correct.
+
+**A ticket (decision 11).**
+
+- Text in Markdown (shown with the app's safe renderer; raw HTML off). A repository and a tool: both may be empty while editing and are required to queue. Where it runs: own workspace by default.
+- **Quick capture** from any screen, Cmd/Ctrl+Shift+N: a small sheet with the text field focused. It saves as you type (state: editing). Esc closes and keeps the text.
+- **Owner states:** 编辑中 / Editing, 暂不执行 / On hold, 待执行 / Queued. **System states:** running, waiting for reset, needs you, done, failed, skipped. Only the owner moves a ticket between the three owner states; only the queue sets a system state.
+- **One queue for the whole app**, across repositories, ordered by drag. One ticket runs at a time.
+- A ticket that starts becomes **a normal AI task** (4.7): its own workspace, named by the AI, the same terminal, review and merge (4.9). The ticket links to the task and the task to the ticket. Finishing the ticket does not merge anything.
+- Stored in `tickets.json` (3.1). Ticket text is never logged and never put in a notification.
+
+**How a ticket runs (decision 5).** An interactive session in the app's own terminal, started with the ticket text as the first message, with the hooks of 4.8. Not print mode: the owner wants to watch and to step in, permission questions and the tool's own limit wait work as usual, and print mode would treat a key in the environment differently (4.7 point 7) [U R4]. The app adds no flag that skips approvals. A queue runs unattended only as far as the tool's own approval mode allows; with a mode that asks, the ticket stops at the first question and is "needs you".
+
+**When is a ticket finished? (decision 6)** No signal separates "done" from "the AI ended its turn with a question in plain text": both are a normal turn end [U R4]. So:
+
+- The queue appends a short **queue note** to the ticket's first message. It is visible and editable in Settings and shown under the ticket text before queueing: "When everything in this ticket is finished, end your last message with the single line CODEPASS-DONE. If you need an answer from me first, end with the single line CODEPASS-QUESTION."
+- At each turn end, report mode compares the last line of the last assistant message with those two words, locally, and sends only `done`, `question` or `none` (4.8).
+
+| What happened | Ticket becomes | Queue |
+|---|---|---|
+| Turn end with `done`, no background work pending | done | starts the next ticket after its check |
+| Turn end with `question` or `none`; the AskUserQuestion tool; a permission prompt; an input request from a connected server; idle after a turn | needs you | **waits**. One notification. The owner answers in the terminal, or presses "算完成 / Mark done" or "跳过 / Skip" |
+| The owner types into the session | stays running | nothing; the next turn end is judged again |
+| Limit reached | waiting for reset | see below |
+| A turn ended by another error (overloaded, server error): | running, then needs you | the tool retries by itself first; if the turn ends, "needs you" with the error kind |
+| The tool exits non-zero, or sign-in is lost | failed | **waits**; "重试 / Retry" or "跳过 / Skip". A failed ticket never lets the next one start by itself |
+| OpenCode | needs you at every turn end | OpenCode sends no last message to compare (not verified); the owner presses "Mark done" |
+
+The owner's rule "each ticket finishes completely before the next starts" is why every unclear case waits instead of moving on.
+
+**The check before each ticket (decision 8).**
+
+1. A usage reading for the account the ticket will run under (4.16).
+2. **Room** means: the session window and the weekly window (and the weekly window of the model in use, when known) are below 100% minus the reserve. The reserve, "给自己留 / Keep for myself", is a percentage the queue leaves untouched for the owner's own interactive work. Default 0%.
+3. No room on that account, another account of the tool has room, and auto-switch is on: the ticket starts on that account.
+4. No room anywhere: the queue is **paused for the limit** until the earliest reset among the windows that block it. One notification. At that time it reads again; it does not start on a guess.
+5. Reading unknown: the ticket starts, and the limit signal of 4.16 is the safety net. The queue bar says the check could not be made.
+6. **Usage credits.** The queue never starts a ticket, and never keeps one going, on credits unless the owner allows it ("允许队列使用用量额度 / Let the queue use usage credits", off by default). With credits on for the account and not allowed: a window at 100% counts as "no room" even though the tool would continue; and when a running ticket crosses 100%, the queue stops the session at the next turn end and treats the ticket as waiting for reset. The app cannot see a crossing in the middle of a turn before the turn ends, so a single long turn can still spend credits; the setting's help line says so.
+7. OpenCode: no check. The ticket starts.
+8. With "每张票开始前先问我 / Ask me before each ticket" on (default off), the queue stops before every start and waits for "开始 / Start".
+
+**A limit during a ticket: one owner of "continue" (decision 7).**
+
+| Case | Who continues |
+|---|---|
+| Auto-switch on and another account has room | The queue: switch and resume (4.16), at the turn boundary the limit made. Notification "continued on another account". |
+| Claude Code, its own automatic continue on (the default) | **Claude Code.** The queue sends nothing. The ticket reads "等待重置 · Claude Code 会在 3:45 自己继续 / Waiting for reset · Claude Code continues by itself at 3:45". |
+| Claude Code, automatic continue off, or it gave up (`quota_auto_resume_disabled`), or the Mac slept through the reset (`quota_auto_resume_stale`) | The queue: at the reset, after a fresh reading shows room, it resumes the session (`claude --resume <id>` with the message "continue"). |
+| Codex | Always the queue, the same way (`codex resume <id>`, "continue"). |
+| OpenCode | Nobody. A failed turn is "needs you". |
+
+The queue never types "continue" into a session that the tool is about to continue by itself.
+
+**Sleep.** Keep-awake (4.10) holds while a ticket runs. While the queue only waits for a reset, the Mac may sleep; on wake the queue takes a reading and carries on. A reset that passed during sleep is handled by the table above.
+
+**Stopping and editing.** "暂停队列 / Pause queue" stops after the current ticket; "现在停止 / Stop now" stops the running session like any task (its conversation is kept, the ticket goes back to queued with a note). A queued ticket can be edited until it starts. Removing a ticket never removes its task or workspace.
+
+**Notifications** go through the one service (4.15), one button at most, and never contain ticket text: needs you; paused for the limit (with the reset time); continued on another account; queue finished (with counts). Texts are in design 6.
+
+**What the UI shows** (design 5.15): the Tickets page with the owner's three columns, the queue and the finished list; the editor; quick capture; the queue bar with what the queue is doing and why.
+
+**Terms (decision 12).** The queue starts AI sessions by itself, one after another. Two published sentences are about that kind of use [U R3]. Anthropic's Consumer Terms list as not allowed, "Except when you are accessing our Services via an Anthropic API Key or where we otherwise explicitly permit it", "to access the Services through automated or non-human means, whether through a bot, script, or otherwise". Anthropic's Claude Code documentation describes scripted and unattended runs on a subscription sign-in, and its legal page says the advertised limits "assume ordinary, individual usage". For Codex, the quotes in [U R5d] come from search results only and must be read on the live pages. **The owner reads [U R3] and [U R5d] and decides before the queue task is built.** Assumed until then: the queue starts tickets by itself; "Ask me before each ticket" exists for the owner who prefers a person in the loop.
 
 ---
 
@@ -463,7 +714,7 @@ UI: a quiet banner and a dot on Settings, never a modal on launch; download, ver
 
 **In 1.0.0:** everything in sections 2 and 4. The owner decided on 2026-11-16 that nothing moves to 1.1 (decision 4); the list at the end of this section is kept for the record only.
 
-**Not in 1.0.0:** interactive rebase; inline pull request line comments; nested projects; GitHub Enterprise and Bitbucket Data Center hosts; GitLab and others; SSH key passphrases created by the app; code intelligence beyond Go and TS/JS; rename symbol and format on save (shown when a server offers them, not required); debugger, run configurations, extensions; a chat UI of the app's own; Linux; telemetry of any kind; extending the Git global guard to SSH hosts.
+**Not in 1.0.0:** interactive rebase; inline pull request line comments; nested projects; GitHub Enterprise and Bitbucket Data Center hosts; GitLab and others; SSH key passphrases created by the app; code intelligence beyond Go, TS/JS and PHP; rename symbol and format on save (shown when a server offers them, not required); debugger, run configurations, extensions; a chat UI of the app's own; Linux; telemetry of any kind; extending the Git global guard to SSH hosts.
 
 **The order that was proposed in case the date slipped (not in force: decision 4):**
 
@@ -484,15 +735,16 @@ Internal only. Each milestone ends with a signed build on the test channel, a Wi
 | # | Milestone | Contents | Weeks |
 |---|---|---|---|
 | 0 | **Spikes** (finished 2026-11-16) | Terminal in WKWebView (resize, pull-by-offset, reload); manifest-signed update; Claude Code and OpenCode signals; Homebrew.pkg checks; signing and notarization; language-server transport; GitHub token reads. Not run: anything on Windows, clean VMs, Chinese input, Codex, Bitbucket with a token (`manual-checks.md`) | 2 |
-| 1 | **Foundation** | Rename and module path; data files; **stable repository IDs**; custom menu and window behaviour; old-app handoff; signed updater (macOS and the Windows gate) and release pipeline; tools gate; repository engine for any git repository; **clone under a custom folder name, two names shown**; read-only git layer and file watcher; projects; author identity; motion tokens; scrub check | 6 |
+| 1 | **Foundation** | Rename and module path; data files; **stable repository IDs**; custom menu and window behaviour; old-app handoff; signed updater (macOS and the Windows gate) and release pipeline; tools gate; repository engine for any git repository; **clone under a custom folder name, two names shown**; read-only git layer and file watcher; projects; author identity; motion tokens; scrub check; **the AWS SSO Hub 0.0.2 fixes (merge of `main`); system notifications and the sign-in expiry notices** | 7 |
 | 2 | **AI terminal and keep-awake** | Workspace frame; PTY and session log; terminal panel; AI tasks in the main workspace for three tools; install on first use; task states and notifications; keep-awake; kill by terminal session; **process tracker and Force stop; the quit dialog; the Cmd+J session switcher** | 5 |
 | 3 | **Worktree tasks, Changes, commit** | Own workspace per task; working-tree switcher; Changes with hunk and line staging; commit composer; discard with recovery; merge / push / discard a task; AI tasks page; **Free up space; Rename local folder** | 5 |
 | 4 | **Git client** | Sync with safe force push; branches; compare; merge and conflict screen; rebase; cherry-pick; revert; reset; stash; history with graph; tags; remotes; blame; file history | 5 |
-| 5 | **Editor and code intelligence** | File tree; tabs and split; CodeMirror; quick open; find in files; outline; recovery; language servers for Go and TS/JS with install consent | 5 |
+| 5 | **Editor and code intelligence** | File tree; tabs and split; CodeMirror; quick open; find in files; outline; recovery; language servers for Go, TS/JS **and PHP** with install consent | 6 |
 | 6 | **GitHub and Bitbucket** | Accounts; SSH keys and host keys; token store; binding and probe; clone sources; pull request list, create, detail, merge | 4 |
 | 7 | **Windows parity, polish, release** | Windows pass on every screen; accessibility; performance on large repositories; tutorial and guide; README, SECURITY and notices; rc1 to rc2 update test; v1.0.0 | 3 |
+| 8 | **Ticket queue, AI accounts, usage** (runs after 3, before 4) | Tickets (editing, on hold, queued); a queue that runs one ticket at a time as an AI task, checks the usage first, pauses at the limit and continues after the reset or on another account; several accounts per tool with a switch that keeps the conversation; the usage meter. Claude Code and Codex alike (4.16, 4.17) | 6 |
 
-Total: about 35 weeks (the reviewer's range was 28 to 32 before the ten tasks added at the milestone-0 gate). The order follows dependency and daily value: updates first so every later build arrives with one click; then AI coding, the owner's biggest daily win; then the git client it needs for review; then the editor; then the new providers, which the owner's CodeCommit repositories do not depend on.
+Total: about 43 weeks (the reviewer's range was 28 to 32 before the ten tasks added at the milestone-0 gate; 35 before the owner's second batch). Run order: 0, 1, 2, 3, 8, 4, 5, 6, 7. The order follows dependency and daily value: updates first so every later build arrives with one click; then AI coding, the owner's biggest daily win; then the git client it needs for review; then the editor; then the new providers, which the owner's CodeCommit repositories do not depend on. Milestone 8 has the last number but runs right after milestone 3: it needs AI tasks (2) and task workspaces (3), and the owner reaches the weekly usage limit today, so the queue and the account switch pay off before the git client does.
 
 ---
 
@@ -523,12 +775,20 @@ Total: about 35 weeks (the reviewer's range was 28 to 32 before the ten tasks ad
 | Windows: no signing certificate, corporate machines without the Store, Codex's native Windows mode. **Nothing ran on Windows in milestone 0**: the ConPTY wrapper, the update gate, the three AI tools, winget and the language servers are all unproven there | Decision 3; a clear failure state for winget; a Windows 11 on Arm VM on the owner's Mac (amd64 under emulation) before milestone 1's gate and before A2-01; Windows 10 1809 on an Intel PC or a cloud instance (`manual-checks.md` B8 to B12) [S27]. |
 | Upgrade from 0.0.1 loses data or hands off to the old app | Separate data files; old-app detection before the single-instance handoff (4.2). |
 | Corporate proxy | System proxy for Go and for child processes (4.1). |
+| The AI companies' terms may not allow what the queue or several subscriptions do | The quotes are in [U R3] and [U R5d]; no clause on several subscriptions was found; the owner reads them and decides before the queue is built (4.17). Every sign-in stays inside the tool; the app never holds a credential (4.16). "Ask me before each ticket" keeps a person in the loop. |
+| The usage reading breaks: Claude Code's `usage_report` is marked experimental, `/usage` in print mode is documented only for the SDK, and the Codex call was never run | One small adapter per tool with a recorded sample as its test; an unreadable answer is "unknown", never a guess; the limit signal works without the meter; R1-M1 and R5-M1 are acceptance (4.16). |
+| A conversation does not continue under another account (not verified for either tool; a Codex session file records its creator account) | Copy fallback for the files; then "new session on B from the branch's current state", said plainly; R2-M2 and R5-M4 are acceptance (4.16). |
+| Two things continue the same ticket after a reset (Claude Code's own automatic continue and the queue) | One owner of "continue" per case; the app reads the tool's setting and never sends a second "continue" (4.17). |
+| The queue spends money: usage credits keep a tool running past the limit | Off for the queue by default; the meter shows "credits are on"; the queue stops at the next turn end; the limit of that is stated (4.17). |
+| A ticket is judged finished too early, or never | The marker line plus "anything unclear waits for the owner"; "Mark done" and "Skip" are always there (4.17). |
+| The owner's shell profile overrides the account, or moves helper calls to API billing | The names-only probe at start and the lines it produces (4.16, 4.7). |
+| Codex hooks need a trust review and may not be suppliable per launch | `manual-checks.md` A8; without hooks a Codex ticket is judged by turn-complete and the exit code, and more of them end in "needs you" (4.8, 4.17). |
 
 ---
 
 ## 9. Decisions
 
-**Settled by the owner:** name; platforms; Homebrew and winget mandatory; three AI tools installed on first use; worktree per task by default; the full git list; pull requests in the app; code intelligence for Go and TS/JS; motion; Developer ID signing with the <owner company> team (confirmed 2026-11-16); one release from the `codepass` branch.
+**Settled by the owner:** name; platforms; Homebrew and winget mandatory; three AI tools installed on first use; worktree per task by default; the full git list; pull requests in the app; code intelligence for Go and TS/JS, and for PHP (added 2026-11-16); motion; Developer ID signing with the <owner company> team (confirmed 2026-11-16); one release from the `codepass` branch.
 
 **Defaults this plan assumes unless the owner says otherwise:**
 
@@ -580,6 +840,8 @@ Primary sources fetched 2026-11-15 unless marked.
 - [S25] git-push documentation, `--force-with-lease` and `--force-if-includes` (git 2.30+): a background fetch defeats a lease without an expected value. https://git-scm.com/docs/git-push
 - [S26] OpenCode plugins. https://opencode.ai/docs/plugins . OpenCode 2.x (run 2026-11-16, version 2.3.0): config key `plugins`, `Plugin.define({id, setup})`, `ctx.event.subscribe()`; per-launch through `OPENCODE_CONFIG_CONTENT`; launched with `--standalone`. Observed events: `session.execution.started` and `.failed`; `session.idle` and `permission.asked` are names in the binary, not observed.
 - [S27] Codex on Windows. https://developers.openai.com/codex/app/windows . Third-party sources disagree on stability; not verified in milestone 0 (`manual-checks.md` B10).
+- [U] `docs/research/claude-usage-accounts.md` (2026-11-16): usage, several accounts and the queue for Claude Code and Codex. Its section names (R1 to R7) and check names (R1-M1 and so on) are what 4.16 and 4.17 point to. Main pages behind it: Claude Code docs on the status line, hooks, authentication, environment variables, the `.claude` directory, sessions, interactive mode, errors, headless mode, the Agent SDK TypeScript reference (https://code.claude.com/docs/en/...) and legal and compliance (https://code.claude.com/docs/en/legal-and-compliance); Anthropic's Consumer Terms and Usage Policy; the help-centre articles on usage limits and on the Agent SDK with a plan; Codex docs on the app-server, authentication, configuration, hooks and non-interactive mode (https://learn.chatgpt.com/docs/...) and the `openai/codex` source. Nothing in it was run; Codex was not installed; OpenAI's policy pages could not be read directly.
+- [N] `docs/research/notifications.md` (2026-11-16): Wails 3.1.0 notifications service read from source, Apple UserNotifications pages, Microsoft toast pages; section and limit numbers in 4.15 point into it.
 
 **[R] Review evidence** (the principal engineer's findings; numbers are the review's item numbers):
 

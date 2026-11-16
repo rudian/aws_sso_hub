@@ -53,6 +53,27 @@ What the milestone-0 gate changed (revision 3):
 | TypeScript uses the TypeScript 7 native server first; at most 2 language servers by default. | 5.3 |
 | Add account: only the classic GitHub token with exact scopes; Bitbucket workspaces come from the token. | 5.11 |
 
+Carried over from AWS SSO Hub 0.0.2, and the notification addition (2026-11-16):
+
+| Change | Where |
+|---|---|
+| No session-length control. An IAM Identity Center administrator sets the length; the app only shows the end it learns from AWS. The old setting is gone and is not redrawn. | 5.11 (AWS passes, as in 0.0.2) |
+| The Console button shows a busy state while the console opens. | 5.11 (AWS passes, as in 0.0.2) |
+| Each sign-in opens in its own fresh private window, in a separate browser instance. The texts that say so are taken from 0.0.2 unchanged. | 5.11 (AWS passes, as in 0.0.2) |
+| New: system notifications. A heads-up before a sign-in expires and a notice when it has expired, each with "重新登录 / Sign in again". One table lists every notification the app sends. | 6, 5.14 |
+
+Milestone 8 (2026-11-16; plan 4.16 and 4.17). Specified in words and text sketches; not drawn in the mockup yet (section 8):
+
+| Change | Where |
+|---|---|
+| New page **Tickets**: the owner's three columns (编辑中 / 暂不执行 / 待执行), the queue, the finished list, the editor, quick capture from any screen. | 5.15, 4.1, 4.3, 4.4 |
+| The **queue bar** always says what the queue is doing and why it is not doing more: checking usage, running, waiting for you, waiting for a reset. | 5.15 |
+| **AI accounts**: several accounts per tool (Claude Code, Codex) on the Accounts page, added through the tool's own sign-in. Codepass stores no AI sign-in. | 5.16, 5.11 |
+| **Usage meter**: a chip in the sidebar and a popover with every account's windows, reset times and the usage-credits note. | 5.16, 4.1 |
+| **Limit banner** on a session's bar: which limit, when it resets, "在 B 上继续 / Continue on B", "等待 / Wait". The session bar also names the account. | 5.6 |
+| Four queue notifications replace the placeholder row. | 6 |
+| Queue settings card. | 5.14 |
+
 ---
 
 ## 1. What stays, what changes
@@ -139,8 +160,13 @@ Rules:
 
   项目          2 待处理             Projects        2 to fix
   AI 任务       1 等待你             AI tasks        1 waiting
+  工单          3 待执行             Tickets         3 queued
   拉取请求      2 待评审             Pull requests   2 review
   账号                               Accounts
+
+  AI 用量                            AI usage
+   [cc] 本次 62% · 本周 81%          session 62% · week 81%        (5.16; one line per tool in use)
+   [cx] 5 小时 18% · 本周 40%        5 h 18% · week 40%
 
   登录状态                           Sign-in status
    * [aws] acme-prod      6:12
@@ -158,6 +184,8 @@ Rules:
 
 - Order is by daily use. Counts show work to do, never totals, and hide at zero. "AI tasks" turns warn when a task waits for the user and shows a pulsing info dot when tasks only run.
 - **Pull requests** (sidebar) is every GitHub / Bitbucket repository's list in one page, grouped by repository, with the same row component as the repository tab. It is not drawn separately in the mockup; the nav item opens the per-repository screen.
+- **Tickets** (`工单 / Tickets`, milestone 8) sits right after AI tasks. Its count is the number of queued tickets; it turns warn with "1 等待你 / 1 needs you" when a ticket waits for the owner, and shows "等待重置 / waiting for reset" in muted text while the queue is paused for a limit.
+- **AI usage** (`.usage-chip`, milestone 8): one line per tool that has run at least once, for the account in use (the one the last session or the queue used): tool mark, then the two windows as words and numbers. 80% and above is warn, 100% is danger; colour is never the only sign, the number is always there. Unknown: "用量未知 / usage unknown" in muted text. Click opens the usage popover (5.16). The lines hide when no AI tool is installed.
 - Keyring rows gain a provider mark. A GitHub / Bitbucket row shows `密钥 / Key` when the key is verified, `未验证 / Unverified` in warn when not, `令牌过期 / Token expired` in warn when the API token fails.
 - The Terminal helper page is gone. Its job moved into the workspace's terminal panel.
 - The keep-awake chip (`.awake`) sits above Settings: cup icon, "保持唤醒中", task count. Click opens AI tasks. Tooltip: "有 AI 任务在运行，这台 Mac 不会自动睡眠 / AI tasks are running, so this Mac will not sleep on its own".
@@ -191,6 +219,8 @@ Rules:
 | Shortcut (mac / win) | Action |
 |---|---|
 | Cmd/Ctrl + 1..4 | Projects, AI tasks, Pull requests, Accounts |
+| Cmd/Ctrl + 5 | Tickets (milestone 8). It is the fifth number although the item sits second in the sidebar, so the four shortcuts people already know do not move. |
+| Cmd/Ctrl + Shift + N | Quick capture: a new ticket from any screen (5.15). Works while a terminal has focus. |
 | Cmd/Ctrl + , | Settings |
 | Cmd/Ctrl + K | Palette: project, repository, task, file, command |
 | Cmd + J (mac) / Ctrl + J (win) | Session switcher: every live AI session in every repository (5.7a). On Windows, while a terminal has focus, it is Ctrl + Shift + J, because Ctrl+J is a line feed that terminal programs use for a new line. |
@@ -211,7 +241,7 @@ Rules:
 | Ctrl + Tab | Cycle working trees |
 | Esc | Close peek, popover, sheet, modal; in the terminal it goes to the terminal |
 
-When the terminal has focus, only Ctrl+`, Cmd/Ctrl+1..4 and the session switcher (Cmd+J on macOS, Ctrl+Shift+J on Windows) are taken by the app. Everything else, including Esc and Ctrl+C, goes to the process.
+When the terminal has focus, only Ctrl+`, Cmd/Ctrl+1..5, quick capture (Cmd/Ctrl+Shift+N) and the session switcher (Cmd+J on macOS, Ctrl+Shift+J on Windows) are taken by the app. Everything else, including Esc and Ctrl+C, goes to the process.
 
 ### 4.4 App menu, closing the window, quitting
 
@@ -220,9 +250,9 @@ The app installs its own menu. The default menu of the framework is not used, be
 | Menu | Items |
 |---|---|
 | Codepass | About Codepass, Check for updates..., Settings... (Cmd+,), Hide, Hide others, Quit Codepass (Cmd+Q) |
-| File | New AI task (Cmd+T), Quick open (Cmd+P), Save (Cmd+S), Close tab (Cmd+W), Close window (Shift+Cmd+W) |
+| File | New AI task (Cmd+T), New ticket (Shift+Cmd+N), Quick open (Cmd+P), Save (Cmd+S), Close tab (Cmd+W), Close window (Shift+Cmd+W) |
 | Edit | Undo, Redo, Cut, Copy, Paste, Select all (the system items; text fields, the editor and the terminal need them), Find (Cmd+F), Find in files (Shift+Cmd+F) |
-| View | Projects, AI tasks, Pull requests, Accounts (Cmd+1..4), Switch session (Cmd+J), Toggle terminal (Ctrl+`), Actual size / Zoom in / Zoom out, Enter full screen |
+| View | Projects, AI tasks, Pull requests, Accounts (Cmd+1..4), Tickets (Cmd+5), Switch session (Cmd+J), Toggle terminal (Ctrl+`), Actual size / Zoom in / Zoom out, Enter full screen |
 | Window | Minimize, Zoom, Bring all to front |
 | Help | Tutorial, Illustrated guide, Report a problem (opens the repository's issues page in the browser) |
 
@@ -526,6 +556,27 @@ Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `ne
 
 **Session bar** (`.term-note`, 30px, between the tabs and the terminal). The app cannot and must not draw inside the tool's own screen, so everything the app wants to say about a session sits here: "这个任务以你的身份运行，你能读写的它都能读写。 / This task runs as you. It can read and change whatever you can."; the tool's approval mode ("批准方式 每次询问 / Approvals: ask every time", read from the tool's own settings; Codex shows its sandbox mode); the author that commits will use ("提交作者 Alex <alex@acme.example.com>"); and the link "了解任务能做什么 / What a task can do". That link opens a short sheet in plain words: a task can read and change any file you can, use any AWS account you are signed in to, use the SSH keys on this computer, and run any command; Codepass never turns off the tool's own permission questions and has no switch to do so; choose "own workspace" so tasks cannot disturb each other, and read the changes before you merge. There is no "AWS_PROFILE" badge: it suggested a protection that does not exist.
 
+**Account on the session bar** (milestone 8, only when the tool has more than one AI account): a chip with the account's colour dot and label, "账号 工作 / Account: Work". Its tooltip gives the latest usage reading in one line. A task that came from a ticket also shows "工单 #12 / Ticket #12", a link to the ticket.
+
+**Limit banner** (`.term-note--limit`, milestone 8). When the session reaches a usage limit, the session bar grows a second line, warn-tinted, `role="status"`. It replaces nothing the tool shows in its own screen; it adds what the app knows.
+
+```
+! 「工作」账号的每周用量用完了，周一 00:00 重置。                    [在「个人」上继续]  [等待]
+  Claude Code 会在重置后自己继续。
+! The weekly usage of "Work" is used up. It resets Mon 00:00.        [Continue on Personal]  [Wait]
+  Claude Code continues by itself after the reset.
+```
+
+- Line 1 names the account and the window: "本次用量 / session usage" (Claude Code), "5 小时用量 / 5-hour usage" (Codex), "每周用量 / weekly usage", "Opus 的每周用量 / weekly usage for Opus". Then the reset time in the person's local time, weekday included when it is not today. Unknown reset: "重置时间未知 / reset time unknown".
+- Line 2 says who continues. Claude Code with its own automatic continue on: "Claude Code 会在重置后自己继续。 / Claude Code continues by itself after the reset." With it off: "重置后不会自己继续。 / It will not continue by itself after the reset." Codex: a checkbox "到时自动继续 / Continue automatically then" (off; when ticked the app resumes the session at the reset).
+- **"在「个人」上继续 / Continue on Personal"** shows only when another account of the same tool has room; with several, it is a split button listing them with their percentages. It opens a confirm (focus on Cancel): "在「个人」上继续这个会话？ / Continue this session on Personal?" · "对话会保留。「个人」上的第一轮会把整段对话重新发送一遍，会用掉它的一部分用量。 / The conversation is kept. The first turn on Personal sends the whole conversation again and uses part of its allowance." · primary "继续 / Continue".
+- **"等待 / Wait"** collapses the banner to one muted line: "等待重置 · 周一 00:00 / Waiting for reset · Mon 00:00". The task's state reads "等待重置 / Waiting for reset" (warn, steady dot) in every list.
+- After an automatic switch (plan 4.16): info-tinted, one line, dismissible: "「工作」的用量用完了，已在「个人」上继续。第一轮重新发送了整段对话。 / Work ran out of usage, so this session continued on Personal. The first turn sent the whole conversation again."
+- Resume on the other account failed: danger line "在「个人」上接不上原来的对话。 / The conversation could not be continued on Personal." with "在「个人」上新开一个会话 / Start a new session on Personal" and the help text "分支上的改动都在，对话不会带过去。 / The changes on the branch are kept. The conversation is not carried over."
+- Usage credits on for that account: no limit banner appears, because the tool does not stop. Instead a muted line on the bar while the account is past 100%: "正在使用用量额度，按量计费 / Running on usage credits, billed by use."
+
+**Account in the New task sheet** (milestone 8): when the chosen tool has more than one AI account, a row under the tool cards: "用哪个账号 / Account" with a select; each option shows label and the latest reading ("工作 · 本周 81% / Work · week 81%"); an account with no room is listed with "用量已用完，周一重置 / used up, resets Mon" and can still be chosen. Default: the first account in the owner's order that has room.
+
 **Terminal** (`.term`). xterm.js on `--term-bg`, 12.5px mono, 19px lines, 16px padding. The tool draws its own interface; the app adds nothing inside it. Copy on select is off; Cmd/Ctrl+C copies when there is a selection, otherwise it is sent to the process. Paste of more than 5 lines asks once. Shift+Enter inserts a new line in tools that support multi-line input. Chinese and other wide characters keep their columns; typing with a Chinese input method shows the candidate window at the cursor. `https://` links are Cmd/Ctrl+clickable and open in the browser; `http://localhost` and `http://127.0.0.1` links (dev servers) also open, after a one-time confirm per port; other `http://` links are copied, not opened. File paths with a line number open in the Code tab. A program inside the terminal cannot write to the clipboard. Scrollback 10,000 lines, kept while the task exists; a terminal stays alive when you switch page, tab or folder, so coming back shows the exact screen you left. Search in scrollback: Cmd/Ctrl+F inside the terminal. Settings has "屏幕阅读器模式 / Screen reader mode" for the terminal (off by default; it exposes the output as text at some cost in speed).
 
 **Keep-awake line.** At the bottom of the task list while held: cup + "有任务在运行，这台 Mac 保持唤醒。合上盖子仍会睡眠。 / Tasks are running, so this Mac stays awake. Closing the lid still sleeps it." The same state shows in the status bar, the rail and the sidebar.
@@ -537,7 +588,7 @@ Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `ne
 - *Tool needs sign-in*: nothing special. The tool's own sign-in appears in the terminal; a one-line hint above it the first time: "登录由 Claude Code 自己处理，Codepass 不保存任何 AI 账号信息。 / Sign-in is handled by Claude Code itself. Codepass stores no AI account details."
 - *Process ended*: a bar under the terminal: done "任务结束了 / The task ended" + "查看改动", "再开一个会话 / Start another session"; failed shows the exit code and "重新开始 / Start again".
 - *App restarted*: tasks are listed as stopped with "继续 / Resume". Resume reopens **that task's own conversation** in its folder (the app remembers each session's identifier), so two tasks in one folder never resume into each other. If the tool no longer has that conversation: "找不到原来的会话，已开始一个新的 / The earlier session could not be found, so a new one was started".
-- *Fifth concurrent task*: a confirm, once: "已经有 4 个任务在运行。所有任务共用同一个账号的用量，开得越多用得越快。 / 4 tasks are already running. All tasks share one account's usage allowance; more tasks spend it faster." 继续 / 取消. The cap (default 6) is in Settings.
+- *Fifth concurrent task*: a confirm, once: "已经有 4 个任务在运行。同一个账号下的任务共用它的用量，开得越多用得越快。 / 4 tasks are already running. Tasks under the same account share its usage allowance; more tasks spend it faster." 继续 / 取消. The cap (default 6) is in Settings.
 - *Quit with running tasks*: the quit dialog (5.6b), every time. Closing the window does not ask: it hides the window and the tasks keep running (4.4).
 - *Stop task*: ends the tool and every program it started (a dev server, a test watcher). The confirm says so when such programs exist: "还会结束它启动的 2 个程序 / This also ends 2 programs it started".
 
@@ -727,7 +778,7 @@ Available for GitHub and Bitbucket repositories whose account has an API token. 
 
 Shots: `accounts-light-zh`, `accounts-dark-en`, `add-account-light-zh`, `add-account-light-en`.
 
-**Page.** Three provider groups, each introduced by a `.section-label` with the provider mark: **AWS · IAM Identity Center** (today's portal sections and passes, unchanged, including the legacy panel when static keys exist), **GitHub**, **Bitbucket**. "添加账号 / Add account" is a split button: the main part opens a chooser (AWS SSO portal, GitHub account, Bitbucket account); the caret lists the three directly.
+**Page.** Three provider groups, each introduced by a `.section-label` with the provider mark: **AWS · IAM Identity Center** (today's portal sections and passes, unchanged, including the legacy panel when static keys exist), **GitHub**, **Bitbucket**. From milestone 8 a fourth group follows them, **AI 账号 / AI accounts** (Claude Code, Codex), specified in 5.16; the chooser of "Add account" then also lists "Claude Code 账号 / Claude Code account" and "Codex 账号 / Codex account". "添加账号 / Add account" is a split button: the main part opens a chooser (AWS SSO portal, GitHub account, Bitbucket account); the caret lists the three directly.
 
 **GitHub / Bitbucket pass** (the same `.pass`): stripe and tile in the account's identity colour, provider glyph on the tile's corner, login, host or workspace; fact "2 个仓库" (links to Projects filtered by this account); two key lines (`.keyline`):
 
@@ -800,12 +851,206 @@ Two columns of cards (`.set-grid`); each row is `.set-row`: title, one line of h
 | Card | Rows |
 |---|---|
 | **AI 编码工具 / AI coding tools** | One row per tool: mark, name, command and how it is kept current, version badge, "更新 / Update" or "安装 / Install". Then "新任务在哪里运行 / Where a new task runs" (独立工作区 / 主工作区), "同时运行的任务上限 / Tasks running at once" (select, default 6), and under a disclosure: custom command and extra arguments per tool, "任务等你时发系统通知 / Notify me when a task waits" (on), "会话结束后保留最后的终端内容 / Keep the last terminal screen after a session ends" (on; help: "重启后还能回看。它可能包含屏幕上出现过的任何内容，「释放空间」会删掉它。 / Lets you read it after a restart. It may hold anything that was on screen; Free up space deletes it."). Each tool row also shows its approval mode as read from the tool ("每次询问 / Ask every time"), read-only, with "在工具里修改 / Change it in the tool". There is no Codepass switch that skips a tool's permission questions. |
-| **编辑器和代码智能 / Editor and code intelligence** | Go · gopls and TypeScript / JavaScript rows with what they provide, version badge, Update / Reinstall in a menu; "同时运行的语言服务 / Language servers running at once" (2 / 4; help: "每个要用几百 MB 到 1 GB 多的内存 / Each one uses from a few hundred MB to over 1 GB of memory"); 字号 / Font size; Tab width; 自动换行 / Wrap long lines; "保存时格式化 / Format on save" (off); terminal theme (深色 / 跟随应用). |
+| **编辑器和代码智能 / Editor and code intelligence** | Go · gopls, TypeScript / JavaScript and PHP rows (PHP added 2026-11-16; its server is named after E5-11's research) with what they provide, version badge, Update / Reinstall in a menu; "同时运行的语言服务 / Language servers running at once" (2 / 4; help: "每个要用几百 MB 到 1 GB 多的内存 / Each one uses from a few hundred MB to over 1 GB of memory"); 字号 / Font size; Tab width; 自动换行 / Wrap long lines; "保存时格式化 / Format on save" (off); terminal theme (深色 / 跟随应用). |
+| **登录提醒 / Sign-in reminders** (the existing card; rows added, the two existing rows unchanged) | Existing: "登录快过期时提醒 / Remind me before sign-in expires" (on) and "提前多久提醒 / How early" (15 分钟 / 30 分钟 / 1 小时). The first row's help now says what it does: "用系统通知提醒，通知上可以直接重新登录。 / Sends a system notification. You can sign in again from it." New row under them: "登录过期时通知我 / Notify me when a sign-in expires" (on), help "过期的那一刻通知一次，写明是哪个登录。 / One notification at the moment it expires, naming the sign-in." It has its own switch because the two are different wishes: some people want no early reminder but must know when work stops. Last line of the card, muted: "登录能保持多久由管理员决定，Codepass 不能延长，只能重新登录。 / Your administrator decides how long a sign-in lasts. Codepass cannot extend it; it can only sign in again." |
+| **系统通知 / System notifications** (one status row, shown at the top of the right column only when there is something to say) | *macOS, turned off for Codepass:* warn dot + "macOS 没有允许 Codepass 发通知 / macOS does not allow notifications from Codepass", help "登录过期和 AI 任务等待的提醒都不会出现。 / Reminders about expired sign-ins and waiting AI tasks will not appear.", button "打开系统设置 / Open System Settings" (opens the Notifications pane; the row re-checks when the window gets focus again and disappears once allowed). *macOS, not asked yet:* neutral dot + "Codepass 还没有申请通知权限 / Codepass has not asked for permission to notify you yet", button "允许通知 / Allow notifications" (macOS then shows its own question). *Allowed:* no row. *Windows:* no state can be read, so one muted help line under the Sign-in reminders card instead: "没看到通知？请检查 Windows 设置 → 系统 → 通知 里的 Codepass。 / No notifications? Check Codepass under Windows Settings → System → Notifications." with the link "打开 Windows 设置 / Open Windows Settings". The switches above stay usable in every state; they are not greyed out. |
+| **工单队列 / Ticket queue** (milestone 8; plan 4.17) | "给自己留多少用量 / Keep this much usage for myself" (0% / 10% / 20% / 30%, default 0%; help: "队列用到只剩这么多时就停下，留给你自己用。 / The queue stops when this much is left, so you can still work yourself."). "一个账号用完后自动换下一个 / Switch to the next account when one runs out" (on once a tool has two accounts; help: "换账号后的第一轮会把整段对话重新发送一遍。 / The first turn after a switch sends the whole conversation again."). "允许队列使用用量额度 / Let the queue use usage credits" (off; help: "关着时，用量到头队列就停，不会按量计费。一轮很长的回答可能在停下前用掉一点额度。 / When off, the queue stops at the limit and nothing is billed by use. One very long turn may spend a little before it stops."). "每张票开始前先问我 / Ask me before each ticket" (off). "队列附言 / Queue note": a 3-row text field with the two marker lines and "恢复默认 / Restore default"; help: "加在每张票的第一条消息后面，让 AI 说明它是做完了还是在等你。 / Added after each ticket's first message so the AI says whether it is finished or waiting for you." The four queue notifications (section 6) follow the existing switch "任务等你时发系统通知 / Notify me when a task waits" for "needs you", and one new switch "队列暂停、换账号或跑完时通知我 / Notify me when the queue pauses, switches account or finishes" (on) for the other three. |
 | **保持唤醒 / Keep awake** | Header badge "现在生效 · 2 个任务 / Active now · 2 tasks" while held. "AI 任务运行时不让电脑睡眠" (on). "屏幕也保持常亮" (on): "关掉后屏幕可以熄灭并锁定，AI 照常工作。在办公室更安全。" "任务等你回答时，继续保持" 5 分钟 / 15 分钟 / 1 小时 / 一直. "最长保持 / Longest hold" 4 小时 / 8 小时 / 12 小时 (default 8): after that long without any answer from you or sign of progress, the hold is released even if a task still looks busy. Then the limits, always visible: closing a MacBook's lid still sleeps it unless it is on power with an external display; while the screen stays on, the computer does not lock by itself. On Windows the first limit reads "按下睡眠键或合上盖子仍然会睡眠 / Pressing sleep or closing the lid still sleeps it". |
 | **更新 / Updates** | Current version, when it was last checked and from where, "现在检查 / Check now"; "每天自动检查一次" (on) with "只读取版本号，不上传任何信息。下载的更新会先校验签名。" |
 | **外观 / Appearance** | Theme (跟随系统 / 浅色 / 深色), Language (中文 / English), **Motion** (跟随系统 / 完整 / 减少) with "「减少」会去掉滑动和淡入，只保留必要的进度提示。" This replaces the old "Reduce motion" switch. |
 
 **What "smart" keep-awake means in the UI.** The indicator is on exactly while the assertion is held: at least one task is running, or has been waiting for less than the grace time. It turns off the moment the last such task ends. A plain shell never turns it on. The indicator never claims more than the OS does: it says "保持唤醒", not "不会睡眠".
+
+### 5.15 Tickets (`tickets`)
+
+Milestone 8; plan 4.17. Not drawn yet (section 8): the text sketches below are the specification until the mockup screens exist. Data is generic.
+
+**Purpose in one line.** Write down work for later; let the queue run it one ticket at a time when there is usage for it.
+
+**Page.**
+
+```
+工单 / Tickets                    3 张待执行 · 1 张在运行                 [新工单 ⇧⌘N]
++--------------------------------------------------------------------------------------------+
+| 队列  ● 正在运行 #12「修复结算金额的四舍五入」 · acme_api · Claude Code · 工作      [暂停队列] |
+|       下一张开始前会检查用量。本周 81%，给自己留 10%。                                        |
++--------------------------------------------------------------------------------------------+
+  编辑中 2                      暂不执行 1                    待执行 3  (按顺序执行，可拖动)
+ +--------------------------+  +--------------------------+  +------------------------------+
+ | #15 导出对账单时带上税号  |  | #9 把日志换成结构化日志   |  | 1 #13 给商户列表加分页        |
+ | acme_api · 未选工具       |  | globex_core · Codex       |  |   acme_merchant_portal_v4     |
+ | 2 分钟前编辑              |  | 上周                      |  |   Claude Code · 独立工作区     |
+ +--------------------------+  +--------------------------+  | 2 #14 升级 PHP 依赖            |
+ | #16 （没有标题）          |                                |   acme_cs_portal · Codex       |
+ | 未选仓库                  |                                | 3 #11 README 补上本地运行步骤   |
+ +--------------------------+                                 +------------------------------+
+  已结束 4  v   #10 已完成 · 查看改动 3    #8 失败 · 重试    #7 已跳过    #6 已完成 · 已合并
+```
+
+English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editing", "On hold", "Queued (runs in this order; drag to reorder)", "Finished".
+
+- **Three columns are the owner's three states**, in the owner's words: 编辑中 / Editing, 暂不执行 / On hold, 待执行 / Queued. A ticket moves between them by drag, by the row menu, or by the buttons in the editor. Keyboard: the row menu has "移到 编辑中 / 暂不执行 / 待执行 · Move to Editing / On hold / Queued" and "上移 / 下移 · Move up / Move down" inside Queued.
+- **Card** (`.ticket`): number, first line of the text as the title (or "（没有标题）/ (no title)"), repository with its provider mark (both names when they differ) or warn "未选仓库 / No repository", tool mark and name or warn "未选工具 / No tool", last edited. Queued cards show their place in line.
+- **Queueing needs a repository and a tool.** Dropping a ticket without them into Queued opens the editor with the two fields marked and one line: "选好仓库和工具才能排队 / Choose a repository and a tool to queue it."
+- **The running ticket** is not in a column. It is the first line of the queue bar, and its card sits pinned at the top of Queued with a pulsing info dot and "运行中 / Running"; click opens the task's terminal.
+- **Finished** (collapsed group under the columns): done, failed, skipped, newest first. Done rows carry the task's review action ("查看改动 3 / Review 3 files", or "已合并 / Merged"); failed rows carry "重试 / Retry" (puts a copy of the ticket at the front of the queue, on the same task workspace); a row menu has "再排一次 / Queue again" and "删除 / Delete". Deleting a ticket never deletes its task, branch or workspace; the confirm says so.
+- **Empty page:** `.empty` with "把以后要做的事先记下来 / Write down work for later", text "排进队列的工单会一张一张地交给 AI 去做，每张开始前先看用量够不够。 / Queued tickets are handed to an AI one at a time. Before each one, Codepass checks that there is usage left.", primary "新工单 / New ticket".
+
+**Queue bar** (`.queue-bar`, always on top of the page while anything is queued or running; `role="status"`). Line 1 is the state, line 2 is the reason or what happens next. One state at a time:
+
+| State | Line 1 (zh / en) | Line 2 | Actions |
+|---|---|---|---|
+| Idle, nothing queued | 队列是空的 / The queue is empty | 把工单拖到「待执行」就会开始。 / Drag a ticket to Queued to start. | none |
+| Checking | 正在检查用量… / Checking usage... | 「工作」· Claude Code | 暂停队列 / Pause queue |
+| Running | 正在运行 #12「…」 / Running #12 "..." | 下一张开始前会检查用量。本周 81%，给自己留 10%。 / Usage is checked before the next one. Week 81%, keeping 10% for you. | 打开终端 / Open terminal · 暂停队列 / Pause queue |
+| Needs you | #12 在等你 / #12 needs you | one of the reasons below | 去回答 / Answer · 算完成 / Mark done · 跳过 / Skip |
+| Waiting for reset, the tool continues | #12 等待重置，周一 00:00 / #12 is waiting for the reset, Mon 00:00 | Claude Code 会在重置后自己继续。 / Claude Code continues by itself after the reset. | 在「个人」上继续 / Continue on Personal (when it has room) |
+| Waiting for reset, the queue continues | the same line 1 | 到时 Codepass 会让它继续。 / Codepass will continue it then. | the same |
+| Paused for the limit, nothing running | 队列因用量暂停，周一 00:00 再试 / Paused for usage. Trying again Mon 00:00 | 所有账号都没有余量了（给自己留 10%）。 / No account has room (keeping 10% for you). | 现在再查一次 / Check again now |
+| Usage unknown | 正在运行 #13「…」 | 没法读取用量，这张票直接开始了。 / Usage could not be read, so this ticket started without a check. | as Running |
+| Paused by the owner | 队列已暂停 / The queue is paused | 当前这张做完后不会开始下一张。 / After the current ticket, no new one starts. | 继续队列 / Resume queue |
+| Asking before each ticket | 下一张：#13「…」 / Next: #13 "..." | 你打开了「每张票开始前先问我」。 / "Ask me before each ticket" is on. | 开始 / Start · 跳过 / Skip |
+| Usage credits would be used | 队列停下了：再跑就要按量计费 / The queue stopped: going on would be billed by use | 「工作」开着用量额度，而队列不允许使用它。 / Usage credits are on for Work, and the queue is not allowed to use them. | 设置 / Settings |
+
+**"Needs you" reasons** (line 2; the same words are the ticket's sub-line and the notification body):
+
+| Reason | zh / en |
+|---|---|
+| The AI ended with the question marker | AI 有问题要问你 / The AI has a question for you |
+| The AskUserQuestion tool | AI 让你选一个答案 / The AI asks you to choose an answer |
+| A permission prompt | AI 在等你批准一个操作 / The AI is waiting for you to approve an action |
+| Turn ended with no marker | AI 停下了，但没说做完没有 / The AI stopped without saying whether it is finished |
+| A turn ended by an error | AI 那边出错了，这一轮没有做完 / The AI service returned an error and the turn did not finish |
+| The tool exited or lost its sign-in | 会话结束了（退出码 1） / The session ended (exit code 1) · 需要重新登录 Claude Code / Claude Code needs you to sign in again |
+| OpenCode | OpenCode 不会告诉 Codepass 做完没有，请看一眼 / OpenCode does not tell Codepass whether it is finished. Take a look |
+
+- "算完成 / Mark done" and "跳过 / Skip" confirm nothing: both only change the ticket and let the queue go on. They are undoable from a toast for 10 seconds ("已标记为完成 / Marked as done" + "撤销 / Undo"), because the next ticket starts after that delay.
+- "去回答 / Answer" opens the task's terminal with focus in it.
+- The queue bar's short form appears on the AI tasks page header and as the tooltip of the sidebar's Tickets count, so the reason is one hover away from anywhere.
+
+**Editor** (`ticket-editor`, side sheet 640px from the right; the page stays visible behind it).
+
+```
+工单 #15                                                   编辑中 · 已保存
++--------------------------------------------------------------+
+| 导出对账单时带上税号                                          |
+|                                                              |
+| - 导出的 CSV 增加一列 tax_id                                  |
+| - 旧数据没有税号的留空                                        |
++--------------------------------------------------------------+
+  预览 / Preview
+  仓库 / Repository   [aws] acme_api                    v
+  工具 / Tool         ( Claude Code ) ( Codex ) ( OpenCode )
+  账号 / Account      自动：第一个有余量的 / Automatic: the first with room   v
+  在哪里运行 / Where   (•) 独立工作区 / Own workspace   ( ) 主工作区 / Main workspace
+  v 队列附言 / Queue note
+    When everything in this ticket is finished, end your last message with the single line CODEPASS-DONE. ...
+                          [删除 / Delete]   [暂不执行 / Put on hold]   [排入队列 / Queue it]
+```
+
+- The text is Markdown, edited as plain text in the mono font; "预览 / Preview" shows it with the app's safe renderer (raw HTML off, no remote images).
+- **Autosave** about a second after the last keystroke; the header shows "正在保存… / Saving..." then "已保存 / Saved". There is no Save button. Closing the sheet (Esc, or a click outside) never loses text.
+- The account row shows only when the tool has more than one AI account. "自动 / Automatic" is the default.
+- "队列附言 / Queue note" is collapsed; opened, it shows the text that will be added and the link "在设置里修改 / Change it in Settings".
+- OpenCode chosen: a muted line "OpenCode 的票不检查用量，每一轮结束都会等你看一眼。 / OpenCode tickets run without a usage check, and wait for you after every turn."
+- A ticket that is running or finished opens read-only with its state, the reason, and "打开任务 / Open task".
+- Footer buttons follow the state: Editing shows all three; On hold shows "继续编辑 / Edit" and "排入队列 / Queue it"; Queued shows "移出队列 / Take out of the queue".
+
+**Quick capture** (`ticket-capture`, Cmd/Ctrl+Shift+N from any screen and both layouts).
+
+```
++----------------------------- 新工单 / New ticket -----------------------------+
+| 记下要做的事…  / Write what should be done...                                 |
+|                                                                               |
++-------------------------------------------------------------------------------+
+  [aws] acme_api v     Claude Code v                 存为编辑中 ⏎      排入队列 ⌘⏎
+```
+
+- A small centred sheet (560px), focus in the text. It opens in under 100 ms and gives focus back to where it was, also to a terminal.
+- The repository and tool are pre-filled from the screen it was opened on (the open workspace's repository; its default tool); they can be cleared.
+- Enter adds a new line. The two actions: "存为编辑中 / Save as editing" (Esc does the same when there is text) and "排入队列 / Queue it" (Cmd/Ctrl+Enter; disabled with a tooltip until a repository and a tool are set).
+- It saves while typing, so a crash loses nothing. Toast after closing: "已存为工单 #17 / Saved as ticket #17" + "打开 / Open".
+
+**Where tickets show elsewhere.** A task that came from a ticket has "工单 #12 / Ticket #12" on its session bar (5.6) and in its row on the AI tasks page. The AI tasks page header carries the queue bar's short form. Session switcher rows (5.7a) show a small "队列 / queue" tag for the queue's session.
+
+**Motion.** Cards use the existing insert, remove and reorder motions (section 3). The queue bar's text changes without motion. Reduced motion: no drag ghost animation; the card moves at drop.
+
+**Accessibility.** Columns are lists with headings and counts. Drag has full keyboard and menu equivalents. The queue bar is a polite live region; "needs you" is announced once. State is always a word, never colour alone. Every action button names the ticket in its label.
+
+### 5.16 AI accounts and usage (`ai-accounts`)
+
+Milestone 8; plan 4.16. Not drawn yet (section 8). Claude Code and Codex; OpenCode has no accounts here in 1.0.
+
+**AI accounts group on the Accounts page** (after Bitbucket; section label with the two tool marks: "AI 账号 / AI accounts"). One sub-group per tool; rows are the same `.pass` component, in the owner's order (drag to reorder; the order is the order of automatic switching).
+
+```
+AI 账号 / AI accounts                                          Codepass 不保存任何 AI 登录信息
+ Claude Code
+ +----------------------------------------------+  +----------------------------------------------+
+ | [cc] 工作 / Work            默认 / Default    |  | [cc] 个人 / Personal                          |
+ | 已登录 / Signed in · 用工具自己的文件夹        |  | 已登录 / Signed in · ~/.codepass/ai-accounts/… |
+ | 本次 62%  ▓▓▓▓▓▓░░░░  15:45 重置              |  | 本次 0%   ░░░░░░░░░░                          |
+ | 本周 81%  ▓▓▓▓▓▓▓▓░░  周一 00:00 重置         |  | 本周 12%  ▓░░░░░░░░░  周四 09:00 重置         |
+ | Opus 本周 40%                                 |  | 3 分钟前读取                                   |
+ | [刷新] [登录状态] [···]                        |  | [刷新] [登录状态] [···]                        |
+ +----------------------------------------------+  +----------------------------------------------+
+ Codex
+ +----------------------------------------------+
+ | [cx] 默认 / Default                           |     [ + 添加 Codex 账号 / Add a Codex account ]
+ | 5 小时 18% · 16:10 重置   本周 40% · 周三重置  |
+ +----------------------------------------------+
+```
+
+- **Pass content.** Tool mark, the owner's label, "默认 / Default" badge on the tool's own folder. Line 2: sign-in state ("已登录 / Signed in", warn "未登录 / Not signed in" + "登录 / Sign in", muted "正在检查… / Checking...") and where it lives ("用工具自己的文件夹 / the tool's own folder", or the extra folder's path, which can be copied). Then one bar per usage window with the percentage as a number, the window's name and the reset time. Then the reading's age.
+- **Window names.** Claude Code: "本次 / Session", "本周 / Week", "Opus 本周 / Week, Opus" (the model's name as the tool gives it). Codex: "5 小时 / 5 hours", "本周 / Week" (named from the window's length; an unexpected length is shown as "N 小时 / N hours").
+- **Reset times** are local, "15:45 重置 / resets 15:45" today, "周一 00:00 重置 / resets Mon 00:00" otherwise.
+- **Usage credits**: a warn chip on the pass, "已开启用量额度 / Usage credits are on", tooltip "这个账号用量到头后不会停，会按量计费。队列默认不使用它。 / This account does not stop at its limit; it is billed by use. The queue does not use credits unless you allow it."
+- **Unknown usage**: the bars are replaced by one muted line. Claude Code: "用量未知，运行过一次会话后才知道 / Usage unknown until a session has run". Codex: "用量未知 / Usage unknown". When the reason is known, it follows: "终端环境里设置了 ANTHROPIC_API_KEY，工具会改用它 / ANTHROPIC_API_KEY is set in your shell, so the tool uses it instead".
+- **Actions.** "刷新 / Refresh" (disabled with a countdown tooltip inside the 5-minute spacing or the tool's own "rate limited until"); "登录状态 / Sign-in status" (asks the tool and shows its answer as text in a small popover); More: Rename, Change colour, Sign in again (opens the tool's login in a terminal sheet), Shared parts..., Show folder, Remove account. The default account has no Remove and no Shared parts.
+- **Remove** confirms with exact paths: "移除「个人」？会先让 Claude Code 在这个文件夹里退出登录，然后删除下面的文件夹。共享的对话记录不受影响。 / Remove Personal? Claude Code signs out in this folder first, then the folder below is deleted. Shared conversations are not affected." + the folder path + the list of links that will be removed.
+- **The shell decides** (plan 4.16 probe): a warn row above a tool's accounts, "你的终端环境设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，Codepass 选不了。 / Your shell sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. Codepass cannot choose." The passes stay visible and read-only.
+- **One account only** (the usual start): the group shows the default pass and a quiet button "添加账号 / Add account". No empty state.
+
+**Add an AI account** (`add-ai-account`, modal 640px, three steps; the same stepper as 5.11).
+
+1. **名字 / Name.** Tool (already chosen), "给它起个名字 / Give it a name" (for example "个人 / Personal"), a colour. Under it, muted, the folder that will be created: `~/.codepass/ai-accounts/claude/personal/`.
+2. **共享 / Share.** The consent step. Text: "新账号有自己的登录。下面这些可以和默认账号共用，这样换账号后还能接着原来的对话，工具的行为也一样。Codepass 会在新文件夹里建立指向它们的链接。 / The new account has its own sign-in. The items below can be shared with the default account, so a conversation can continue after a switch and the tool behaves the same. Codepass creates links to them inside the new folder."
+   - Ticked and locked, with the reason: "对话记录和文件历史（换账号后接着对话需要它们）/ Conversations and file history (needed to continue a conversation after a switch)".
+   - Ticked, can be unticked: "设置 / Settings", "说明文件 / Instructions file", "代理、技能、命令 / Agents, skills, commands", "插件 / Plugins". For Codex: "设置 / Settings" and the other shared parts the tool has.
+   - Always separate, stated: "不共享：登录信息和账号文件。所以你自己加的 MCP 服务和「信任这个文件夹」要在新账号里再设一次。 / Not shared: the sign-in and the account file. So MCP servers you added yourself, and \"trust this folder\", are set up once more for the new account."
+   - One line: "Codepass 不会读取、保存或发送任何 AI 登录信息。 / Codepass never reads, stores or sends any AI sign-in."
+3. **登录 / Sign in.** A terminal inside the modal runs the tool's own login for the new folder. Lead: "下面是 Claude Code 自己的登录。按它的提示在浏览器里完成。 / This is Claude Code's own sign-in. Follow it in your browser." Under the terminal the result: ok "已登录 / Signed in" (the app asked the tool), or "还没有登录 / Not signed in yet" + "重新检查 / Check again". Primary "完成 / Finish" is enabled after a successful check; "稍后登录 / Sign in later" saves the account as not signed in.
+
+After finishing: the pass appears with the insert motion; a first usage reading starts.
+
+**Usage popover** (`usage-popover`, from the sidebar chip or the rail's usage button; 380px).
+
+```
+AI 用量 / AI usage                                    3 分钟前 · [刷新 / Refresh]
+ Claude Code
+  ● 工作 / Work   (正在使用 / in use)
+     本次 / Session      62%  ▓▓▓▓▓▓░░░░   15:45 重置
+     本周 / Week         81%  ▓▓▓▓▓▓▓▓░░   周一 00:00 重置
+     Opus 本周           40%  ▓▓▓▓░░░░░░   周一 00:00 重置
+  ○ 个人 / Personal
+     本次 0% · 本周 12%                     周四 09:00 重置
+ Codex
+  ● 默认 / Default
+     5 小时 / 5 hours    18%  ▓▓░░░░░░░░   16:10 重置
+     本周 / Week         40%  ▓▓▓▓░░░░░░   周三 08:00 重置
+ ---------------------------------------------------------------------
+ 队列给自己留 10% · 管理账号 / The queue keeps 10% for you · Manage accounts
+```
+
+- Every account of both tools, the one in use first and expanded; the others one line each, expandable.
+- "这些数字来自工具自己的报告，也包含你在它其他应用里的用量。 / These numbers come from the tool's own report and include your use in its other apps." as a muted footnote on first open.
+- A reading older than 15 minutes shows its age in warn. Refresh follows the same spacing as on the pass.
+- With the limit reached on the account in use, the top of the popover repeats the limit banner's line 1 and its actions (5.6).
+- Workspace layout: the rail gets a usage button (a small gauge) with a pip at 80% and above; the status bar shows the short form "CC 81%" as a button that opens the same popover.
+
+**States.** No AI tool installed: the group and the chip are hidden. A tool installed but never signed in: the default pass with "未登录 / Not signed in" and "登录 / Sign in" (opens the tool's login in a terminal sheet). Reading in progress: the bars keep their last values, dimmed, with a small spinner by the age.
+
+**Accessibility.** Each bar is a `progressbar` with a text value ("本周用量 81%，周一 00:00 重置 / Weekly usage 81%, resets Monday 00:00"). The popover is a dialog with a heading; accounts are a list. Warn and danger are also words ("快用完了 / almost used up", "已用完 / used up") for a screen reader.
 
 ---
 
@@ -822,6 +1067,28 @@ Two columns of cards (`.set-grid`); each row is `.set-row`: title, one line of h
 - **Windows**: system title bar; the workspace header drops the 84px reserve; shortcuts use Ctrl; the status bar and rail are identical; terminal default shell is PowerShell; "Reveal in Finder" reads "在资源管理器中显示 / Show in Explorer"; the keep-awake limits text changes as noted.
 - **Minimum window**: 980x660 still holds for the management layout. The workspace needs 1100x700; below that the left panes collapse to 44px icon strips and the second editor group closes.
 - **Dark theme checks**: diff tints use the existing `--diff-*` tokens; conflict tints are 11-13% mixes and keep code at 4.5:1; the terminal is darker than the dark surface, with a hairline `--term-line` so it never merges with the page.
+- **System notifications**: every notification the app sends is in the table below (plan 4.15). The banner is drawn by the operating system, so only the words are ours.
+
+  | Notification | When | Title | Body | Button | Click on the notification |
+  |---|---|---|---|---|---|
+  | Sign-in heads-up | The time left drops below "How early". Once per sign-in. No sound. | 登录快过期了：acme / Sign-in expires soon: acme | alex · acme-prod 等 3 个账户。大约 15 分钟后过期。 / alex · acme-prod and 2 more. Expires in about 15 minutes. | 重新登录 / Sign in again | Shows the window, opens Accounts at that portal. |
+  | Sign-in ended | The sign-in has expired. Once per sign-in. On macOS it replaces the heads-up. Default sound. | 登录已过期：acme / Sign-in expired: acme | alex · acme-prod 等 3 个账户。重新登录后才能继续用。 / alex · acme-prod and 2 more. Sign in again to keep using them. | 重新登录 / Sign in again | Shows the window, opens Accounts at that portal. |
+  | AI task waiting | A task changes to "waiting" while the window is not focused (5.6). Default sound. | acme_api | Claude Code 在等你回答 / Claude Code is waiting for your answer | none | Shows the window, opens that task's terminal. |
+  | Still running | The first time the window is closed while tasks run (4.4). Once ever. No sound. | Codepass 还在运行 / Codepass is still running | 2 个 AI 任务没有中断 / 2 AI tasks were not interrupted | none | Shows the window. |
+  | Queue: needs you | A queued ticket's session needs the owner (5.15), window focused or not, once per ticket and reason. Default sound. | 工单 #12 在等你 / Ticket #12 needs you | acme_api · AI 有问题要问你 / acme_api · The AI has a question for you (the reason line from 5.15) | 去回答 / Answer | Shows the window, opens that task's terminal. The button does the same. |
+  | Queue: paused for the limit | No account has room, or the running ticket waits for a reset. Once per pause. No sound. | 队列因用量暂停 / Queue paused for usage | Claude Code · 周一 00:00 重置后继续 / Claude Code · continues after the reset, Mon 00:00 | none | Shows the window, opens Tickets. |
+  | Queue: continued on another account | An automatic switch happened for a queued ticket. No sound. | 已换到「个人」继续 / Continued on Personal | 工单 #12 · 「工作」的用量用完了 / Ticket #12 · Work ran out of usage | none | Shows the window, opens that task's terminal. |
+  | Queue: finished | The last queued ticket ended and nothing waits for the owner. Once. Default sound. | 队列跑完了 / The queue is finished | 完成 3 张，失败 1 张，跳过 0 张 / 3 done, 1 failed, 0 skipped | 查看 / Review | Shows the window, opens Tickets at Finished. |
+
+  - **Names in the body.** First the Identity Center user (left out when unknown), then " · ", then the accounts: one account "acme-prod"; two "acme-prod、globex / acme-prod and globex"; three or more "acme-prod 等 3 个账户 / acme-prod and 2 more". A portal with no account yet: only the second sentence.
+  - **How early, in words:** "大约 15 分钟后 / in about 15 minutes", "大约 30 分钟后 / in about 30 minutes", "大约 1 小时后 / in about 1 hour". Always "about".
+  - **"Sign in again"** starts that portal's sign-in in its own private window, the same as the button on the pass. The Codepass window stays where it is. Already signed in again: the click opens Accounts at that portal with the toast "已经登录了 / Already signed in".
+  - **Opening Accounts at a portal:** the page scrolls to the portal's section and its pass gets the one-time highlight (the existing insert motion; none under reduced motion).
+  - **Never in a notification:** tokens, sign-in codes, URLs, account IDs, role names, file paths. A long portal name is cut by the system, not by us.
+  - **When notifications are off or unavailable** and the window is visible: the same title, body and button as an in-app toast (danger for "ended", warn for the heads-up; "ended" stays until dismissed). When the window is hidden, nothing extra: the pass, the sidebar count and the repository rows already show the expired state.
+  - **Queue notices** (milestone 8) name the ticket by number, the repository by its local folder name and the account by the owner's label. They never contain ticket text, the AI's words, a file path or an email address. "Needs you" for a queued ticket replaces the plain "AI task waiting" notice for that task; the two are never both sent.
+  - **One button at most**, because macOS shows a single button by name and folds two or more into a menu. The button text follows the app language, also for notifications sent after a language change.
+  - **Windows:** the same words. The title is one line. Old notifications cannot be withdrawn there, so a heads-up may still be listed after the sign-in was renewed; pressing its button then only shows "已经登录了 / Already signed in".
 
 ---
 
@@ -830,7 +1097,7 @@ Two columns of cards (`.set-grid`); each row is `.set-row`: title, one line of h
 - Editor: CodeMirror 6. Map `--syn-*` to a `HighlightStyle`; the change bar is a gutter; hover, completion and peek are CodeMirror tooltips / widgets styled with `.hover-card`, `.ac`, `.peek`. Diff and conflict views use `@codemirror/merge` with the `.dl` look (line tints, no word-level strike-through).
 - Terminal: xterm.js with a theme object built from `--term-*`; the DOM renderer first.
 - Lists that can be long (commits, files, find results, tasks) are virtualised; motion is skipped above 200 rows (section 3).
-- All new strings go through i18n with the keys grouped by screen (`setup.*`, `projects.*`, `ws.*`, `code.*`, `changes.*`, `tasks.*`, `history.*`, `branches.*`, `stash.*`, `conflict.*`, `pr.*`, `accounts.git.*`, `identity.*`, `update.*`, `settings.ai.*`, `settings.awake.*`). The copy in this document is the source for both languages.
+- All new strings go through i18n with the keys grouped by screen (`setup.*`, `projects.*`, `ws.*`, `code.*`, `changes.*`, `tasks.*`, `history.*`, `branches.*`, `stash.*`, `conflict.*`, `pr.*`, `accounts.git.*`, `identity.*`, `update.*`, `settings.ai.*`, `settings.awake.*`, `settings.notify.*`, `notify.*` for the notification texts in section 6; from milestone 8 also `tickets.*`, `queue.*`, `aiaccounts.*`, `usage.*`, `settings.queue.*`). The copy in this document is the source for both languages.
 - Mock scenarios for the demo backend match the mockup data, which is **generic by rule**: project `acme` (repositories `acme_api`, `acme_agent_portal`, `acme_cs_portal`, `acme_merchant_portal_v4`), projects `globex` and `umbrella`, AWS accounts `acme-prod`, `globex`, `initech` with account IDs `111122223333`, `444455556666`, `777788889999`, GitHub account `alex-dev`, Bitbucket account `alex_acme`, the person `Alex <alex@acme.example.com>`, and the five tasks. The same names are used in tests, fixtures, the tutorial, the guide and every screenshot. No real company, repository, account or person name may appear in the repository; the publish check blocks them.
 - Every new Go service gets a typed mock in `frontend/src/api/mock` (the mocks are typed against the generated bindings, so a missing one fails the type check). Two mocks are scripted: a terminal that replays a recorded Claude Code session, and a language server that answers hover, completion and definition for the mock files.
 - `dangerouslySetInnerHTML` stays at zero uses; a test enforces it.
@@ -839,7 +1106,9 @@ Two columns of cards (`.set-grid`); each row is `.set-row`: title, one line of h
 
 ## 8. Not drawn, and open points
 
-Not drawn in the mockup; specified above in words: quick open / palette, create pull request sheet, repository settings sheet, working-tree switcher menu (open), reset / discard confirms, blame margin, the cross-repository Pull requests page, the Windows window frame around the workspace, the updated clone modal (the local folder name field; later the source switch: AWS profile / GitHub account / Bitbucket account / paste a URL, and a Project field), the Force stop confirm, the "moved by hand" row, the running and failed states of Rename local folder and Free up space.
+Not drawn in the mockup; specified above in words: quick open / palette, create pull request sheet, repository settings sheet, working-tree switcher menu (open), reset / discard confirms, blame margin, the cross-repository Pull requests page, the Windows window frame around the workspace, the updated clone modal (the local folder name field; later the source switch: AWS profile / GitHub account / Bitbucket account / paste a URL, and a Project field), the Force stop confirm, the "moved by hand" row, the running and failed states of Rename local folder and Free up space, the system notification banner (drawn by macOS or Windows; title, body and button are given in the table in section 6), the Settings rows for sign-in reminders and for notifications turned off (5.14).
+
+**Milestone 8 screens are drawn later.** Tickets (5.15: the page, the queue bar in each state, the editor, quick capture), AI accounts and usage (5.16: the accounts group, the add-account sheet, the usage popover, the sidebar chip), the limit banner and account chip on the session bar (5.6), the queue settings card (5.14) and the Tickets item in the sidebar (4.1) exist only as words and text sketches. The milestone's tasks draw them in the mockup first ("Fable first"), take the shots, and only then build. Mock data for them: AI accounts "工作 / Work" (default) and "个人 / Personal" for Claude Code, "默认 / Default" for Codex; tickets #6 to #17 in the repositories of section 7.
 
 Drawn at the milestone-0 gate (2026-11-16): the session switcher, Rename local folder, Free up space, the "closed, still running" rows, the quit dialog.
 
@@ -853,6 +1122,10 @@ Open points for the planner or the owner:
 6. **Rename to another disk** is not offered in 1.0.
 7. **Keep-awake vs screen lock.** The owner asked for `caffeinate -d`, which also stops the screen from locking. The setting "屏幕也保持常亮" defaults to on as asked; the limits text says so plainly.
 8. Mock data in the mockup (versions, sizes, fingerprints, account IDs, email addresses, paths, session IDs) is illustrative, not checked against real releases.
+9. **The word for a ticket.** The design uses "工单 / Ticket". The owner said "ticket" in English; "工单" is the planner's choice for Chinese and is the owner's to change (for example "待办" or "任务单").
+10. **Tickets as a board.** Three columns side by side follow the owner's three states. If the owner mostly keeps a long Editing list, one list with a state filter would use the width better.
+11. **Where the usage chip sits.** In the sidebar above sign-in status, always visible. It could instead be a single line by the keep-awake chip.
+12. **An account's identity.** A pass shows the owner's label only, never an email address or plan name, because the app stores nothing from a tool's account file. If the owner wants the email shown, it can be read from the tool on demand and shown without being stored.
 
 ---
 

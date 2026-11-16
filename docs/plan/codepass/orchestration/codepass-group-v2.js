@@ -10,17 +10,20 @@ export const meta = {
   ],
 }
 
-// args: { repo, wt, scratch, scrubList, portBase, attr, tasks: [{id, title}], groupNote, notes: {id: text} }
+// args: { repo, wt, scratch, scrubList, portBase, attr, tasks: [{id, title}], groupNote, notes: {id: text}, keepHistory: [id] }
+// keepHistory (optional): tasks whose branch must reach codepass with its history (F1-21 merges main; a squash would drop main as a parent).
 const A = args
 const R = A.repo
 const WT = A.wt
 // The commit trailer lines come from the running session's attribution reminder (they change per session).
 if (!A.attr) throw new Error('args.attr is required: the two commit trailer lines of the current session, joined by \\n')
 const ATTR = A.attr
+const KEEP = new Set(A.keepHistory || [])
 const SHARED = 'main.go, internal/app/container.go, internal/app/events.go, frontend/src/api/services.ts, frontend/src/api/mock/index.ts, frontend/src/App.tsx, frontend/src/shell/Sidebar.tsx, frontend/src/i18n/index.ts, frontend/src/styles/*.css, go.mod, go.sum, frontend/package.json, frontend/package-lock.json, .gitignore'
 
 const others = (t) => A.tasks.filter((x) => x.id !== t.id).map((x) => `${x.id} (${x.title})`).join(', ') || 'none'
-const notes = (t) => (A.notes && A.notes[t.id] ? `\nOrchestrator notes for ${t.id}:\n${A.notes[t.id]}\n` : '') + (A.groupNote ? `\nGroup note: ${A.groupNote}\n` : '')
+const keepNote = (t) => (KEEP.has(t.id) ? `\nHistory rule for ${t.id}: this branch reaches codepass with a --no-ff merge, never a squash, so every commit you make on task/${t.id} stays in codepass's history. End every commit message on it with exactly these two lines (this replaces "no AI attribution lines"):\n${ATTR}\n` : '')
+const notes = (t) => (A.notes && A.notes[t.id] ? `\nOrchestrator notes for ${t.id}:\n${A.notes[t.id]}\n` : '') + (A.groupNote ? `\nGroup note: ${A.groupNote}\n` : '') + keepNote(t)
 
 const READ = (t) => `Read first: ${R}/docs/plan/codepass/tasks.md: "How the work runs", "Owner decisions (FINAL)" (and the open-questions block right after it: the assumed answers apply), the standing review checklist, and your entry ${t.id} (Build / Owns / Deps / Accept / Tests / Review). Then every section it cites in ${R}/docs/plan/codepass/product-plan.md ("plan N.N") and ui-design.md ("design N.N"), the findings notes in ${R}/docs/research/ it relies on, and for UI work the named mockup screens in ${R}/docs/design/codepass-mockup/ (PNG shots in shots/; mockup.css is the draft of the new CSS). Spike code to port is on local branches spike/* (git -C ${R} show spike/<name>:<path>).`
 const READ_SHORT = (t) => `Your entry: ${R}/docs/plan/codepass/tasks.md, entry ${t.id}, plus "Owner decisions (FINAL)" and the standing review checklist; open the cited plan / design sections only as needed.`
@@ -121,7 +124,7 @@ if (approved.length) {
   merge = await agent(
     `You are the Sonnet release engineer. Merge these approved Codepass tasks into branch codepass of the main checkout ${R}, in this order: ${approved.map((r) => `${r.id} (${r.title})`).join(', ')}.
 Preconditions: ${R} is on branch codepass with a clean tree (check; if not, stop and report). The owner's installed AWS SSO Hub app may be running: never quit, kill, move or trash it.
-For each task: git -C ${R} merge --squash task/<id>; resolve any conflict (generated files under frontend/bindings/: take either side, then regenerate after all merges); make sure frontend/dist/.gitkeep stays tracked and that no .tools or node_modules link is staged; commit with the message "codepass(<id>): <title>", a blank line, then exactly these two lines:
+For each task: ${approved.some((r) => KEEP.has(r.id)) ? `for ${approved.filter((r) => KEEP.has(r.id)).map((r) => r.id).join(', ')} (keep history): git -C ${R} merge --no-ff --no-commit task/<id>, never --squash (the branch holds a merge with main that must stay in codepass's history; afterwards git -C ${R} log codepass..main must print nothing); for every other task: ` : ''}git -C ${R} merge --squash task/<id>; resolve any conflict (generated files under frontend/bindings/: take either side, then regenerate after all merges); make sure frontend/dist/.gitkeep stays tracked and that no .tools or node_modules link is staged; commit with the message "codepass(<id>): <title>", a blank line, then exactly these two lines:
 ${ATTR}
 Wiring notes (for your information; implement nothing from them): ${JSON.stringify(approved.map((r) => ({ id: r.id, notesForWiring: wiring(r) })))}
 After all merges: if frontend/package.json or package-lock.json changed, run npm ci in ${R}/frontend; if any Go API type or service changed, run .tools/bin/wails3 generate bindings -clean=true -ts -i in ${R} and commit "codepass: regenerate bindings" (same two trailer lines) if anything changed. Then run the gate in ${R}: go vet ./... && go test ./... ; GOOS=windows GOARCH=amd64 go build ./... ; cd frontend && npm run typecheck && npm test && npm run build && npm run check:dist ; then CODEPASS_SCRUB_LIST=${A.scrubList} bash scripts/scrub-check.sh --tracked (must exit 0; never open, print or quote the list file or the matched text). An integration failure between tasks: fix it minimally and commit "codepass: integrate <ids>" (same trailer); if it is not small, stop and report without pushing. Then git -C ${R} push origin codepass. Finally remove each merged task's worktree (git -C ${R} worktree remove --force ${WT}/<id>; rm -rf ${WT}/<id>-shots) and keep the task branches.
