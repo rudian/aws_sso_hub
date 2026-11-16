@@ -1,5 +1,6 @@
 // Small helpers shared by the Accounts and Migration pages.
 import { SessionState } from '../../api/models'
+import { motionReduced } from '../../lib/motion'
 import type { Profile } from '../../api/models'
 
 /** Cancel a bound-method promise without raising "unhandled rejection" for the cancellation itself. */
@@ -14,7 +15,7 @@ export function cancelQuietly(p: { cancel?: () => Promise<unknown> } | null | un
 /** Scroll a portal section (rendered with data-portal) into view. */
 export function scrollToPortal(name: string): void {
   window.setTimeout(() => {
-    document.querySelector(`[data-portal="${CSS.escape(name)}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    document.querySelector(`[data-portal="${CSS.escape(name)}"]`)?.scrollIntoView({ block: 'start', behavior: motionReduced() ? 'auto' : 'smooth' })
   }, 60)
 }
 

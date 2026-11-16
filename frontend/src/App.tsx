@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { onEvent } from './api/events'
 import { setWindowTitle } from './api/platform'
-import { System } from './api/services'
+import { System, Tools } from './api/services'
 import { SessionState } from './api/models'
 import { I18nProvider, systemLang, useI18n } from './i18n'
+import { GATE_RECHECK_EVENT } from './lib/gate'
 import { initialUI, takeOpen } from './lib/initialUI'
 import { focusSearch, runRefreshHandler } from './lib/keyboard'
 import { guessPlatform, hasModifier } from './lib/platform'
@@ -18,10 +19,12 @@ import { GitGlobalPage } from './pages/git/GitGlobalPage'
 import { HealthPage } from './pages/health/HealthPage'
 import { MigrationPage } from './pages/migrate/MigrationPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
-import { ReposPage } from './pages/repos/ReposPage'
+import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
+import { SetupPage } from './pages/setup/SetupPage'
 import { TerminalPage } from './pages/terminal/TerminalPage'
 import { TutorialPage } from './pages/tutorial/TutorialPage'
+import { UpdatePage } from './pages/update/UpdatePage'
 import { AccountsProvider, useAccounts } from './state/accounts'
 import { AppInfoProvider, useAppInfo } from './state/appInfo'
 import { EnvProvider } from './state/env'
@@ -29,6 +32,7 @@ import { ExternalChangeProvider } from './state/external'
 import { ReposProvider } from './state/repos'
 import { SettingsProvider, useSettings } from './state/settings'
 import { ActionsProvider, useActions } from './shell/AppActions'
+import { AppCommands } from './shell/AppCommands'
 import { Sidebar } from './shell/Sidebar'
 
 /** Theme, motion, platform, language and window title follow the settings (language: settings value or the system language). */
@@ -56,7 +60,10 @@ function ThemeAndLanguage({ children }: { children?: ReactNode }) {
 const PAGES: Record<PageId, () => ReactNode> = {
   accounts: () => <AccountsPage />,
   migrate: () => <MigrationPage />,
-  repos: () => <ReposPage />,
+  projects: () => <ProjectsPage />,
+  repos: () => <ProjectsPage />, // alias of projects: old links (Health, account card) land on the same page
+  setup: () => <SetupPage />,
+  update: () => <UpdatePage />,
   git: () => <GitGlobalPage />,
   terminal: () => <TerminalPage />,
   health: () => <HealthPage />,
@@ -65,10 +72,11 @@ const PAGES: Record<PageId, () => ReactNode> = {
   onboarding: () => <OnboardingPage />,
 }
 
-const SHORTCUT_PAGES: PageId[] = ['accounts', 'repos', 'git', 'terminal', 'health', 'tutorial']
+// Cmd/Ctrl+1..4: Projects, AI tasks, Pull requests, Accounts (design 4.3). AI tasks and Pull requests have no page yet.
+const SHORTCUT_PAGES: (PageId | null)[] = ['projects', null, null, 'accounts']
 
 /** App-level behaviour: first-run routing, ?open=login:, renewed toast, app:navigate, keyboard shortcuts. */
-function useAppEffects() {
+function useAppEffects(gateOpen: boolean) {
   const info = useAppInfo()
   const { state: accounts } = useAccounts()
   const { openLogin, toast } = useActions()
@@ -78,13 +86,13 @@ function useAppEffects() {
   const tRef = useRef(t)
   tRef.current = t
 
-  // first run: no explicit page parameter -> onboarding
+  // first run: no explicit page parameter -> onboarding. Decided only once the tools gate is open, so the setup screen wins.
   const routed = useRef(false)
   useEffect(() => {
-    if (!info || routed.current) return
+    if (!info || !gateOpen || routed.current) return
     routed.current = true
     if (info.firstRun && !initialUI.page) setRoute({ page: 'onboarding' })
-  }, [info])
+  }, [info, gateOpen])
 
   // ?open=login:<portal>
   const opened = useRef(false)
@@ -122,9 +130,10 @@ function useAppEffects() {
     const onKey = (e: KeyboardEvent) => {
       if (!hasModifier(e, platform) || e.altKey) return
       const k = e.key.toLowerCase()
-      if (k >= '1' && k <= '6') {
+      if (k >= '1' && k <= '4') {
         e.preventDefault()
-        setRoute({ page: SHORTCUT_PAGES[Number(k) - 1] })
+        const page = SHORTCUT_PAGES[Number(k) - 1]
+        if (page) setRoute({ page })
       } else if (k === ',') {
         e.preventDefault()
         setRoute({ page: 'settings' })
@@ -145,13 +154,46 @@ function useAppEffects() {
   }, [info?.platform, openLogin])
 }
 
+type Gate = 'checking' | 'open' | 'blocked'
+
+/** The tools gate: a missing or too-old git or AWS CLI replaces the whole window with the setup screen (no sidebar, no way around it). */
+function useToolsGate(): Gate {
+  const [gate, setGate] = useState<Gate>('checking')
+  useEffect(() => {
+    let alive = true
+    const check = () =>
+      void Tools.GetSetupState()
+        .then((s) => alive && setGate(s.blocked ? 'blocked' : 'open'))
+        .catch(() => alive && setGate((g) => (g === 'checking' ? 'open' : g)))
+    check()
+    window.addEventListener(GATE_RECHECK_EVENT, check)
+    return () => {
+      alive = false
+      window.removeEventListener(GATE_RECHECK_EVENT, check)
+    }
+  }, [])
+  return gate
+}
+
 function Shell() {
   const route = useRoute()
-  useAppEffects()
+  const gate = useToolsGate()
+  useAppEffects(gate === 'open')
+  if (gate === 'checking') return <div className="app" />
+  if (gate === 'blocked') {
+    return (
+      <div className="app" style={{ gridTemplateColumns: '1fr' }}>
+        <main className="app__main page-enter" id="main">
+          <SetupPage />
+        </main>
+      </div>
+    )
+  }
   return (
     <div className="app">
       <Sidebar />
-      <main className="app__main" id="main" key={route.page}>
+      <AppCommands />
+      <main className="app__main page-enter" id="main" key={route.page}>
         {PAGES[route.page]()}
       </main>
     </div>

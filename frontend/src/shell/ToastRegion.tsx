@@ -1,8 +1,9 @@
 import clsx from 'clsx'
 import { CircleCheck, Info, OctagonAlert, TriangleAlert, X } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { IconButton } from '../components/IconButton'
 import { useI18n } from '../i18n'
+import { exitDelay, useFlip } from '../lib/motion'
 import type { ToastInput } from './AppActions'
 
 export interface ToastEntry extends ToastInput {
@@ -12,7 +13,7 @@ export interface ToastEntry extends ToastInput {
 const ICONS = { ok: CircleCheck, info: Info, warn: TriangleAlert, danger: OctagonAlert }
 const DELAY: Record<ToastInput['kind'], number | null> = { ok: 5000, info: 5000, warn: 8000, danger: null }
 
-function ToastItem({ toast, onDismiss }: { toast: ToastEntry; onDismiss: (id: number) => void }) {
+function ToastItem({ toast, leaving, onDismiss }: { toast: ToastEntry; leaving: boolean; onDismiss: (id: number) => void }) {
   const { t } = useI18n()
   const remaining = useRef<number | null>(DELAY[toast.kind])
   const startedAt = useRef(0)
@@ -36,7 +37,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastEntry; onDismiss: (id: nu
 
   const Icon = ICONS[toast.kind]
   return (
-    <div className={clsx('toast', `toast--${toast.kind}`)} role={toast.kind === 'danger' ? 'alert' : 'status'} onMouseEnter={pause} onMouseLeave={start}>
+    <div className={clsx('toast', `toast--${toast.kind}`, leaving && 'is-leaving')} data-flip-key={String(toast.id)} role={toast.kind === 'danger' ? 'alert' : 'status'} onMouseEnter={pause} onMouseLeave={start}>
       <Icon className="toast__icon" aria-hidden="true" />
       <div className="toast__body">
         <div className="toast__title">{toast.title}</div>
@@ -60,13 +61,32 @@ function ToastItem({ toast, onDismiss }: { toast: ToastEntry; onDismiss: (id: nu
   )
 }
 
-/** Bottom-right, 360 px, newest at the bottom, max 3 visible. */
+/** Bottom-right, 360 px, newest at the bottom, max 3 visible. A dismissed toast fades out (160 ms) before it leaves; the rest slide into the gap. */
 export function ToastRegion({ toasts, onDismiss }: { toasts: ToastEntry[]; onDismiss: (id: number) => void }) {
   const visible = toasts.slice(-3)
+  const ref = useRef<HTMLDivElement>(null)
+  const [leaving, setLeaving] = useState<ReadonlySet<number>>(new Set())
+  useFlip(ref, visible.map((x) => String(x.id)))
+  const dismiss = useCallback(
+    (id: number) => {
+      const wait = exitDelay()
+      if (wait === 0) return onDismiss(id)
+      setLeaving((s) => (s.has(id) ? s : new Set(s).add(id)))
+      window.setTimeout(() => {
+        setLeaving((s) => {
+          const n = new Set(s)
+          n.delete(id)
+          return n
+        })
+        onDismiss(id)
+      }, wait)
+    },
+    [onDismiss],
+  )
   return (
-    <div className="toast-region">
+    <div className="toast-region" ref={ref}>
       {visible.map((t) => (
-        <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
+        <ToastItem key={t.id} toast={t} leaving={leaving.has(t.id)} onDismiss={dismiss} />
       ))}
     </div>
   )

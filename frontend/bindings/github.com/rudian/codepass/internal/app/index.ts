@@ -3,13 +3,17 @@
 
 import * as AccountService from "./accountservice.js";
 import * as GitGlobalService from "./gitglobalservice.js";
+import * as IdentityService from "./identityservice.js";
 import * as MigrationService from "./migrationservice.js";
 import * as RepoService from "./reposervice.js";
 import * as SystemService from "./systemservice.js";
+import * as ToolService from "./toolservice.js";
 export {
     AccountService,
     GitGlobalService,
+    IdentityService,
     MigrationService,
     RepoService,
-    SystemService
+    SystemService,
+    ToolService
 };

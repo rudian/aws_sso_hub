@@ -6,6 +6,7 @@ import type { DotKind } from '../components/Dot'
 import { Tooltip } from '../components/Tooltip'
 import { useI18n } from '../i18n'
 import { useNavigate } from '../lib/route'
+import { motionReduced } from '../lib/motion'
 import { formatKeyringTime, formatUntil, remainingMs } from '../lib/time'
 import { useNow } from '../lib/useNow'
 import { useAccounts } from '../state/accounts'
@@ -59,7 +60,7 @@ export function Keyring() {
         if (needsLogin) void openLogin(p.name)
         else {
           navigate({ page: 'accounts' })
-          window.setTimeout(() => document.querySelector(`[data-portal="${CSS.escape(p.name)}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50)
+          window.setTimeout(() => document.querySelector(`[data-portal="${CSS.escape(p.name)}"]`)?.scrollIntoView({ block: 'start', behavior: motionReduced() ? 'auto' : 'smooth' }), 50)
         }
       },
     }

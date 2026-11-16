@@ -27,7 +27,7 @@ export interface InitialUI {
 }
 
 const SCENARIOS: ScenarioId[] = ['fresh', 'mid', 'done', 'empty', 'edge']
-const PAGES: PageId[] = ['accounts', 'migrate', 'repos', 'git', 'terminal', 'health', 'tutorial', 'settings', 'onboarding']
+const PAGES: PageId[] = ['accounts', 'migrate', 'projects', 'repos', 'setup', 'update', 'git', 'terminal', 'health', 'tutorial', 'settings', 'onboarding']
 const LOGIN_MODES: MockLoginMode[] = ['success', 'waiting', 'device', 'denied', 'timeout', 'port', 'network']
 const SESSIONS: SessionOverride[] = ['unknown', 'overrun', 'ending']
 

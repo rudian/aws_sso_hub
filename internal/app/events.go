@@ -19,4 +19,6 @@ func init() {
 	application.RegisterEvent[api.Settings](api.EventSettingsChanged)
 	application.RegisterEvent[api.NavigateRequest](api.EventNavigate)
 	application.RegisterEvent[[]string](api.EventSecondInstance)
+	application.RegisterEvent[api.InstallState](api.EventToolInstall)
+	application.RegisterEvent[struct{}](api.EventIdentityChanged)
 }

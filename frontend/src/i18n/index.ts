@@ -16,6 +16,11 @@ import * as health from './locales/health'
 import * as term from './locales/term'
 import * as settings from './locales/settings'
 import * as tut from './locales/tut'
+import * as menu from './locales/menu'
+import * as projects from './locales/projects'
+import * as setup from './locales/setup'
+import * as identity from './locales/identity'
+import * as update from './locales/update'
 import type { UiError } from '../api/errors'
 import { errorKeys } from '../api/errors'
 import { ErrorCode } from '../api/models'
@@ -23,16 +28,18 @@ import { ErrorCode } from '../api/models'
 export type Lang = 'zh-CN' | 'en'
 
 /** Every namespace file, in merge order. keys.test.ts checks that zh and en match inside each one. */
-export const namespaces = { app, errors, accounts, login, addPortal, migrate, repos, clone, git, onboarding, health, term, settings, tut }
+export const namespaces = { app, errors, accounts, login, addPortal, migrate, repos, clone, git, onboarding, health, term, settings, tut, menu, projects, setup, identity, update }
 
 export const zhAll = {
   ...app.zh, ...errors.zh, ...accounts.zh, ...login.zh, ...addPortal.zh, ...migrate.zh, ...repos.zh,
   ...clone.zh, ...git.zh, ...onboarding.zh, ...health.zh, ...term.zh, ...settings.zh, ...tut.zh,
+  ...menu.zh, ...projects.zh, ...setup.zh, ...identity.zh, ...update.zh,
 } as const
 export type MessageKey = keyof typeof zhAll
 const enAll: Record<MessageKey, string> = {
   ...app.en, ...errors.en, ...accounts.en, ...login.en, ...addPortal.en, ...migrate.en, ...repos.en,
   ...clone.en, ...git.en, ...onboarding.en, ...health.en, ...term.en, ...settings.en, ...tut.en,
+  ...menu.en, ...projects.en, ...setup.en, ...identity.en, ...update.en,
 } as Record<MessageKey, string>
 const zhMap: Record<MessageKey, string> = zhAll as Record<MessageKey, string>
 

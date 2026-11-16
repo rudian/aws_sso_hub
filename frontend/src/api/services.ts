@@ -3,6 +3,8 @@ import * as MigrationReal from '../../bindings/github.com/rudian/codepass/intern
 import * as RepoReal from '../../bindings/github.com/rudian/codepass/internal/app/reposervice'
 import * as GitGlobalReal from '../../bindings/github.com/rudian/codepass/internal/app/gitglobalservice'
 import * as SystemReal from '../../bindings/github.com/rudian/codepass/internal/app/systemservice'
+import * as ToolReal from '../../bindings/github.com/rudian/codepass/internal/app/toolservice'
+import * as IdentityReal from '../../bindings/github.com/rudian/codepass/internal/app/identityservice'
 import { useMocks } from './env'
 import { mock } from './mock'
 
@@ -13,3 +15,5 @@ export const Migration: typeof MigrationReal = useMocks ? mock.migration : Migra
 export const Repos: typeof RepoReal = useMocks ? mock.repos : RepoReal
 export const GitGlobal: typeof GitGlobalReal = useMocks ? mock.gitGlobal : GitGlobalReal
 export const System: typeof SystemReal = useMocks ? mock.system : SystemReal
+export const Tools: typeof ToolReal = useMocks ? mock.tools : ToolReal
+export const Identity: typeof IdentityReal = useMocks ? mock.identity : IdentityReal

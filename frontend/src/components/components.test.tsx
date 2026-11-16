@@ -241,6 +241,36 @@ describe('small components', () => {
     expect(onChange).toHaveBeenCalledWith('b')
   })
 
+  it('Segmented moves focus on the next frame without reading a cleared currentTarget', () => {
+    const frames: FrameRequestCallback[] = []
+    const spy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb))
+    try {
+      render(<Segmented role="radiogroup" ariaLabel="Theme" value="b" onChange={() => undefined} items={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />)
+      act(() => {
+        host.querySelector('.segmented')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }))
+      })
+      expect(frames).toHaveLength(1)
+      expect(() => frames[0](0)).not.toThrow()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('Segmented focuses the target even when the value arrives late', () => {
+    const frames: FrameRequestCallback[] = []
+    const spy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => frames.push(cb))
+    try {
+      render(<Segmented role="radiogroup" ariaLabel="Motion" value="a" onChange={() => undefined} items={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }]} />)
+      act(() => {
+        host.querySelector('.segmented')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+      })
+      frames[0](0) // the value is still 'a' here, as during an async save
+      expect(document.activeElement).toBe(host.querySelectorAll('[role="radio"]')[1])
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('Tabs skip disabled tabs', () => {
     const onChange = vi.fn()
     render(<Tabs value="a" onChange={onChange} tabs={[{ id: 'a', label: 'A' }, { id: 'b', label: 'B', disabled: true }, { id: 'c', label: 'C' }]} />)

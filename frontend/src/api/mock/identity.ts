@@ -1,234 +1,13 @@
-// Mock of IdentityService (author identity, plan 3.4 / design 5.12).
-//
-// The Go service is registered in main.go by the wiring task (F1-W); until then Wails generates no bindings for it,
-// so this mock is typed against the hand-written types below. They mirror internal/api/identity.go field for field
-// (same names, same optional fields = Go `omitempty`), and the named string types are enums with the member names
-// wails3 generates (Go constant names), as it did for DiffKind. Types the bindings already hold (FilePreview,
-// DiffLine, DiffKind, AppError) are imported, not repeated. When bindings exist, replace the block between the two
-// "types mirroring" markers by `import { ... } from '../models'` (the enums and interfaces keep their names) and
-// type the mock as `typeof IdentityReal`; the mock body then needs no change.
-// Also delete the CancellablePromise and AppError imports just under the start marker.
-import { ErrorCode } from '../models'
-import type { DiffLine, FilePreview } from '../models'
+// Mock of IdentityService (author identity, plan 3.4 / design 5.12), typed against the generated identityservice module.
+// Scenarios: resetIdentityMock('default' | 'unset' | 'env' | 'empty').
+import * as IdentityReal from '../../../bindings/github.com/rudian/codepass/internal/app/identityservice'
+import { ErrorCode, IdentitySourceKind, RepoAction, RepoIdentityMode } from '../models'
+import type { DiffLine, FilePreview, Author, IdentitySource, EffectiveIdentity, EnvVar, TerminalEnvOverride, RepoIdentity, IdentityOverview, RepoChangePlan, GlobalIdentityPreview, ProjectIdentityRequest, ProjectIdentityPreview, MoveIdentityPreview, RepoChangeOutcome, IdentityChangeResult } from '../models'
+import { mockEmit } from '../events'
 import { add, ctx, del, fold } from './world'
 import { READ, SLOW, WRITE, fail, run } from './util'
 
-// ---- types mirroring internal/api/identity.go (start) ----
-// (these two imports belong to the block too: delete them with it)
-import { CancellablePromise } from '@wailsio/runtime'
-import type { AppError } from '../models'
-
-export interface Author {
-  name: string
-  email: string
-}
-
-export enum IdentitySourceKind {
-  $zero = '',
-  IdentitySrcNone = 'none',
-  IdentitySrcGlobal = 'global',
-  IdentitySrcSystem = 'system',
-  IdentitySrcProject = 'project',
-  IdentitySrcFromProject = 'from-project',
-  IdentitySrcRepo = 'repo',
-  IdentitySrcConditional = 'conditional',
-  IdentitySrcInclude = 'include',
-  IdentitySrcWorktree = 'worktree',
-  IdentitySrcCommand = 'command',
-  IdentitySrcEnv = 'env',
-}
-
-export enum ProbeErrorKind {
-  $zero = '',
-  ProbeNoShell = 'no-shell',
-  ProbeTimeout = 'timeout',
-  ProbeFailed = 'failed',
-}
-
-export interface IdentitySource {
-  kind: IdentitySourceKind
-  scope?: string
-  file?: string
-  path?: string
-  rule?: string
-  ruleFile?: string
-  var?: string
-  external: boolean
-}
-
-export interface EffectiveIdentity {
-  set: boolean
-  name: string
-  email: string
-  nameSource: IdentitySource
-  emailSource: IdentitySource
-  source: IdentitySource
-}
-
-export interface EnvVar {
-  name: string
-  value: string
-}
-
-export interface IdentityFile {
-  file: string
-  path: string
-}
-
-export interface TerminalEnvOverride {
-  active: boolean
-  committerVars: boolean
-  fallbackEmail: boolean
-  vars: EnvVar[] | null
-  files: IdentityFile[] | null
-  probed: boolean
-  probeError?: ProbeErrorKind
-  probeExitCode?: number
-  shell?: string
-  configRedirected: boolean
-}
-
-export interface GlobalIdentity {
-  set: boolean
-  name: string
-  email: string
-  file: string
-  path: string
-  baseHash: string
-  source: IdentitySource
-  usedBy: number
-}
-
-export interface RepoIdentity {
-  repoId: string
-  name: string
-  path: string
-  projectId?: string
-  missing: boolean
-  effective: EffectiveIdentity
-  setting: EffectiveIdentity
-  override?: Author | null
-  followsGlobal: boolean
-  readError?: AppError | null
-}
-
-export interface ProjectIdentity {
-  id: string
-  name: string
-  identity?: Author | null
-  repos: RepoIdentity[] | null
-}
-
-export interface IdentityOverview {
-  global: GlobalIdentity
-  projects: ProjectIdentity[] | null
-  ungrouped: RepoIdentity[] | null
-  env: TerminalEnvOverride
-}
-
-export enum RepoAction {
-  $zero = '',
-  RepoActionSet = 'set',
-  RepoActionRemove = 'remove',
-  RepoActionUnchanged = 'unchanged',
-  RepoActionKeepOwn = 'keep-own',
-  RepoActionKeepExternal = 'keep-external',
-  RepoActionSkipMissing = 'skip-missing',
-  RepoActionError = 'error',
-}
-
-export interface RepoChangePlan {
-  repoId: string
-  name: string
-  path: string
-  action: RepoAction
-  before?: Author | null
-  after?: Author | null
-  preview?: FilePreview | null
-  error?: AppError | null
-}
-
-export interface GlobalIdentityPreview {
-  preview: FilePreview
-  before?: Author | null
-  after: Author
-  unchanged: boolean
-}
-
-export interface ProjectIdentityRequest {
-  projectId: string
-  identity?: Author | null
-}
-
-export interface ProjectIdentityPreview {
-  projectId: string
-  name: string
-  identity?: Author | null
-  previous?: Author | null
-  repos: RepoChangePlan[] | null
-  writes: number
-  keepsOwn: number
-  planHash: string
-}
-
-export enum RepoIdentityMode {
-  $zero = '',
-  RepoModeOwn = 'own',
-  RepoModeProject = 'project',
-  RepoModeGlobal = 'global',
-}
-
-export interface RepoIdentityRequest {
-  repoId: string
-  mode: RepoIdentityMode
-  identity?: Author | null
-}
-
-export interface RepoIdentityPreview {
-  repoId: string
-  mode: RepoIdentityMode
-  plan: RepoChangePlan
-  planHash: string
-}
-
-export interface MoveIdentityPreview {
-  repoId: string
-  fromProjectId?: string
-  toProjectId?: string
-  plan: RepoChangePlan
-  planHash: string
-}
-
-export interface RepoChangeOutcome {
-  repoId: string
-  name: string
-  action: RepoAction
-  ok: boolean
-  error?: AppError | null
-}
-
-export interface IdentityChangeResult {
-  outcomes: RepoChangeOutcome[] | null
-  undoId: string
-  recordUpdated: boolean
-  backupIds: string[] | null
-}
-
-/** The service surface (method names and argument order of internal/app/identityservice.go). */
-export interface IdentityServiceShape {
-  GetOverview(): CancellablePromise<IdentityOverview>
-  GetTerminalEnv(refresh: boolean): CancellablePromise<TerminalEnvOverride>
-  PreviewGlobal(a: Author): CancellablePromise<GlobalIdentityPreview>
-  ApplyGlobal(a: Author, baseHash: string): CancellablePromise<IdentityChangeResult>
-  PreviewProject(req: ProjectIdentityRequest): CancellablePromise<ProjectIdentityPreview>
-  ApplyProject(req: ProjectIdentityRequest, planHash: string): CancellablePromise<IdentityChangeResult>
-  PreviewRepo(req: RepoIdentityRequest): CancellablePromise<RepoIdentityPreview>
-  ApplyRepo(req: RepoIdentityRequest, planHash: string): CancellablePromise<IdentityChangeResult>
-  PreviewMove(repoId: string, toProjectId: string): CancellablePromise<MoveIdentityPreview>
-  ApplyMove(repoId: string, toProjectId: string, planHash: string): CancellablePromise<IdentityChangeResult>
-  Undo(undoId: string): CancellablePromise<IdentityChangeResult>
-}
-// ---- types mirroring internal/api/identity.go (end) ----
+export type IdentityServiceShape = typeof IdentityReal
 
 // ---- mock state (generic by rule: acme / globex / umbrella, alex@...example.com) ----
 
@@ -523,6 +302,7 @@ export const mockIdentityService: IdentityServiceShape = {
       r.recordUpdated = true
       r.backupIds = [bid]
       remember(r, { files: [{ backupId: bid, afterHash: `mock-global-${st.globalHash}` }], records: [] })
+      mockEmit('identity:changed', {}) // the Go service emits this after every apply and undo
       return r
     }),
 
@@ -562,6 +342,7 @@ export const mockIdentityService: IdentityServiceShape = {
       res.recordUpdated = true
       remember(res, undo)
       st.hash++
+      mockEmit('identity:changed', {}) // the Go service emits this after every apply and undo
       return res
     }),
 
@@ -613,6 +394,7 @@ export const mockIdentityService: IdentityServiceShape = {
       res.recordUpdated = true
       remember(res, undo)
       st.hash++
+      mockEmit('identity:changed', {}) // the Go service emits this after every apply and undo
       return res
     }),
 
@@ -659,6 +441,7 @@ export const mockIdentityService: IdentityServiceShape = {
       res.recordUpdated = true
       remember(res, undo)
       st.hash++
+      mockEmit('identity:changed', {}) // the Go service emits this after every apply and undo
       return res
     }),
 
@@ -700,6 +483,7 @@ export const mockIdentityService: IdentityServiceShape = {
       st.hash++
       const res = result()
       res.recordUpdated = tok.records.length > 0
+      mockEmit('identity:changed', {}) // the Go service emits this after every apply and undo
       return res
     }),
 }

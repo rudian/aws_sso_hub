@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/rudian/codepass/internal/gitx"
@@ -33,6 +34,11 @@ func (c *Container) StartLoops() {
 		delay = time.Second
 	}
 
+	fetchEvery := c.opts.FetchInterval
+	if fetchEvery <= 0 {
+		fetchEvery = 15 * time.Minute
+	}
+
 	c.files.prime()
 
 	c.spawn(func() { // accounts ticker
@@ -60,7 +66,8 @@ func (c *Container) StartLoops() {
 			}
 		}
 	})
-	c.spawn(func() { // environment check, then scan and owner detection
+	c.spawn(func() { c.fetchLoop(ctx, fetchEvery) }) // background fetch of bound or opened repositories (the engine picks the targets)
+	c.spawn(func() {                                 // environment check, then scan and owner detection
 		c.CheckEnvironment(ctx)
 		select {
 		case <-ctx.Done():
@@ -123,4 +130,89 @@ func (c *Container) Shutdown() {
 	case <-time.After(3 * time.Second):
 	}
 	gitx.RemoveNeutralDir()
+}
+
+// online reports whether the machine looks connected: a non-loopback network interface is up and has an address.
+// It sends no traffic. Background fetch is skipped while it is false.
+func (c *Container) online() bool {
+	if c.opts.Online != nil {
+		return c.opts.Online()
+	}
+	return interfaceUp()
+}
+
+// fetchLoop runs one background-fetch round every `every`, skipped while offline. One round is bounded by
+// `every`, so a hung git process cannot stop the later rounds.
+func (c *Container) fetchLoop(ctx context.Context, every time.Duration) {
+	fetch := c.fetchRound
+	if fetch == nil {
+		fetch = c.Repos.BackgroundFetch
+	}
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if !c.online() {
+				continue
+			}
+			rctx, cancel := context.WithTimeout(ctx, every)
+			ok, failed := fetch(rctx)
+			cancel()
+			if ok+failed > 0 && c.Log != nil {
+				c.Log.Info("background fetch", "ok", ok, "failed", failed)
+			}
+		}
+	}
+}
+
+// usableAddr reports whether an interface address can carry traffic off the machine: not loopback, not link-local
+// (macOS keeps utun, awdl and llw interfaces up with IPv6 link-local addresses whatever the Wi-Fi state).
+func usableAddr(a net.Addr) bool {
+	n, ok := a.(*net.IPNet)
+	if !ok {
+		return false
+	}
+	return !n.IP.IsLoopback() && !n.IP.IsLinkLocalUnicast() && !n.IP.IsUnspecified()
+}
+
+// hasUsableAddr is true when at least one address passes usableAddr.
+func hasUsableAddr(addrs []net.Addr) bool {
+	for _, a := range addrs {
+		if usableAddr(a) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasDefaultRoute asks the OS whether a route to the internet exists. A UDP connect sends no packet; it fails
+// with "network is unreachable" when there is no route.
+func hasDefaultRoute() bool {
+	for _, t := range []struct{ network, addr string }{{"udp4", "192.0.2.1:9"}, {"udp6", "[2001:db8::1]:9"}} {
+		conn, err := net.Dial(t.network, t.addr)
+		if err == nil {
+			_ = conn.Close()
+			return true
+		}
+	}
+	return false
+}
+
+func interfaceUp() bool {
+	ifs, err := net.Interfaces()
+	if err != nil {
+		return true // cannot tell: let the fetch try and fail quietly
+	}
+	for _, i := range ifs {
+		if i.Flags&net.FlagUp == 0 || i.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		if addrs, err := i.Addrs(); err == nil && hasUsableAddr(addrs) {
+			return hasDefaultRoute()
+		}
+	}
+	return false
 }

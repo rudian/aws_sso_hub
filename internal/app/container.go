@@ -29,6 +29,8 @@ import (
 	"github.com/rudian/codepass/internal/settings"
 	"github.com/rudian/codepass/internal/sso"
 	"github.com/rudian/codepass/internal/transfer"
+	"github.com/rudian/codepass/internal/update"
+	"github.com/rudian/codepass/internal/watch"
 )
 
 // Endpoints override the AWS service endpoints (sandbox mode and tests). "" = AWS default.
@@ -45,6 +47,8 @@ type ContainerOptions struct {
 	TickInterval      time.Duration // accounts ticker, default 30 s
 	WatchInterval     time.Duration // file watcher, default 3 s
 	ScanDelay         time.Duration // delay before the background scan, default 1 s
+	FetchInterval     time.Duration // background fetch of bound or opened repositories, default 15 min
+	Online            func() bool   // nil = a network interface is up (no traffic); background fetch skips while false
 }
 
 // EndpointsFromEnv reads the AWSSSOHUB_*_ENDPOINT overrides. They are honoured in sandbox mode only.
@@ -63,19 +67,22 @@ func EndpointsFromEnv(p paths.Paths) Endpoints {
 
 // Container owns every engine and the glue between them. The five Wails services are thin views on it.
 type Container struct {
-	Paths    paths.Paths
-	RT       Runtime
-	Log      *slog.Logger
-	Settings *settings.Store
-	FirstRun bool
-	Backup   *backup.Store
-	SSO      *sso.Manager
-	Accounts *accounts.Engine
-	Transfer *transfer.Service
-	Migrate  *migrate.Engine
-	Repos    *repos.Engine
-	Global   *gitglobal.Engine
-	Creds    credstore.Store
+	fetchRound func(ctx context.Context) (ok, failed int) // test seam; nil means Repos.BackgroundFetch
+	Paths      paths.Paths
+	RT         Runtime
+	Log        *slog.Logger
+	Settings   *settings.Store
+	FirstRun   bool
+	Backup     *backup.Store
+	SSO        *sso.Manager
+	Accounts   *accounts.Engine
+	Transfer   *transfer.Service
+	Migrate    *migrate.Engine
+	Repos      *repos.Engine
+	Projects   *projects.Store // projects.json: the one store shared by the repository engine and the identity service
+	Global     *gitglobal.Engine
+	Update     *update.Controller // set by StartUpdates
+	Creds      credstore.Store
 
 	opts ContainerOptions
 	now  func() time.Time
@@ -169,10 +176,15 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 	})
 	// projects.json: repository IDs, projects, saved connection tests (F1-18). A newer or damaged file is
 	// returned as is (store.ErrNewerVersion / store.ErrCorrupt) and never replaced by an empty store.
-	reg, err := projects.Open(filepath.Join(filepath.Dir(p.SettingsFile), "projects.json"))
+	reg, err := projects.Open(projectsFile(p))
 	if err != nil {
-		return nil, err
+		c.cancel()
+		return nil, &storeFileError{File: projectsFile(p), Err: err}
 	}
+	c.Projects = reg
+	// One watcher for every repository folder; closed by Shutdown; the engine's later unsubscribes are no-ops.
+	w := watch.New(watch.Options{})
+	c.OnShutdown(w.Close)
 	c.Repos = repos.New(repos.Deps{
 		Paths:      p,
 		Git:        c.git,
@@ -181,6 +193,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		Profiles:   c.profileSource,
 		Store:      st,
 		Registry:   reg,
+		Watch:      NewWatchPort(w),
 		Backup:     bk,
 		CodeCommit: codecommit.NewFactory(o.Endpoints.CodeCommit),
 		Emit:       emit,
@@ -194,6 +207,11 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		Backup: bk, Creds: c.Creds, Lang: st.UILanguage, GOOS: runtime.GOOS, Emit: emit, OnWrite: c.files.note,
 	})
 	return c, nil
+}
+
+// projectsFile is the path of projects.json, next to settings.json.
+func projectsFile(p paths.Paths) string {
+	return filepath.Join(filepath.Dir(p.SettingsFile), "projects.json")
 }
 
 type discardWriter struct{}

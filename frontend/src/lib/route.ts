@@ -3,7 +3,7 @@ import type { MigrationStep } from '../api/models'
 import { MigrationStep as MS } from '../api/models'
 import { initialUI } from './initialUI'
 
-export type PageId = 'accounts' | 'migrate' | 'repos' | 'git' | 'terminal' | 'health' | 'tutorial' | 'settings' | 'onboarding'
+export type PageId = 'accounts' | 'migrate' | 'projects' | 'repos' | 'setup' | 'update' | 'git' | 'terminal' | 'health' | 'tutorial' | 'settings' | 'onboarding'
 export type TutorialSectionId = 'why' | 'enable' | 'assign' | 'portal' | 'migrate' | 'bind' | 'daily' | 'faq'
 export type RepoFilter = 'all' | 'todo' | 'bound'
 export interface Route {

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toUiError } from '../errors'
-import { ErrorCode } from '../models'
-import { IdentitySourceKind, RepoAction, RepoIdentityMode, mockIdentityService as svc, resetIdentityMock } from './identity'
+import { ErrorCode, IdentitySourceKind, RepoAction, RepoIdentityMode } from '../models'
+import { onEvent } from '../events'
+import { mockIdentityService as svc, resetIdentityMock } from './identity'
 import { add, ctx, del } from './world'
 
 async function call<T>(p: Promise<T>, ms = 2000): Promise<T> {
@@ -124,5 +125,16 @@ describe('identity mock', () => {
     await call(svc.ApplyMove('r_scratch', '', out.planHash))
     ov = await call(svc.GetOverview())
     expect(ov.ungrouped!.find((r) => r.name === 'scratch')!.effective.source.kind).toBe(IdentitySourceKind.IdentitySrcGlobal)
+  })
+
+  it('emits identity:changed after an apply and after an undo', async () => {
+    const seen = vi.fn()
+    const off = onEvent('identity:changed', seen)
+    const prev = await call(svc.PreviewGlobal({ name: 'Sam', email: 'sam@acme.example.com' }))
+    const res = await call(svc.ApplyGlobal({ name: 'Sam', email: 'sam@acme.example.com' }, prev.preview.baseHash))
+    expect(seen).toHaveBeenCalledTimes(1)
+    await call(svc.Undo(res.undoId))
+    expect(seen).toHaveBeenCalledTimes(2)
+    off()
   })
 })

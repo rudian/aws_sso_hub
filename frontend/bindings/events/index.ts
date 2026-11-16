@@ -39,6 +39,11 @@ export const CloneProgress = "clone:progress";
 export const FilesExternalChange = "files:external-change";
 
 /**
+ * Name of the custom event "identity:changed".
+ */
+export const IdentityChanged = "identity:changed";
+
+/**
  * Name of the custom event "login:progress".
  */
 export const LoginProgress = "login:progress";
@@ -77,4 +82,9 @@ export const SessionRenewed = "session:renewed";
  * Name of the custom event "settings:changed".
  */
 export const SettingsChanged = "settings:changed";
+
+/**
+ * Name of the custom event "tools:install-progress".
+ */
+export const ToolsInstallProgress = "tools:install-progress";
 

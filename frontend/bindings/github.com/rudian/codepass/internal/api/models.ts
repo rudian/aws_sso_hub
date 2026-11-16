@@ -91,6 +91,14 @@ export interface AppInfo {
     "uiLanguage": string;
 }
 
+/**
+ * Author is a git author name and email.
+ */
+export interface Author {
+    "name": string;
+    "email": string;
+}
+
 export interface BackupEntry {
     "id": string;
     "createdAt": string;
@@ -454,12 +462,33 @@ export interface DiscoveredRole {
     "suggestedProfile": string;
 }
 
+/**
+ * EffectiveIdentity is a resolved identity with its sources. Source is the one tag a row shows (the more
+ * specific of the two); NameSource and EmailSource are exact.
+ */
+export interface EffectiveIdentity {
+    "set": boolean;
+    "name": string;
+    "email": string;
+    "nameSource": IdentitySource;
+    "emailSource": IdentitySource;
+    "source": IdentitySource;
+}
+
 export interface EnvReport {
     "awsCli": ToolInfo;
     "git": ToolInfo;
     "grc": ToolInfo;
     "files": FileCheck[] | null;
     "checkedAt": string;
+}
+
+/**
+ * EnvVar is one identity variable exported in the terminal environment. Names and emails are not secrets.
+ */
+export interface EnvVar {
+    "name": string;
+    "value": string;
 }
 
 /**
@@ -728,6 +757,102 @@ export interface ExternalChange {
     "file": string;
 }
 
+/**
+ * FailureCause is the stable code of one failure, one per sentence of design 5.1.
+ */
+export enum FailureCause {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * the account is not an administrator
+     */
+    CauseNotAdmin = "not_admin",
+
+    /**
+     * the OS password / UAC window was cancelled
+     */
+    CauseCancelled = "cancelled",
+
+    /**
+     * the name and password were refused
+     */
+    CauseAuthDenied = "auth_denied",
+
+    /**
+     * no window to ask in
+     */
+    CauseNoSession = "no_gui_session",
+
+    /**
+     * timeout, DNS, connection, TLS
+     */
+    CauseNetwork = "network",
+
+    /**
+     * the proxy wants a sign-in (HTTP 407)
+     */
+    CauseProxyAuth = "proxy_auth",
+
+    /**
+     * device management / group policy
+     */
+    CausePolicy = "policy",
+
+    /**
+     * about 1.2 GB needed
+     */
+    CauseDiskFull = "disk_full",
+
+    /**
+     * size or digest differs, or a proxy returned a web page
+     */
+    CauseDamagedDownload = "damaged_download",
+
+    /**
+     * the package is not signed for distribution, or is broken
+     */
+    CauseBadSignature = "bad_signature",
+
+    /**
+     * signed by a team this Codepass does not know
+     */
+    CauseUnknownSigner = "unknown_signer",
+
+    /**
+     * Apple's check did not pass
+     */
+    CauseNotNotarized = "not_notarized",
+
+    /**
+     * /opt/homebrew exists
+     */
+    CausePrefixExists = "prefix_exists",
+
+    /**
+     * Windows: no winget
+     */
+    CauseWingetMissing = "winget_missing",
+
+    /**
+     * winget: the command needs an administrator
+     */
+    CauseNeedsAdmin = "needs_admin",
+
+    /**
+     * Windows: restart, then check again
+     */
+    CauseReboot = "reboot_required",
+
+    /**
+     * a known step failed for an unknown reason: show the log
+     */
+    CauseInstallerFailed = "installer_failed",
+    CauseUnknown = "unknown",
+};
+
 export interface FileCheck {
     /**
      * "aws-config" | "aws-credentials" | "git-global"
@@ -827,6 +952,38 @@ export interface GlobalDefaultInfo {
     "affectedRepos": number;
 }
 
+/**
+ * GlobalIdentity is the global card.
+ */
+export interface GlobalIdentity {
+    "set": boolean;
+    "name": string;
+    "email": string;
+
+    /**
+     * display path of the file a save writes
+     */
+    "file": string;
+    "path": string;
+    "baseHash": string;
+    "source": IdentitySource;
+
+    /**
+     * repositories whose setting comes from the global level
+     */
+    "usedBy": number;
+}
+
+/**
+ * GlobalIdentityPreview previews a global save.
+ */
+export interface GlobalIdentityPreview {
+    "preview": FilePreview;
+    "before"?: Author | null;
+    "after": Author;
+    "unchanged": boolean;
+}
+
 export interface GuardInfo {
     "installed": boolean;
     "patterns": string[] | null;
@@ -911,6 +1068,150 @@ export interface HelperEntry {
      */
     "value": string;
 }
+
+/**
+ * IdentityChangeResult is returned by every apply call.
+ */
+export interface IdentityChangeResult {
+    "outcomes": RepoChangeOutcome[] | null;
+
+    /**
+     * UndoID names what the engine kept for Undo (backups, hashes and the previous record values stay in Go;
+     * the page only hands the ID back). "" = nothing to undo. It is lost when the app quits.
+     */
+    "undoId": string;
+
+    /**
+     * projects.json holds the new value
+     */
+    "recordUpdated": boolean;
+    "backupIds": string[] | null;
+}
+
+/**
+ * IdentityFile names a file (a shell profile).
+ */
+export interface IdentityFile {
+    /**
+     * display path
+     */
+    "file": string;
+    "path": string;
+}
+
+/**
+ * IdentityOverview is the whole effective identity table.
+ */
+export interface IdentityOverview {
+    "global": GlobalIdentity;
+    "projects": ProjectIdentity[] | null;
+    "ungrouped": RepoIdentity[] | null;
+    "env": TerminalEnvOverride;
+}
+
+/**
+ * IdentitySource is one source tag.
+ */
+export interface IdentitySource {
+    "kind": IdentitySourceKind;
+
+    /**
+     * git's scope: system | global | local | worktree | command
+     */
+    "scope"?: string;
+
+    /**
+     * display path of the file that sets it (a profile file for env)
+     */
+    "file"?: string;
+
+    /**
+     * absolute path of that file
+     */
+    "path"?: string;
+
+    /**
+     * includeIf condition, e.g. "gitdir:~/work/"
+     */
+    "rule"?: string;
+    "ruleFile"?: string;
+
+    /**
+     * environment variable (kind env)
+     */
+    "var"?: string;
+
+    /**
+     * kind repo: set outside the app
+     */
+    "external": boolean;
+}
+
+/**
+ * IdentitySourceKind says where a value comes from.
+ */
+export enum IdentitySourceKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * IdentitySrcNone: nothing sets it.
+     */
+    IdentitySrcNone = "none",
+
+    /**
+     * IdentitySrcGlobal: the global git config file (the main one, not an included file).
+     */
+    IdentitySrcGlobal = "global",
+
+    /**
+     * IdentitySrcSystem: the system git config.
+     */
+    IdentitySrcSystem = "system",
+
+    /**
+     * IdentitySrcProject: the project's own setting (only on a project row).
+     */
+    IdentitySrcProject = "project",
+
+    /**
+     * IdentitySrcFromProject: the repository follows its project; the local config holds the project's value.
+     */
+    IdentitySrcFromProject = "from-project",
+
+    /**
+     * IdentitySrcRepo: the repository's own local config. External tells whether the app did not write it.
+     */
+    IdentitySrcRepo = "repo",
+
+    /**
+     * IdentitySrcConditional: a file pulled in by an includeIf rule (Rule holds its condition).
+     */
+    IdentitySrcConditional = "conditional",
+
+    /**
+     * IdentitySrcInclude: a file pulled in by an unconditional include.
+     */
+    IdentitySrcInclude = "include",
+
+    /**
+     * IdentitySrcWorktree: the worktree's own config.
+     */
+    IdentitySrcWorktree = "worktree",
+
+    /**
+     * IdentitySrcCommand: git's command-line / GIT_CONFIG_COUNT scope.
+     */
+    IdentitySrcCommand = "command",
+
+    /**
+     * IdentitySrcEnv: GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL or EMAIL exported in the terminal environment. Wins
+     * over every setting for commits made in terminals and AI tasks.
+     */
+    IdentitySrcEnv = "env",
+};
 
 export interface IdentityUpdate {
     "profile": string;
@@ -1067,6 +1368,137 @@ export interface ImportSource {
     "json": string;
 }
 
+/**
+ * InstallFailure describes why the run stopped.
+ */
+export interface InstallFailure {
+    "tool": SetupToolID;
+    "stepId": string;
+    "cause": FailureCause;
+    "command"?: string;
+
+    /**
+     * ExitCode is the tool's own exit code (the pkg script's code, brew's, winget's); -1 when none.
+     */
+    "exitCode": number;
+
+    /**
+     * Proxy is filled for network causes so the screen can say "using the system proxy host:port".
+     */
+    "proxy"?: string;
+
+    /**
+     * Line is the last meaningful line of the tool's own output, never a path of the user's data.
+     */
+    "line"?: string;
+}
+
+/**
+ * InstallState is the snapshot the setup screen draws. It is the payload of EventToolInstall and the answer of
+ * ToolService.GetInstallState (so a reloaded window can recover).
+ */
+export interface InstallState {
+    "running": boolean;
+
+    /**
+     * cancel was asked; the run stops after the current step
+     */
+    "cancelling": boolean;
+
+    /**
+     * the run stopped because of Cancel (no failure)
+     */
+    "cancelled": boolean;
+    "steps": InstallStep[] | null;
+
+    /**
+     * the last lines of real output, newest last (at most 200)
+     */
+    "log": string[] | null;
+    "failure"?: InstallFailure | null;
+
+    /**
+     * the run ended (success, failure or cancel)
+     */
+    "finished": boolean;
+}
+
+/**
+ * InstallStep is one line of progress. The pkg flow of one row has three steps (download, verify, install).
+ */
+export interface InstallStep {
+    /**
+     * "homebrew:download", "git:install", ...
+     */
+    "id": string;
+    "tool": SetupToolID;
+    "kind": InstallStepKind;
+    "state": InstallStepState;
+
+    /**
+     * the exact command shown on the row, e.g. "brew install git"
+     */
+    "command"?: string;
+
+    /**
+     * Indeterminate is true for the privileged step: it cannot report progress while it runs.
+     */
+    "indeterminate"?: boolean;
+
+    /**
+     * bytes downloaded so far
+     */
+    "done"?: number;
+
+    /**
+     * bytes expected; 0 when unknown
+     */
+    "total"?: number;
+}
+
+/**
+ * InstallStepKind is what a step does.
+ */
+export enum InstallStepKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * Homebrew.pkg
+     */
+    StepDownload = "download",
+
+    /**
+     * unprivileged pre-check: size, digest, signature, Team ID
+     */
+    StepVerify = "verify",
+
+    /**
+     * pkg (one privileged step), brew install, winget install
+     */
+    StepInstall = "install",
+};
+
+export enum InstallStepState {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    StepQueued = "queued",
+    StepRunning = "running",
+
+    /**
+     * the operating system's own password / UAC window is up
+     */
+    StepWaitingOS = "waiting-os",
+    StepDone = "done",
+    StepFailed = "failed",
+    StepSkipped = "skipped",
+};
+
 export enum Language {
     /**
      * The Go zero value for the underlying type of the enum.
@@ -1220,6 +1652,17 @@ export enum MotionPref {
 };
 
 /**
+ * MoveIdentityPreview previews the identity side of moving a repository between projects.
+ */
+export interface MoveIdentityPreview {
+    "repoId": string;
+    "fromProjectId"?: string;
+    "toProjectId"?: string;
+    "plan": RepoChangePlan;
+    "planHash": string;
+}
+
+/**
  * MovedFrom is the question "Is this <name>, moved here?" (F1-18): this folder's first commit and origin URL
  * match one record that vanished from disk less than 30 days ago.
  */
@@ -1361,6 +1804,67 @@ export interface PortalInputCheck {
     "errors": { [_ in string]?: ErrorCode } | null;
 }
 
+/**
+ * Preflight holds the facts the setup screen shows before anything is installed.
+ */
+export interface Preflight {
+    /**
+     * macOS: `id -Gn` lists "admin". Windows: unknown (UAC decides)
+     */
+    "admin": Tri;
+
+    /**
+     * macOS: `profiles status -type enrollment` says "MDM enrollment: Yes"
+     */
+    "managed": Tri;
+
+    /**
+     * free space where the tools go; -1 when it could not be read
+     */
+    "freeBytes": number;
+
+    /**
+     * about 1.2 GB
+     */
+    "needBytes": number;
+
+    /**
+     * true when unknown
+     */
+    "enoughSpace": boolean;
+
+    /**
+     * macOS: /opt/homebrew exists
+     */
+    "prefixExists": boolean;
+    "proxy": ProxyInfo;
+}
+
+/**
+ * ProbeErrorKind says why the login shell could not be probed (the UI translates it).
+ */
+export enum ProbeErrorKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * ProbeNoShell: no shell to run (Windows, or none found).
+     */
+    ProbeNoShell = "no-shell",
+
+    /**
+     * ProbeTimeout: the shell did not finish in time (a slow profile).
+     */
+    ProbeTimeout = "timeout",
+
+    /**
+     * ProbeFailed: the shell ended without answering; ProbeExitCode holds its exit status when it had one.
+     */
+    ProbeFailed = "failed",
+};
+
 export interface Profile {
     "name": string;
     "kind": ProfileKind;
@@ -1419,6 +1923,50 @@ export enum ProgressStatus {
 };
 
 /**
+ * ProjectIdentity is a project row with its repositories.
+ */
+export interface ProjectIdentity {
+    "id": string;
+    "name": string;
+
+    /**
+     * nil = follows global
+     */
+    "identity"?: Author | null;
+    "repos": RepoIdentity[] | null;
+}
+
+/**
+ * ProjectIdentityPreview lists the members and what saving does to each. PlanHash must be passed back.
+ */
+export interface ProjectIdentityPreview {
+    "projectId": string;
+    "name": string;
+    "identity"?: Author | null;
+    "previous"?: Author | null;
+    "repos": RepoChangePlan[] | null;
+
+    /**
+     * repositories whose config changes
+     */
+    "writes": number;
+
+    /**
+     * repositories that keep their own setting
+     */
+    "keepsOwn": number;
+    "planHash": string;
+}
+
+/**
+ * ProjectIdentityRequest sets (Identity) or clears (nil: follow global) a project's identity.
+ */
+export interface ProjectIdentityRequest {
+    "projectId": string;
+    "identity"?: Author | null;
+}
+
+/**
  * ProjectInfo is a project with the number of listed repositories in it.
  */
 export interface ProjectInfo {
@@ -1438,6 +1986,31 @@ export interface ProjectSuggestion {
     "kind": SuggestionKind;
     "label": string;
     "repoIds": string[] | null;
+}
+
+/**
+ * ProxyInfo is the proxy setting the setup run uses. Credentials are never included.
+ */
+export interface ProxyInfo {
+    /**
+     * "proxy.example.com:8080"
+     */
+    "hostPort"?: string;
+
+    /**
+     * "env" | "system" | "none"
+     */
+    "source"?: string;
+
+    /**
+     * only a PAC file is set: Codepass cannot use it
+     */
+    "pacOnly"?: boolean;
+
+    /**
+     * "socks" | "autodiscovery"
+     */
+    "unsupported"?: string;
 }
 
 export interface ReminderSettings {
@@ -1543,6 +2116,85 @@ export interface Repo {
     "movedFrom"?: MovedFrom | null;
 }
 
+/**
+ * RepoAction is what a change does to one repository's local config.
+ */
+export enum RepoAction {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * RepoActionSet writes user.name and user.email.
+     */
+    RepoActionSet = "set",
+
+    /**
+     * RepoActionRemove removes them.
+     */
+    RepoActionRemove = "remove",
+
+    /**
+     * RepoActionUnchanged: already as wanted.
+     */
+    RepoActionUnchanged = "unchanged",
+
+    /**
+     * RepoActionKeepOwn: the repository has its own identity in the app; untouched.
+     */
+    RepoActionKeepOwn = "keep-own",
+
+    /**
+     * RepoActionKeepExternal: the local config holds values the app did not write; untouched.
+     */
+    RepoActionKeepExternal = "keep-external",
+
+    /**
+     * RepoActionSkipMissing: the folder is gone.
+     */
+    RepoActionSkipMissing = "skip-missing",
+
+    /**
+     * RepoActionError: the folder exists but its config cannot be read or written (see Error).
+     */
+    RepoActionError = "error",
+};
+
+/**
+ * RepoChangeOutcome is the result for one repository.
+ */
+export interface RepoChangeOutcome {
+    "repoId": string;
+    "name": string;
+    "action": RepoAction;
+    "ok": boolean;
+
+    /**
+     * E_FILE_IO with file=<config path>: "cannot write this repository's config"
+     */
+    "error"?: AppError | null;
+}
+
+/**
+ * RepoChangePlan is one repository in a preview. Before is the local config now (nil = none), After what it
+ * holds afterwards (nil = nothing). Preview is set only when the file changes.
+ */
+export interface RepoChangePlan {
+    "repoId": string;
+    "name": string;
+    "path": string;
+    "action": RepoAction;
+    "before"?: Author | null;
+    "after"?: Author | null;
+    "preview"?: FilePreview | null;
+
+    /**
+     * Error is set with RepoActionError: E_GIT_FAILED or E_FILE_IO, with file = the config's display path.
+     */
+    "error"?: AppError | null;
+}
+
 export interface RepoCounts {
     "all": number;
     "toFix": number;
@@ -1557,6 +2209,83 @@ export interface RepoCounts {
      * hidden by the person
      */
     "hidden": number;
+}
+
+/**
+ * RepoIdentity is one repository row of the effective identity table.
+ */
+export interface RepoIdentity {
+    "repoId": string;
+    "name": string;
+    "path": string;
+    "projectId"?: string;
+    "missing": boolean;
+
+    /**
+     * Effective is what a terminal commit uses (settings and environment). Setting ignores the environment.
+     */
+    "effective": EffectiveIdentity;
+    "setting": EffectiveIdentity;
+
+    /**
+     * Override is the repository's own identity as the app recorded it; nil = follows project or global.
+     */
+    "override"?: Author | null;
+
+    /**
+     * FollowsGlobal: the repository was set to follow the global identity on purpose; project changes skip it.
+     */
+    "followsGlobal": boolean;
+
+    /**
+     * ReadError is why git could not be read (code and params, so the UI can translate it).
+     */
+    "readError"?: AppError | null;
+}
+
+/**
+ * RepoIdentityMode picks what a repository follows.
+ */
+export enum RepoIdentityMode {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * RepoModeOwn: the repository's own identity (Identity required).
+     */
+    RepoModeOwn = "own",
+
+    /**
+     * RepoModeProject: follow the project (or global when the project has none).
+     */
+    RepoModeProject = "project",
+
+    /**
+     * RepoModeGlobal: follow global, whatever the project says: the local user.* values are removed and the
+     * repository is marked so that project changes leave it alone.
+     */
+    RepoModeGlobal = "global",
+};
+
+/**
+ * RepoIdentityPreview previews a repository change.
+ */
+export interface RepoIdentityPreview {
+    "repoId": string;
+    "mode": RepoIdentityMode;
+    "plan": RepoChangePlan;
+    "planHash": string;
+}
+
+/**
+ * RepoIdentityRequest changes one repository.
+ */
+export interface RepoIdentityRequest {
+    "repoId": string;
+    "mode": RepoIdentityMode;
+    "identity"?: Author | null;
 }
 
 /**
@@ -1863,6 +2592,136 @@ export interface SettingsPatch {
     "lastCloneRegion"?: string | null;
 }
 
+/**
+ * SetupFix says what the one-click install would do for a row that is not ready.
+ */
+export enum SetupFix {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * ready
+     */
+    FixNone = "",
+
+    /**
+     * not there: install it
+     */
+    FixInstall = "install",
+
+    /**
+     * found but below the hard minimum: install a newer one next to it
+     */
+    FixUpgrade = "upgrade",
+
+    /**
+     * macOS: /opt/homebrew exists without a working brew; the user repairs it
+     */
+    FixRepairPrefix = "repair-prefix",
+
+    /**
+     * Windows: winget is missing; open the Store page for App Installer
+     */
+    FixOpenStore = "open-store",
+
+    /**
+     * FixUseDetected: the tool path chosen in Settings is missing or too old, but automatic detection finds an
+     * acceptable copy. The setup run clears the chosen path (a normal, backed-up settings write); nothing is installed.
+     */
+    FixUseDetected = "use-detected",
+};
+
+/**
+ * SetupState is the answer of ToolService.GetSetupState. It is built from local checks only.
+ */
+export interface SetupState {
+    /**
+     * "darwin" | "windows"
+     */
+    "platform": string;
+
+    /**
+     * the manager (Homebrew or winget), git, AWS CLI, in that order
+     */
+    "tools": SetupTool[] | null;
+
+    /**
+     * rows that are ok
+     */
+    "ready": number;
+    "total": number;
+
+    /**
+     * true: the setup screen replaces the window
+     */
+    "blocked": boolean;
+    "preflight": Preflight;
+    "checkedAt": string;
+}
+
+/**
+ * SetupTool is one row of the gate. Status reuses ToolStatus: ok, too-old, v1, missing, error.
+ */
+export interface SetupTool {
+    "id": SetupToolID;
+    "status": ToolStatus;
+
+    /**
+     * the version found, so the screen can say "git 2.39.1 found, 2.44 needed"
+     */
+    "version"?: string;
+    "min"?: string;
+
+    /**
+     * where it was found (display form)
+     */
+    "path"?: string;
+
+    /**
+     * true when the gate stays closed because of this row
+     */
+    "blocking": boolean;
+    "fix": SetupFix;
+
+    /**
+     * Elsewhere is true (macOS only) when a too-old tool was found outside Homebrew's own folder (Apple's git): the
+     * fix installs a newer copy that is found first, and leaves the old one alone. On Windows `winget install`
+     * upgrades or installs next to whatever is there, and the flag stays false.
+     */
+    "elsewhere"?: boolean;
+
+    /**
+     * Override is true when the row was judged on a program path the user chose in Settings (git, AWS CLI). The
+     * setup run clears that path first, because a chosen path that blocks the gate cannot be changed from the
+     * setup screen.
+     */
+    "override"?: boolean;
+}
+
+/**
+ * SetupToolID names a row of the setup screen.
+ */
+export enum SetupToolID {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * macOS
+     */
+    SetupHomebrew = "homebrew",
+
+    /**
+     * Windows
+     */
+    SetupWinget = "winget",
+    SetupGit = "git",
+    SetupAWSCLI = "awscli",
+};
+
 export enum Severity {
     /**
      * The Go zero value for the underlying type of the enum.
@@ -1931,6 +2790,34 @@ export enum TerminalApp {
     TerminalPowerShell = "powershell",
     TerminalCmd = "cmd",
 };
+
+/**
+ * TerminalEnvOverride reports identity variables a shell profile exports. Active is true when
+ * GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL is set there (or when some repository's effective identity comes from
+ * the environment): commits made in terminals and AI tasks use them whatever the app writes.
+ * CommitterVars (GIT_COMMITTER_*) only changes the committer, never the author; FallbackEmail (EMAIL) is
+ * git's last resort and is used only when no config sets an email. Both are reported separately.
+ */
+export interface TerminalEnvOverride {
+    "active": boolean;
+    "committerVars": boolean;
+    "fallbackEmail": boolean;
+    "vars": EnvVar[] | null;
+
+    /**
+     * profile files that appear to export them (best effort, text scan)
+     */
+    "files": IdentityFile[] | null;
+    "probed": boolean;
+    "probeError"?: ProbeErrorKind;
+    "probeExitCode"?: number;
+    "shell"?: string;
+
+    /**
+     * GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM / GIT_CONFIG_COUNT differs from the app's
+     */
+    "configRedirected": boolean;
+}
 
 export interface TestResult {
     "repoId": string;
@@ -2005,6 +2892,20 @@ export interface TraySettings {
     "enabled": boolean;
     "keepRunning": boolean;
 }
+
+/**
+ * Tri is a fact that may be unknown.
+ */
+export enum Tri {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    TriYes = "yes",
+    TriNo = "no",
+    TriUnknown = "unknown",
+};
 
 export interface URLRule {
     "pattern": string;

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { onEvent } from '../events'
 import { mockToolService, resetToolMock } from './system'
-import type { InstallState } from './toolTypes'
+import { SetupToolID } from '../models'
+import type { InstallState } from '../models'
 
 async function call<T>(p: Promise<T>, ms = 200): Promise<T> {
   const settled = p.then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e }))
@@ -128,11 +129,11 @@ describe('mock ToolService', () => {
     vi.stubGlobal('window', { open })
     try {
       resetToolMock('ready', 'darwin')
-      await call(mockToolService.OpenInstallPage('git'))
-      await expect(call(mockToolService.OpenInstallPage('winget'))).rejects.toBeTruthy()
+      await call(mockToolService.OpenInstallPage(SetupToolID.SetupGit))
+      await expect(call(mockToolService.OpenInstallPage(SetupToolID.SetupWinget))).rejects.toBeTruthy()
       resetToolMock('ready', 'windows')
-      await call(mockToolService.OpenInstallPage('git'))
-      await expect(call(mockToolService.OpenInstallPage('homebrew'))).rejects.toBeTruthy()
+      await call(mockToolService.OpenInstallPage(SetupToolID.SetupGit))
+      await expect(call(mockToolService.OpenInstallPage(SetupToolID.SetupHomebrew))).rejects.toBeTruthy()
       expect(open.mock.calls.map((c) => c[0])).toEqual(['https://git-scm.com/download/mac', 'https://git-scm.com/download/win'])
     } finally {
       vi.unstubAllGlobals()

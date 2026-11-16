@@ -4,6 +4,7 @@ import type {
   AccountsState,
   CloneProgress,
   ExternalChange,
+  InstallState,
   LoginProgress,
   MigrationProgress,
   NavigateRequest,
@@ -27,6 +28,10 @@ export interface EventPayloads {
   'settings:changed': Settings
   'app:navigate': NavigateRequest
   'app:second-instance': string[]
+  'tools:install-progress': InstallState
+  'identity:changed': Record<string, never>
+  /** Menu and tray commands; the Go side registers it in internal/app/menu.go. */
+  'app:command': string
 }
 
 type Handler = (data: unknown) => void

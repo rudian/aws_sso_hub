@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/updater"
@@ -13,6 +18,7 @@ import (
 	"github.com/rudian/codepass/internal/app"
 	"github.com/rudian/codepass/internal/appguard"
 	"github.com/rudian/codepass/internal/logx"
+	"github.com/rudian/codepass/internal/netx"
 	"github.com/rudian/codepass/internal/paths"
 	"github.com/rudian/codepass/internal/version"
 )
@@ -46,7 +52,13 @@ func main() {
 	defer logCloser.Close()
 
 	rt := app.NewWailsRuntime(p.Sandbox)
-	c, err := app.NewContainer(p, rt, app.ContainerOptions{Endpoints: app.EndpointsFromEnv(p), Logger: logger})
+	// A projects.json from a newer Codepass stops the start with a native message and writes nothing; a damaged one
+	// is moved aside and replaced by a fresh one (FU-18d). Both happen before the window opens.
+	c, err := app.OpenContainer(p, rt, app.ContainerOptions{Endpoints: app.EndpointsFromEnv(p), Logger: logger}, appguard.SystemDeps().Prompter.Tell)
+	if errors.Is(err, app.ErrStartupStopped) {
+		logger.Info("startup stopped: projects.json was written by a newer version")
+		return
+	}
 	if err != nil {
 		logger.Error("startup failed", "err", err)
 		log.Fatal(fmt.Errorf("startup failed: %w", err))
@@ -58,6 +70,11 @@ func main() {
 		return
 	}
 	logger.Info("starting", "version", version.Version, "sandbox", p.Sandbox)
+
+	// One HTTP client for the setup downloads and the update check; the system proxy is read once at start.
+	detectCtx, cancelDetect := context.WithTimeout(context.Background(), 5*time.Second)
+	nc := netx.New(netx.Options{Proxy: netx.Detect(detectCtx)})
+	cancelDetect()
 
 	var mainWindow *application.WebviewWindow
 	life := app.NewLifecycle() // tasks-running and quit-decision hooks; A2-05 and A2-14 supply them
@@ -73,6 +90,8 @@ func main() {
 			application.NewService(app.NewRepoService(c)),
 			application.NewService(app.NewGitGlobalService(c)),
 			application.NewService(app.NewSystemService(c)),
+			application.NewService(app.NewToolService(c, nc)),
+			application.NewService(app.NewIdentityService(c, c.Projects)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),
@@ -98,6 +117,12 @@ func main() {
 		OnShutdown: c.Shutdown,
 		// Cmd+Q, the menu, the Dock and the tray ask the quit decision hook.
 		ShouldQuit: life.ShouldQuit,
+	})
+
+	// The update controller: production gate and channel, quits without the quit dialog (the person chose Reopen).
+	c.StartUpdates(app.UpdateOptions{
+		Quit:  func() { _ = life.QuitApproved(func() error { wapp.Quit(); return nil }) },
+		Proxy: func(r *http.Request) (*url.URL, error) { return nc.Proxy().ProxyFunc()(r) },
 	})
 
 	mainWindow = wapp.Window.NewWithOptions(application.WebviewWindowOptions{

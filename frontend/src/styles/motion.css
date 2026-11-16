@@ -18,7 +18,7 @@
 @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 
 /* Page switch and workspace tab switch: new content fades in and rises 6px; the old one is removed at once. */
-.page-enter { animation: page-in var(--dur-page) var(--ease-enter) both; }
+.page-enter { animation: page-in var(--dur-page) var(--ease-enter) backwards; }
 
 /* Popover, menu, hover card, completion list: fade + 4px drop + scale from the anchor edge. */
 .pop-enter { animation: pop-in var(--dur-leave) var(--ease-enter) both; transform-origin: var(--pop-origin, top left); }

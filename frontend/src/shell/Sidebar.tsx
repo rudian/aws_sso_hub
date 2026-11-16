@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { BookOpen, GitBranch, IdCard, Settings, ShieldCheck, SlidersHorizontal, SquareTerminal } from 'lucide-react'
+import { BookOpen, IdCard, Layers, Settings, ShieldCheck, SlidersHorizontal, SquareTerminal } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import appicon from '../assets/appicon.svg'
 import { useMocks } from '../api/env'
@@ -22,13 +22,16 @@ interface NavDef {
   label: MessageKey
 }
 
-const NAV: NavDef[] = [
+/** Design 4.1: Projects, Accounts (AI tasks and Pull requests go between them in milestone 2), the keyring, then this second group. */
+const NAV_TOP: NavDef[] = [
+  { page: 'projects', icon: Layers, label: 'nav.projects' },
   { page: 'accounts', icon: IdCard, label: 'nav.accounts' },
-  { page: 'repos', icon: GitBranch, label: 'nav.repos' },
+]
+const NAV_MORE: NavDef[] = [
   { page: 'git', icon: SlidersHorizontal, label: 'nav.gitGlobal' },
-  { page: 'terminal', icon: SquareTerminal, label: 'nav.terminal' },
   { page: 'health', icon: ShieldCheck, label: 'nav.health' },
   { page: 'tutorial', icon: BookOpen, label: 'nav.tutorial' },
+  { page: 'terminal', icon: SquareTerminal, label: 'nav.terminal' }, // until milestone 2
 ]
 
 export function Sidebar() {
@@ -40,7 +43,7 @@ export function Sidebar() {
   const { state: repos } = useRepos()
   const { report } = useEnv()
 
-  const activePage: PageId = route.page === 'migrate' ? 'accounts' : route.page
+  const activePage: PageId = route.page === 'migrate' ? 'accounts' : route.page === 'repos' ? 'projects' : route.page
   const platform = info?.platform ?? guessPlatform()
 
   const envBad =
@@ -51,10 +54,18 @@ export function Sidebar() {
 
   const count = (def: NavDef) => {
     if (def.page === 'accounts' && (accounts?.staticCount ?? 0) > 0) return <span className="nav__count nav__count--warn">{t('nav.count.toMigrate', { n: accounts?.staticCount ?? 0 })}</span>
-    if (def.page === 'repos' && (repos?.counts.toFix ?? 0) > 0) return <span className="nav__count nav__count--warn">{t('nav.count.toFix', { n: repos?.counts.toFix ?? 0 })}</span>
+    if (def.page === 'projects' && (repos?.counts.toFix ?? 0) > 0) return <span className="nav__count nav__count--warn">{t('nav.count.toFix', { n: repos?.counts.toFix ?? 0 })}</span>
     if (def.page === 'health' && envBad) return <span className="nav__count"><Dot kind="warn" /></span>
     return null
   }
+
+  const item = (def: NavDef) => (
+    <button key={def.page} type="button" className={clsx('nav__item', activePage === def.page && 'is-active')} aria-current={activePage === def.page ? 'page' : undefined} onClick={() => navigate({ page: def.page })}>
+      <def.icon className="nav__icon" aria-hidden="true" />
+      {t(def.label)}
+      {count(def)}
+    </button>
+  )
 
   return (
     <aside className="app__sidebar">
@@ -76,18 +87,15 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="nav" aria-label={t('nav.aria')}>
-        {NAV.map((def) => (
-          <button key={def.page} type="button" className={clsx('nav__item', activePage === def.page && 'is-active')} aria-current={activePage === def.page ? 'page' : undefined} onClick={() => navigate({ page: def.page })}>
-            <def.icon className="nav__icon" aria-hidden="true" />
-            {t(def.label)}
-            {count(def)}
-          </button>
-        ))}
+        {NAV_TOP.map(item)}
       </nav>
       <div className="nav__section" style={{ paddingLeft: 24, marginTop: 8 }}>
         {t('keyring.title')}
       </div>
       <Keyring />
+      <nav className="nav nav--more" aria-label={t('nav.more')}>
+        {NAV_MORE.map(item)}
+      </nav>
       <div className="sidebar-foot">
         <nav className="nav">
           <button type="button" className={clsx('nav__item', activePage === 'settings' && 'is-active')} aria-current={activePage === 'settings' ? 'page' : undefined} onClick={() => navigate({ page: 'settings' })}>

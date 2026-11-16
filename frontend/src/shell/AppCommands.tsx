@@ -52,7 +52,8 @@ export type CommandAction =
 
 const ROUTES: Record<string, Route> = {
   settings: { page: 'settings' },
-  'check-updates': { page: 'settings' },
+  'check-updates': { page: 'update' },
+  'nav-projects': { page: 'projects' },
   'nav-accounts': { page: 'accounts' },
   tutorial: { page: 'tutorial' },
 }

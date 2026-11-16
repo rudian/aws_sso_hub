@@ -609,6 +609,7 @@ svg { flex-shrink: 0; }
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-3);
   animation: toast-in var(--dur-3) var(--ease-out); position: relative; overflow: hidden;
 }
+.toast.is-leaving { animation: toast-out var(--dur-leave) var(--ease-exit) forwards; pointer-events: none; }
 .toast--ok { --t-fg: var(--ok); } .toast--warn { --t-fg: var(--warn); } .toast--danger { --t-fg: var(--danger); } .toast--info { --t-fg: var(--info); }
 .toast__icon { width: 18px; height: 18px; color: var(--t-fg); margin-top: 1px; }
 .toast__body { flex: 1; font-size: var(--fs-13); color: var(--text-2); min-width: 0; }
@@ -707,6 +708,7 @@ svg { flex-shrink: 0; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--busy) 45%, transparent); } 50% { box-shadow: 0 0 0 5px transparent; } }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(10px); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @keyframes indeterminate { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }

@@ -2,7 +2,8 @@ import * as SystemReal from '../../../bindings/github.com/rudian/codepass/intern
 import { initialUI } from '../../lib/initialUI'
 import { BackupKind, BackupReason, ErrorCode, ProfileKind } from '../models'
 import type { BackupEntry, DiffLine, Settings } from '../models'
-import type { FailureCause, InstallFailure, InstallState, InstallStep, Preflight, SetupState, SetupTool, SetupToolID, ToolServiceApi } from './toolTypes'
+import * as ToolReal from '../../../bindings/github.com/rudian/codepass/internal/app/toolservice'
+import type * as G from '../models'
 import { mockEmit } from '../events'
 import { deepCopy, iso, now } from './clock'
 import { HOME, SCAN_ROOT_DISPLAY, add, addBackup, ctx, del, fold, getWorld, mkPreview } from './world'
@@ -152,7 +153,18 @@ export type { World }
 //   ?setup=ready|missing|old-git|chosen-git|noadmin|managed|lowdisk|partial|proxy|nowinget   (default ready: the gate is open)
 //   partial always ends with prefix_exists and nowinget with winget_missing, as the Go installer does
 //   &setupFail=<cause>[&setupFailAt=<step id>]   the run fails with that cause at that step (default: the first install step)
-// Typed against the hand-written mirror in toolTypes.ts until the generated bindings exist.
+// Typed against the generated toolservice module. Inside this file the enums are written as their string values
+// (Lit turns a generated enum into the union of its values); the service methods hand the values back as the
+// generated types, which are the same strings at run time.
+type Lit<T> = T extends string ? `${T}` : T extends (infer U)[] ? Lit<U>[] : T extends object ? { [K in keyof T]: Lit<T[K]> } : T
+type FailureCause = Lit<G.FailureCause>
+type InstallFailure = Lit<G.InstallFailure>
+type InstallState = Lit<G.InstallState>
+type InstallStep = Lit<G.InstallStep>
+type Preflight = Lit<G.Preflight>
+type SetupState = Lit<G.SetupState>
+type SetupTool = Lit<G.SetupTool>
+type SetupToolID = Lit<G.SetupToolID>
 
 export type SetupScenario = 'ready' | 'missing' | 'old-git' | 'chosen-git' | 'noadmin' | 'managed' | 'lowdisk' | 'partial' | 'proxy' | 'nowinget'
 const SETUP_SCENARIOS: SetupScenario[] = ['ready', 'missing', 'old-git', 'chosen-git', 'noadmin', 'managed', 'lowdisk', 'partial', 'proxy', 'nowinget']
@@ -276,7 +288,7 @@ function planSteps(w: ToolWorld): InstallStep[] {
 }
 
 function pushInstall(w: ToolWorld): void {
-  mockEmit('tools:install-progress', deepCopy(w.install))
+  mockEmit('tools:install-progress', deepCopy(w.install) as unknown as G.InstallState)
 }
 
 function logLine(w: ToolWorld, line: string): void {
@@ -372,8 +384,8 @@ function runStep(w: ToolWorld, i: number): void {
   }
 }
 
-export const mockToolService: ToolServiceApi = {
-  GetSetupState: () => run(READ, () => setupState(tw())),
+export const mockToolService: typeof ToolReal = {
+  GetSetupState: () => run(READ, () => setupState(tw()) as unknown as G.SetupState),
 
   StartSetupInstall: () =>
     run(READ, () => {
@@ -404,10 +416,11 @@ export const mockToolService: ToolServiceApi = {
       pushInstall(w)
     }),
 
-  GetInstallState: () => run(READ, () => tw().install),
+  GetInstallState: () => run(READ, () => tw().install as unknown as G.InstallState),
 
-  OpenInstallPage: (tool) =>
+  OpenInstallPage: (toolId) =>
     run(READ, () => {
+      const tool = toolId as string
       const aws = 'https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html'
       const pages: Record<'darwin' | 'windows', Partial<Record<string, string>>> = {
         darwin: { homebrew: 'https://brew.sh/', git: 'https://git-scm.com/download/mac', awscli: aws },

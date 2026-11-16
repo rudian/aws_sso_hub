@@ -18,6 +18,7 @@ declare module "@wailsio/runtime" {
             "app:second-instance": string[] | null;
             "clone:progress": api$0.CloneProgress;
             "files:external-change": api$0.ExternalChange;
+            "identity:changed": {};
             "login:progress": api$0.LoginProgress;
             "migration:progress": api$0.MigrationProgress;
             "repos:changed": api$0.ReposState;
@@ -26,6 +27,7 @@ declare module "@wailsio/runtime" {
             "session:reminder": api$0.SessionStatus;
             "session:renewed": api$0.SessionStatus;
             "settings:changed": api$0.Settings;
+            "tools:install-progress": api$0.InstallState;
         }
     }
 }

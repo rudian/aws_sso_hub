@@ -28,7 +28,10 @@ export function Segmented<T extends string>({ items, value, onChange, ariaLabel,
     if (next >= 0) {
       e.preventDefault()
       onChange(items[next].value)
-      requestAnimationFrame(() => (e.currentTarget.querySelector('[aria-checked="true"]') as HTMLElement | null)?.focus())
+      // Focus by position, not by checked state: the new value may arrive later than the next frame (async save).
+      // React clears currentTarget once the handler returns, so the target is taken now.
+      const target = e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]')[next]
+      requestAnimationFrame(() => target?.focus())
     }
   }
   return (

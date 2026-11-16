@@ -14,6 +14,7 @@
   .brand__name { font-weight: var(--fw-semibold); font-size: var(--fs-14); line-height: 1.2; }
   .brand__sub { font-size: var(--fs-12); color: var(--text-3); line-height: 1.3; }
   .sidebar-foot { margin-top: auto; padding: var(--sp-3) 0 var(--sp-4); border-top: 1px solid var(--border); }
+  .nav--more { margin-top: var(--sp-3); }
   .keyring__time { font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; }
   .keyring__time--warn { color: var(--warn); }
 
