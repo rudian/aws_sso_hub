@@ -1080,6 +1080,12 @@ export interface LoginProgress {
      * the sign-in page was opened in a private browser window
      */
     "privateWindow": boolean;
+
+    /**
+     * IsolatedWindow: that private window belongs to a separate browser instance with a fresh, throw-away
+     * profile, so no other user's web session can be reused; the app closes it when the sign-in ends.
+     */
+    "isolatedWindow": boolean;
     "userCode"?: string;
     "verificationUri"?: string;
     "verificationUriComplete"?: string;
@@ -1088,6 +1094,22 @@ export interface LoginProgress {
      * end of the authorization window
      */
     "expiresAt"?: string;
+}
+
+/**
+ * SignInWindow says how a sign-in page was opened (AccountService.OpenSignInPage).
+ */
+export interface SignInWindow {
+    /**
+     * a private browser window
+     */
+    "private": boolean;
+
+    /**
+     * Isolated: a separate browser instance with a fresh, throw-away profile, so no other user's web session
+     * can be reused. The app closes it when the sign-in ends.
+     */
+    "isolated": boolean;
 }
 
 export interface LoginResult {
@@ -1551,12 +1573,17 @@ export interface SessionStatus {
     "loginAt"?: string;
 
     /**
-     * LoginAt + SessionMinutes (estimate); only when SessionKnown
+     * end of the IAM Identity Center session; only when SessionKnown. Exact when SessionEndExact, else an estimate (see SessionMinutes)
      */
     "sessionEndsAt"?: string;
 
     /**
-     * per-portal setting, default 480 (8 h), range 15..129600
+     * AWS showed when the session ends (a renewal was capped or refused), so SessionEndsAt is not an estimate
+     */
+    "sessionEndExact": boolean;
+
+    /**
+     * minutes from LoginAt to SessionEndsAt when SessionKnown; otherwise the portal's learned session length (default 480 = the AWS default). Never set by the user: an administrator sets the real length in IAM Identity Center
      */
     "sessionMinutes": number;
 

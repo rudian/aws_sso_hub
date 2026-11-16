@@ -87,12 +87,6 @@ func runScenario(w *world) {
 	if w.rt.count(api.EventLoginProgress) == 0 || w.rt.count(api.EventSessionChanged) == 0 {
 		t.Fatalf("events: %v", w.rt.names())
 	}
-	len30 := ok(w.acc.SetSessionLength(bg, "initech", 30))
-	if len30.SessionMinutes != 30 || !len30.SessionKnown {
-		t.Fatalf("session length: %+v", len30)
-	}
-	ok(w.acc.SetSessionLength(bg, "initech", 480))
-
 	disc := ok(w.acc.DiscoverAccounts(bg, "initech"))
 	if len(disc) != 1 || disc[0].AccountID != acctAcme || len(disc[0].Roles) != 1 || disc[0].Roles[0].Name != "AdministratorAccess" {
 		t.Fatalf("discover: %+v", disc)
@@ -283,7 +277,6 @@ func TestEveryErrorIsAppError(t *testing.T) {
 		"Accounts.IdentifyStatic": func() error { _, e := w.acc.IdentifyStatic(bg, "no-such"); return e },
 		"Accounts.Login":          func() error { _, e := w.acc.Login(bg, "no-such", api.LoginModeBrowser); return e },
 		"Accounts.LoginMode":      func() error { _, e := w.acc.Login(bg, "initech", api.LoginMode("carrier-pigeon")); return e },
-		"Accounts.SetSessionLen":  func() error { _, e := w.acc.SetSessionLength(bg, "initech", 5); return e },
 		"Accounts.RemoveProfile":  func() error { _, e := w.acc.RemoveProfile("no-such", "x"); return e },
 		"Accounts.AddPortalDraft": func() error {
 			_, e := w.acc.AddPortalDraft(api.PortalInput{Name: "x y", StartURL: "http://nope"})

@@ -83,13 +83,6 @@ func (s *AccountService) Logout(ctx context.Context, portal string) (api.LogoutR
 	return r, fail(err)
 }
 
-// SetSessionLength stores the per-portal session length in minutes (15..129600); other values fail with
-// E_INVALID_INPUT.
-func (s *AccountService) SetSessionLength(ctx context.Context, portal string, minutes int) (api.SessionStatus, error) {
-	st, err := s.c.Accounts.SetSessionLength(ctx, portal, minutes)
-	return st, fail(err)
-}
-
 func (s *AccountService) DiscoverAccounts(ctx context.Context, portal string) ([]api.DiscoveredAccount, error) {
 	out, err := s.c.Accounts.Discover(ctx, portal)
 	return nn(out), fail(err)
@@ -163,14 +156,14 @@ func checkSignInURL(raw string, sandbox bool) error {
 
 // OpenSignInPage opens a sign-in page again from the login window: the device-code verification page ("Open
 // browser") or the browser sign-in authorize URL ("Open again"). It follows the "private sign-in" setting
-// and returns whether the page opened in a private browser window. Only https pages on an AWS portal host
+// and returns how the page opened (private window, isolated browser). Only https pages on an AWS portal host
 // (including dual-stack portals) or an Identity Center device host are accepted.
-func (s *AccountService) OpenSignInPage(url string) (bool, error) {
+func (s *AccountService) OpenSignInPage(url string) (api.SignInWindow, error) {
 	if err := checkSignInURL(url, s.c.Paths.Sandbox); err != nil {
-		return false, fail(err)
+		return api.SignInWindow{}, fail(err)
 	}
 	private, err := s.c.openSignIn(url)
-	return private, fail(err)
+	return api.SignInWindow{Private: private}, fail(err)
 }
 
 // OpenConsole: P1

@@ -91,10 +91,10 @@ export function OpenPortal(portal: string): $CancellablePromise<void> {
 /**
  * OpenSignInPage opens a sign-in page again from the login window: the device-code verification page ("Open
  * browser") or the browser sign-in authorize URL ("Open again"). It follows the "private sign-in" setting
- * and returns whether the page opened in a private browser window. Only https pages on an AWS portal host
+ * and returns how the page opened (private window, isolated browser). Only https pages on an AWS portal host
  * (including dual-stack portals) or an Identity Center device host are accepted.
  */
-export function OpenSignInPage(url: string): $CancellablePromise<boolean> {
+export function OpenSignInPage(url: string): $CancellablePromise<api$0.SignInWindow> {
     return $Call.ByID(227800348, url);
 }
 
@@ -165,10 +165,3 @@ export function SetProfileIdentity(u: api$0.IdentityUpdate): $CancellablePromise
     return $Call.ByID(1541353382, u);
 }
 
-/**
- * SetSessionLength stores the per-portal session length in minutes (15..129600); other values fail with
- * E_INVALID_INPUT.
- */
-export function SetSessionLength(portal: string, minutes: number): $CancellablePromise<api$0.SessionStatus> {
-    return $Call.ByID(3391538061, portal, minutes);
-}

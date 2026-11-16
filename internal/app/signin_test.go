@@ -48,7 +48,7 @@ func TestOpenSignInPage(t *testing.T) {
 			}
 			rt := w.c.RT.(*fakeRuntime)
 			got, err := NewAccountService(w.c).OpenSignInPage(signInURL)
-			if err != nil || got != tc.wantPrivate {
+			if err != nil || got.Private != tc.wantPrivate {
 				t.Fatalf("got (%v,%v)", got, err)
 			}
 			if len(tc.fake.urls) != tc.wantPrivCal || len(rt.urls) != tc.wantNormal {
@@ -92,7 +92,7 @@ func TestOpenSignInPageSandbox(t *testing.T) {
 	fake := &fakePrivate{private: true}
 	w.c.private = fake
 	got, err := NewAccountService(w.c).OpenSignInPage("http://127.0.0.1:5555/device")
-	if err != nil || got || len(fake.urls) != 0 {
+	if err != nil || got.Private || got.Isolated || len(fake.urls) != 0 {
 		t.Fatalf("(%v,%v) %v", got, err, fake.urls)
 	}
 	if rt := w.c.RT.(*fakeRuntime); len(rt.urls) != 1 {
