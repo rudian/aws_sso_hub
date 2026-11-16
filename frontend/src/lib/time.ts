@@ -20,6 +20,13 @@ export function formatRemaining(iso: string, now: number, t: T): string {
   return t('common.remaining.m', { m: total })
 }
 
+/** The time left as a length, without "left": zh "48 分钟", en "48 min" ("6 h 12 min" from one hour). For "ends in ...". */
+export function formatRemainingLength(iso: string, now: number, t: T): string {
+  const total = totalMinutesCeil(remainingMs(iso, now))
+  if (total >= 60) return t('common.duration.hm', { h: Math.floor(total / 60), m: total % 60 })
+  return t('common.duration.m', { m: total })
+}
+
 /** "6:12" (h:mm) from one hour up, "48m" below. */
 export function formatKeyringTime(iso: string, now: number): string {
   const total = totalMinutesCeil(remainingMs(iso, now))

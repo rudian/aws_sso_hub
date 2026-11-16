@@ -21,7 +21,11 @@ export function Segmented<T extends string>({ items, value, onChange, ariaLabel,
   const radio = role === 'radiogroup'
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!radio) return
-    const i = items.findIndex((it) => it.value === value)
+    // The next item comes from the radio that has focus, not from the value prop: the value arrives late (async save),
+    // so two quick arrow presses would otherwise land on the same item.
+    const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'))
+    const at = radios.indexOf((e.target as HTMLElement).closest('[role="radio"]') as HTMLElement)
+    const i = at >= 0 ? at : items.findIndex((it) => it.value === value)
     let next = -1
     if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (i + 1) % items.length
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (i - 1 + items.length) % items.length

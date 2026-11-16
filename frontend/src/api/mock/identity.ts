@@ -4,7 +4,7 @@ import * as IdentityReal from '../../../bindings/github.com/rudian/codepass/inte
 import { ErrorCode, IdentitySourceKind, RepoAction, RepoIdentityMode } from '../models'
 import type { DiffLine, FilePreview, Author, IdentitySource, EffectiveIdentity, EnvVar, TerminalEnvOverride, RepoIdentity, IdentityOverview, RepoChangePlan, GlobalIdentityPreview, ProjectIdentityRequest, ProjectIdentityPreview, MoveIdentityPreview, RepoChangeOutcome, IdentityChangeResult } from '../models'
 import { mockEmit } from '../events'
-import { add, ctx, del, fold } from './world'
+import { add, ctx, del, fakeHash16, fold, getWorld } from './world'
 import { READ, SLOW, WRITE, fail, run } from './util'
 
 export type IdentityServiceShape = typeof IdentityReal
@@ -13,6 +13,9 @@ export type IdentityServiceShape = typeof IdentityReal
 
 const HOME = '/Users/alex'
 const CODE = `${HOME}/Documents/code`
+
+/** The repository's ID in the world (the repos mock): a hash of its path, so the identity screens and the Projects page agree. */
+export const repoIdOf = (name: string): string => fakeHash16(`${CODE}/${name}`)
 
 interface MRepo {
   id: string
@@ -71,13 +74,13 @@ function buildPage(): MState {
       { id: 'p_umbrella', name: 'umbrella' },
     ],
     repos: [
-      { id: 'r_acme_api', name: 'acme_api', projectId: 'p_acme', local: ALEX },
-      { id: 'r_acme_agent_portal', name: 'acme_agent_portal', projectId: 'p_acme', local: ALEX },
-      { id: 'r_acme_cs_portal', name: 'acme_cs_portal', projectId: 'p_acme', local: ALEX },
-      { id: 'r_acme_merchant_portal_v4', name: 'acme_merchant_portal_v4', projectId: 'p_acme', local: merchant, override: merchant },
-      { id: 'r_globex_backend', name: 'globex_backend', projectId: 'p_globex' },
-      { id: 'r_globex_app', name: 'globex_app', projectId: 'p_globex', local: NOREPLY, override: NOREPLY },
-      { id: 'r_umbrella', name: 'umbrella', projectId: 'p_umbrella' },
+      { id: repoIdOf('acme_api'), name: 'acme_api', projectId: 'p_acme', local: ALEX },
+      { id: repoIdOf('acme_agent_portal'), name: 'acme_agent_portal', projectId: 'p_acme', local: ALEX },
+      { id: repoIdOf('acme_cs_portal'), name: 'acme_cs_portal', projectId: 'p_acme', local: ALEX },
+      { id: repoIdOf('acme_merchant_portal_v4'), name: 'acme_merchant_portal_v4', projectId: 'p_acme', local: merchant, override: merchant },
+      { id: repoIdOf('globex_backend'), name: 'globex_backend', projectId: 'p_globex' },
+      { id: repoIdOf('globex_app'), name: 'globex_app', projectId: 'p_globex', local: NOREPLY, override: NOREPLY },
+      { id: repoIdOf('umbrella'), name: 'umbrella', projectId: 'p_umbrella' },
     ],
     env: [],
     hash: 1,
@@ -98,14 +101,14 @@ function build(scenario: IdentityScenario): MState {
       { id: 'p_umbrella', name: 'umbrella' },
     ],
     repos: [
-      { id: 'r_acme_api', name: 'acme_api', projectId: 'p_acme', local: scenario === 'default' || scenario === 'env' ? ALEX : undefined },
-      { id: 'r_acme_agent_portal', name: 'acme_agent_portal', projectId: 'p_acme', local: A('Alex', 'alex.agent@acme.example.com'), override: A('Alex', 'alex.agent@acme.example.com') },
-      { id: 'r_acme_cs_portal', name: 'acme_cs_portal', projectId: 'p_acme', local: scenario === 'default' || scenario === 'env' ? ALEX : undefined },
-      { id: 'r_acme_merchant_portal_v4', name: 'acme_merchant_portal_v4', projectId: 'p_acme', local: A('A. Lee', 'a.lee@acme.example.com') },
-      { id: 'r_globex_core', name: 'globex_core', projectId: 'p_globex', local: ALEX_G },
-      { id: 'r_umbrella_web', name: 'umbrella_web', projectId: 'p_umbrella' },
-      { id: 'r_initech_infra', name: 'initech_infra', conditional: { rule: `gitdir:${CODE}/initech/`, path: `${HOME}/.gitconfig-initech`, email: 'alex@initech.example.com' } },
-      { id: 'r_scratch', name: 'scratch' },
+      { id: repoIdOf('acme_api'), name: 'acme_api', projectId: 'p_acme', local: scenario === 'default' || scenario === 'env' ? ALEX : undefined },
+      { id: repoIdOf('acme_agent_portal'), name: 'acme_agent_portal', projectId: 'p_acme', local: A('Alex', 'alex.agent@acme.example.com'), override: A('Alex', 'alex.agent@acme.example.com') },
+      { id: repoIdOf('acme_cs_portal'), name: 'acme_cs_portal', projectId: 'p_acme', local: scenario === 'default' || scenario === 'env' ? ALEX : undefined },
+      { id: repoIdOf('acme_merchant_portal_v4'), name: 'acme_merchant_portal_v4', projectId: 'p_acme', local: A('A. Lee', 'a.lee@acme.example.com') },
+      { id: repoIdOf('globex_core'), name: 'globex_core', projectId: 'p_globex', local: ALEX_G },
+      { id: repoIdOf('umbrella_web'), name: 'umbrella_web', projectId: 'p_umbrella' },
+      { id: repoIdOf('initech_infra'), name: 'initech_infra', conditional: { rule: `gitdir:${CODE}/initech/`, path: `${HOME}/.gitconfig-initech`, email: 'alex@initech.example.com' } },
+      { id: repoIdOf('scratch'), name: 'scratch' },
     ],
     env: scenario === 'env' ? [{ name: 'GIT_AUTHOR_EMAIL', value: 'alex.shell@example.com' }] : [],
     hash: 1,
@@ -114,7 +117,7 @@ function build(scenario: IdentityScenario): MState {
     nextToken: 1,
   }
   if (scenario === 'empty') s.repos = []
-  if (scenario === 'readerr') s.repos.find((r) => r.id === 'r_acme_cs_portal')!.unreadable = true
+  if (scenario === 'readerr') s.repos.find((r) => r.name === 'acme_cs_portal')!.unreadable = true
   return s
 }
 
@@ -132,6 +135,14 @@ let st: MState = build(urlScenario())
 /** Reset the mock (tests and scenario query strings). */
 export function resetIdentityMock(scenario: IdentityScenario = 'default'): void {
   st = build(scenario)
+}
+
+/** The Go move also changes the project in projects.json: the repos mock (same repository IDs) follows. */
+function moveInWorld(repoId: string, projectId: string | undefined): void {
+  const wr = getWorld().repos.find((x) => x.id === repoId)
+  if (!wr) return
+  wr.projectId = projectId
+  if (projectId) delete wr.movedFrom
 }
 
 const same = (a?: Author, b?: Author): boolean => (!a && !b) || (!!a && !!b && a.name === b.name && a.email === b.email)
@@ -275,6 +286,11 @@ function planOf(r: MRepo, action: RepoAction, after?: Author): RepoChangePlan {
   return p
 }
 
+/** A repository whose config cannot be read: the plan says so and nothing is written to it (FU-16e). */
+function errorPlan(r: MRepo): RepoChangePlan {
+  return { repoId: r.id, name: r.name, path: `${CODE}/${r.name}`, action: RepoAction.RepoActionError, error: unreadableError(r) }
+}
+
 function projectPlan(req: ProjectIdentityRequest): { prev?: Author; next?: Author; plans: RepoChangePlan[]; hash: string } {
   const p = project(req.projectId)
   if (!p) throw fail(ErrorCode.ErrInvalidInput, 'unknown project', { field: 'projectId' })
@@ -283,11 +299,12 @@ function projectPlan(req: ProjectIdentityRequest): { prev?: Author; next?: Autho
     .filter((r) => r.projectId === p.id)
     .map((r) => {
       if (r.missing) return planOf(r, RepoAction.RepoActionSkipMissing)
+      if (r.unreadable) return errorPlan(r)
       if (r.override || r.followsGlobal) return planOf(r, RepoAction.RepoActionKeepOwn, r.local)
       const f = follow(r.local, p.identity, next)
       return planOf(r, f.action, f.after)
     })
-  const rankOf = (a: RepoAction) => (a === RepoAction.RepoActionSet || a === RepoAction.RepoActionRemove ? 0 : a === RepoAction.RepoActionUnchanged ? 1 : a === RepoAction.RepoActionSkipMissing ? 2 : 3)
+  const rankOf = (a: RepoAction) => (a === RepoAction.RepoActionSet || a === RepoAction.RepoActionRemove ? 0 : a === RepoAction.RepoActionUnchanged ? 1 : a === RepoAction.RepoActionSkipMissing ? 2 : a === RepoAction.RepoActionError ? 4 : 3)
   plans.sort((a, b) => rankOf(a.action) - rankOf(b.action))
   return { prev: p.identity, next, plans, hash: `mock-plan-p-${p.id}-${st.hash}-${next ? next.email : '-'}` }
 }
@@ -380,16 +397,25 @@ export const mockIdentityService: IdentityServiceShape = {
       const res = result()
       const undo: MUndo = { files: [], records: [] }
       const p = project(req.projectId)!
+      let failed = false
       for (const pl of plans) {
         const r = st.repos.find((x) => x.id === pl.repoId)!
+        if (pl.action === RepoAction.RepoActionError) {
+          failed = true
+          res.outcomes.push({ repoId: r.id, name: r.name, action: pl.action, ok: false, error: pl.error })
+          continue
+        }
         if (pl.action === RepoAction.RepoActionSet || pl.action === RepoAction.RepoActionRemove) res.backupIds.push(file(undo, r, `mock-after-${r.id}-${st.hash}`))
         if (pl.action === RepoAction.RepoActionSet) r.local = clone(pl.after!)
         if (pl.action === RepoAction.RepoActionRemove) r.local = undefined
         res.outcomes.push({ repoId: r.id, name: r.name, action: pl.action, ok: true })
       }
       undo.records.push({ kind: 'project-identity', id: p.id, has: !!p.identity, name: p.identity?.name ?? '', email: p.identity?.email ?? '', value: '' })
-      p.identity = next
-      res.recordUpdated = true
+      // A member that could not be written keeps the project record as it was (as in Go)
+      if (!failed) {
+        p.identity = next
+        res.recordUpdated = true
+      }
       remember(res, undo)
       st.hash++
       mockEmit('identity:changed', {}) // the Go service emits this after every apply and undo
@@ -457,6 +483,8 @@ export const mockIdentityService: IdentityServiceShape = {
       if (toProjectId && !project(toProjectId)) throw fail(ErrorCode.ErrInvalidInput, 'unknown project', { field: 'projectId' })
       const from = project(r.projectId)
       const to = project(toProjectId)
+      // Go's planMove reads the repository first: an unreadable one rejects (the Projects page aborts the move)
+      if (r.unreadable) throw fail(ErrorCode.ErrGitFailed, 'cannot read this repository\'s config', { file: configOf(r) })
       let plan: RepoChangePlan
       if (r.override || r.followsGlobal) plan = planOf(r, RepoAction.RepoActionKeepOwn, r.local)
       else if ((r.projectId ?? '') === toProjectId) plan = planOf(r, RepoAction.RepoActionUnchanged, r.local)
@@ -474,6 +502,7 @@ export const mockIdentityService: IdentityServiceShape = {
     run(WRITE, () => {
       const r = st.repos.find((x) => x.id === repoId)
       if (!r) throw fail(ErrorCode.ErrInvalidInput, 'unknown repository', { field: 'repoId' })
+      if (r.unreadable) throw fail(ErrorCode.ErrGitFailed, 'cannot read this repository\'s config', { file: configOf(r) })
       if (planHash !== `mock-plan-m-${r.id}-${st.hash}-${toProjectId}`) stale(r.name)
       const from = project(r.projectId)
       const to = project(toProjectId)
@@ -489,6 +518,7 @@ export const mockIdentityService: IdentityServiceShape = {
       }
       undo.records.push({ kind: 'repo-project', id: r.id, has: false, name: '', email: '', value: r.projectId ?? '' })
       r.projectId = toProjectId || undefined
+      moveInWorld(r.id, r.projectId)
       res.outcomes.push({ repoId: r.id, name: r.name, action, ok: true })
       res.recordUpdated = true
       remember(res, undo)
@@ -528,7 +558,10 @@ export const mockIdentityService: IdentityServiceShape = {
           }
         } else {
           const r = st.repos.find((x) => x.id === rec.id)
-          if (r) r.projectId = rec.value || undefined
+          if (r) {
+            r.projectId = rec.value || undefined
+            moveInWorld(r.id, r.projectId)
+          }
         }
       }
       st.tokens.delete(undoId)

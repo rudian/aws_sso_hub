@@ -22,7 +22,11 @@ const listeners = new Set<() => void>()
 const dialogListeners = new Set<() => void>()
 let dialogOpen = false
 
+/** Counts every state we took in. An answer to a call that was asked before a newer state arrived is stale and is dropped. */
+let seq = 0
+
 function set(s: UpdateState): void {
+  seq++
   state = s
   if (s.current) version = s.current
   // An armed "reopen when no task is running" only makes sense while the flow is going on or waiting for Restart.
@@ -31,6 +35,17 @@ function set(s: UpdateState): void {
   setReopenReady(s.phase === UpdatePhase.UpdateReady)
   remember(s)
   for (const l of [...listeners]) l()
+}
+
+/** Take a call's answer only when no newer state (event or answer) came in since the call was made. */
+function answer(p: Promise<UpdateState>): Promise<void> {
+  const asked = seq
+  return p.then(
+    (s) => {
+      if (seq === asked) set(s)
+    },
+    () => undefined,
+  )
 }
 
 function start(): void {
@@ -42,7 +57,7 @@ function start(): void {
     if (new URLSearchParams(location.search).get('updateDialog') === '1') queueMicrotask(openUpdateDialog)
   }
   onEvent('update:state', set)
-  Updates.State().then(set, () => undefined)
+  void answer(Updates.State())
 }
 
 export function getUpdateState(): UpdateState {
@@ -98,10 +113,10 @@ export function useUpdateDialogOpen(): boolean {
 // ---- actions ----
 
 export const updateActions = {
-  check: () => Updates.Check().then(set, () => undefined),
-  retry: () => Updates.Retry().then(set, () => undefined),
-  download: () => Updates.Download().then(set, () => undefined),
-  restart: () => Updates.Restart().then(set, () => undefined),
+  check: () => answer(Updates.Check()),
+  retry: () => answer(Updates.Retry()),
+  download: () => answer(Updates.Download()),
+  restart: () => answer(Updates.Restart()),
   openBrowser: () => Updates.OpenDownloadPage().catch(() => undefined),
   /** Start the update: open the dialog and begin the download. */
   start: () => {

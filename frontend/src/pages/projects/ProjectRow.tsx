@@ -9,7 +9,7 @@ import type { MenuItem } from '../../components/Menu'
 import { RepoName } from '../../components/RepoName'
 import { useI18n } from '../../i18n'
 import { isMac } from '../../lib/platform'
-import { formatRelative, formatRemaining } from '../../lib/time'
+import { formatRelative, formatRemainingLength } from '../../lib/time'
 import { canBind, portalOf, rowKind, sessionNeedsLogin, splitMiddle, suggestedProfile, testText } from '../repos/model'
 import type { RowKind } from '../repos/model'
 import { MovedAsk } from './MovedAsk'
@@ -64,6 +64,10 @@ export interface ProjectRowProps {
   dragging: boolean
   /** The moved-folder question is being answered. */
   asking: boolean
+  /** The search text: matched letters of the name are bold. */
+  query?: string
+  /** The search field's selection: the row Enter opens. */
+  searchSel?: boolean
   cb: ProjectRowCallbacks
 }
 
@@ -123,7 +127,7 @@ function ProviderIcon({ repo }: { repo: Repo }) {
   )
 }
 
-function RepoRowImpl({ repo, selected, tabStop, hiddenList, sectionId, profiles, portals, now, cliReady, testing, comparing, flash, dragging, asking, cb }: ProjectRowProps) {
+function RepoRowImpl({ repo, selected, tabStop, hiddenList, sectionId, profiles, portals, now, cliReady, testing, comparing, flash, dragging, asking, query, searchSel, cb }: ProjectRowProps) {
   const { t } = useI18n()
   const cc = isCodeCommit(repo)
   const kind: RowKind = cc ? rowKind(repo) : 'none'
@@ -291,7 +295,7 @@ function RepoRowImpl({ repo, selected, tabStop, hiddenList, sectionId, profiles,
         } else if (portal && portal.session.state === SessionState.SessionExpiring && portal.session.sessionEndsAt) {
           status = (
             <div>
-              <DotHint kind="warn" tone="warn" title={t('projects.status.signInEnds', { when: formatRemaining(portal.session.sessionEndsAt, now, t) })} detail={t('projects.status.signInEnds.hint')} />
+              <DotHint kind="warn" tone="warn" title={t('projects.status.signInEnds', { when: formatRemainingLength(portal.session.sessionEndsAt, now, t) })} detail={t('projects.status.signInEnds.hint')} />
               {signInButton(portal.name, true)}
             </div>
           )
@@ -511,11 +515,12 @@ function RepoRowImpl({ repo, selected, tabStop, hiddenList, sectionId, profiles,
 
   return (
     <div
-      className={clsx('row proj-row', selected && 'is-selected', hiddenList && 'is-dim', dragging && 'is-dragging')}
+      className={clsx('row proj-row', selected && 'is-selected', hiddenList && 'is-dim', searchSel && 'is-search-sel', dragging && 'is-dragging')}
       role="row"
       aria-selected={hiddenList ? undefined : selected}
       aria-label={repo.localName}
       data-repo-id={repo.id}
+      data-search-sel={searchSel ? '' : undefined}
       data-flip-key={repo.id}
       tabIndex={tabStop ? 0 : -1}
       onClick={onRowClick}
@@ -537,7 +542,7 @@ function RepoRowImpl({ repo, selected, tabStop, hiddenList, sectionId, profiles,
         <ProviderIcon repo={repo} />
         <span className="repo-cell__text">
           <span className="repo-cell__name">
-            <RepoName localName={repo.localName} remoteName={repo.remoteName} className="row__primary truncate" />
+            <RepoName localName={repo.localName} remoteName={repo.remoteName} query={query} className="row__primary truncate" />
           </span>
           <MiddleText className="row__secondary" value={repo.remoteKind === RemoteKind.RemoteSSH && cc ? repo.remoteUrl : repo.displayPath} />
         </span>

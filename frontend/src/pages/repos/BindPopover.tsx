@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { BindWarning } from '../../api/models'
 import type { BindOutcome, BindPreview } from '../../api/models'
@@ -11,6 +11,7 @@ import { useAccounts } from '../../state/accounts'
 import { ProfileSelect } from './ProfileSelect'
 import { bindableProfiles, portalOf } from './model'
 import { useReportError } from './hooks'
+import { useRepoSentence } from './RepoSentence'
 
 export interface BindPopoverProps {
   repo: Repo
@@ -26,10 +27,25 @@ export interface BindPopoverProps {
 /** The confirm popover of a single bind: which profile, what gets written, warnings. Binding happens only on the primary button. */
 export function BindPopover({ repo, anchorRef, options, initial, onClose, onBound }: BindPopoverProps) {
   const { t } = useI18n()
+  const sentence = useRepoSentence()
   const { state: accounts } = useAccounts()
   const report = useReportError()
   const [profile, setProfile] = useState(initial)
   const [busy, setBusy] = useState(false)
+  const bodyRef = useRef<HTMLDivElement>(null)
+
+  // Keyboard users arrive inside the popover and leave back at the control that opened it.
+  useEffect(() => {
+    bodyRef.current?.querySelector<HTMLElement>('select, button:not(:disabled)')?.focus()
+  }, [])
+  const giveFocusBack = () => {
+    const a = anchorRef.current
+    if (a?.isConnected) a.focus()
+  }
+  const cancel = () => {
+    onClose()
+    giveFocusBack()
+  }
 
   const profiles = accounts?.profiles ?? []
   const portals = accounts?.portals ?? []
@@ -61,6 +77,7 @@ export function BindPopover({ repo, anchorRef, options, initial, onClose, onBoun
     try {
       const out = await Repos.Bind(repo.id, profile)
       onBound(out, profile)
+      giveFocusBack()
     } catch (e) {
       report(e)
     } finally {
@@ -69,9 +86,9 @@ export function BindPopover({ repo, anchorRef, options, initial, onClose, onBoun
   }
 
   return (
-    <Popover anchorRef={anchorRef} open onClose={onClose} align="end" ariaLabel={t('repos.bind.confirm', { repo: repo.name, name: profile || '…' })} className="bind-popover">
-      <div className="stack" style={{ '--gap': 'var(--sp-3)' } as React.CSSProperties}>
-        <div style={{ fontWeight: 600 }}>{t('repos.bind.confirm', { repo: repo.name, name: profile || '…' })}</div>
+    <Popover anchorRef={anchorRef} open onClose={onClose} align="end" ariaLabel={sentence.plain('repos.bind.confirm', repo, { name: profile || '…' })} className="bind-popover">
+      <div ref={bodyRef} className="stack" style={{ '--gap': 'var(--sp-3)' } as React.CSSProperties}>
+        <div style={{ fontWeight: 600 }}>{sentence.node('repos.bind.confirm', repo, { name: profile || '…' })}</div>
         <div className="mono muted" style={{ fontSize: 'var(--fs-12)', wordBreak: 'break-all' }}>
           {repo.displayPath}
         </div>
@@ -95,7 +112,7 @@ export function BindPopover({ repo, anchorRef, options, initial, onClose, onBoun
           </details>
         )}
         <div className="cluster" style={{ justifyContent: 'flex-end' }}>
-          <Button size="sm" variant="secondary" onClick={onClose}>
+          <Button size="sm" variant="secondary" onClick={cancel}>
             {t('common.cancel')}
           </Button>
           <Button size="sm" variant="primary" loading={busy} disabled={!profile || preview.loading} onClick={() => void submit()}>

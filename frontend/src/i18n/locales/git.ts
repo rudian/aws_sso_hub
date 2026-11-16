@@ -1,7 +1,5 @@
 // Namespace "git": the Git global settings page.
 export const zh = {
-  'git.title': 'Git 全局设置',
-  'git.subtitle': '这些设置影响电脑上的所有仓库',
   'git.default.title': '全局默认凭证',
   'git.default.explain': '所有 CodeCommit 仓库（除非另外绑定）都会用 {name} 的密钥。',
   'git.default.none': '没有全局默认凭证。没有绑定的仓库会直接报错。',
@@ -60,8 +58,6 @@ export const zh = {
 } as const
 
 export const en: { [K in keyof typeof zh]: string } = {
-  'git.title': 'Git global settings',
-  'git.subtitle': 'These settings affect every repository on this computer',
   'git.default.title': 'Global default',
   'git.default.explain': 'Every CodeCommit repository uses {name} unless it’s bound to something else.',
   'git.default.none': 'No global default. Unbound repositories fail with a clear message.',

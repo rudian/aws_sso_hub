@@ -57,16 +57,23 @@ describe('FU-11c: ReattachMoved gives the old record back', () => {
     const w = getWorld()
     const moved = w.repos.find((r) => r.movedFrom)
     const oldId = moved?.movedFrom?.oldId as string
-    const rec = w.movedRecords[oldId]
     delete w.movedRecords[oldId]
     await expect(call(mock.repos.ReattachMoved(moved?.id as string))).rejects.toMatchObject({ cause: { code: 'E_MOVED_GONE' } })
-    expect(moved?.movedFrom).toBeTruthy() // nothing changed
-    w.movedRecords[oldId] = rec
+    // the Go engine forgets the offer after this answer (FU-14f): the row stops asking
+    expect(moved?.movedFrom).toBeUndefined()
+    await expect(call(mock.repos.ReattachMoved(moved?.id as string))).rejects.toMatchObject({ cause: { code: 'E_MOVED_GONE' } })
+  })
+
+  it('an ID that is taken again also ends the offer', async () => {
+    const w = getWorld()
+    const moved = w.repos.find((r) => r.movedFrom)
+    const oldId = moved?.movedFrom?.oldId as string
     const other = w.repos.find((r) => r !== moved && !r.movedFrom)
     if (!other) throw new Error('no other repository')
     const keep = other.id
     other.id = oldId
     await expect(call(mock.repos.ReattachMoved(moved?.id as string))).rejects.toMatchObject({ cause: { code: 'E_MOVED_GONE' } })
+    expect(moved?.movedFrom).toBeUndefined()
     other.id = keep
   })
 })

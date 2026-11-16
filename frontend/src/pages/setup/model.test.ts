@@ -96,6 +96,11 @@ describe('primaryKind', () => {
     expect(primaryKind('running', s, null, false)).toBe('busy')
     expect(primaryKind('done', s, null, false)).toBe('enter')
   })
+  it('after "I will install them myself" only use-detected rows still blocking wait for Continue, not Check again', () => {
+    const detected = { ...missing(GIT), fix: SetupFix.FixUseDetected } as SetupTool
+    expect(primaryKind('idle', g([ok(BREW), detected, ok(AWS)]), null, true)).toBe('continue')
+    expect(primaryKind('idle', g([ok(BREW), detected, missing(AWS)]), null, true)).toBe('recheck')
+  })
   it('causes the app cannot fix ask for a re-check, not a retry', () => {
     const s = g([missing(BREW), missing(GIT), missing(AWS)])
     for (const c of [FailureCause.CausePrefixExists, FailureCause.CauseWingetMissing, FailureCause.CauseReboot]) expect(primaryKind('failed', s, fail(c), false)).toBe('recheck')

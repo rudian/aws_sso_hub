@@ -116,3 +116,7 @@ body.is-dragging-row, body.is-dragging-row * { cursor: grabbing !important; user
   .proj-table { --cols: 20px minmax(150px, 1.3fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(130px, 1fr) 140px; }
   .proj-table .hint__detail { display: none; }
 }
+
+/* Find a repository by typing (design 5.2): the selected match has the ink bar of the session switcher. */
+.proj-row.is-search-sel { background: color-mix(in srgb, var(--focus) 9%, var(--surface)); box-shadow: inset 3px 0 0 var(--ink, var(--text)); }
+.proj-search-line { font-size: var(--fs-12); color: var(--text-3); margin-top: calc(var(--sp-2) * -1); }

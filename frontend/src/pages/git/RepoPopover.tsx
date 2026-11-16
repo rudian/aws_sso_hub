@@ -20,6 +20,9 @@ export interface RepoPopoverProps {
   onRecovered?: () => void
 }
 
+/** The failure is about a repository's own git config, not about the app's projects.json record. */
+export const isRepoConfigFile = (file?: string): boolean => !!file && !/projects\.json$/i.test(file)
+
 const who = (a?: { name: string; email: string } | null) => (a && a.email ? `${a.name} <${a.email}>` : '')
 
 /**
@@ -39,12 +42,21 @@ export function RepoPopover({ anchorRef, row, project, global, onClose, onRecove
   // The config cannot be read or written: the file git or the app failed on ('' = the repository's folder).
   const [fail, setFail] = useState<{ file: string } | null>(() => (row.readError ? { file: row.readError.params?.file ?? row.readError.params?.path ?? row.path } : null))
   const firstRadio = useRef<HTMLInputElement>(null)
+  const primaryRef = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
   const nameRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const id = window.setTimeout(() => firstRadio.current?.focus(), 0)
     return () => window.clearTimeout(id)
   }, [])
+
+  // A failed Save or Retry leaves the popover open: the button was disabled while it worked, so the focus went to <body>.
+  useEffect(() => {
+    if (busy || !refocus.current) return
+    refocus.current = false
+    primaryRef.current?.focus()
+  }, [busy])
 
   const ownValid = validateAuthor(own)
   const dirty = choice !== current || (choice === 'own' && !sameAuthor(own, startOwn))
@@ -64,6 +76,7 @@ export function RepoPopover({ anchorRef, row, project, global, onClose, onRecove
       const pv = await Identity.PreviewRepo(req)
       if (pv.plan.action === RepoAction.RepoActionError) {
         setFail({ file: pv.plan.error?.params?.file ?? row.path })
+        refocus.current = true
         return
       }
       if (hadFail && !dirty) {
@@ -75,15 +88,20 @@ export function RepoPopover({ anchorRef, row, project, global, onClose, onRecove
       const res = await Identity.ApplyRepo(req, pv.planHash)
       const bad = (res.outcomes ?? []).find((o) => !o.ok)
       if (bad) {
-        setFail({ file: bad.error?.params?.file ?? row.path })
+        const file = bad.error?.params?.file
+        if (file && !isRepoConfigFile(file)) report(bad.error)
+        else setFail({ file: file ?? row.path })
+        refocus.current = true
         return
       }
       done(t('identity.repo.done', { name: row.name }), res)
       close()
     } catch (e) {
       const ue = toUiError(e)
-      if ((ue.code === ErrorCode.ErrGitFailed || ue.code === ErrorCode.ErrFileIO) && ue.params?.file) setFail({ file: ue.params.file })
+      // E_FILE_IO for projects.json is the app's own record, not "cannot write this repository's config"
+      if ((ue.code === ErrorCode.ErrGitFailed || ue.code === ErrorCode.ErrFileIO) && isRepoConfigFile(ue.params?.file)) setFail({ file: ue.params.file })
       else report(e)
+      refocus.current = true
     } finally {
       setBusy(false)
     }
@@ -139,7 +157,7 @@ export function RepoPopover({ anchorRef, row, project, global, onClose, onRecove
         <Button variant="secondary" size="sm" disabled={busy} onClick={close}>
           {t('common.cancel')}
         </Button>
-        <Button variant="primary" size="sm" loading={busy} disabled={!canSave && !fail} onClick={() => void save()}>
+        <Button ref={primaryRef} variant="primary" size="sm" loading={busy} disabled={!canSave && !fail} onClick={() => void save()}>
           {fail ? t('common.retry') : t('identity.repo.save')}
         </Button>
       </div>

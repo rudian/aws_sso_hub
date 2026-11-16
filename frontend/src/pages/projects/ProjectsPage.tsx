@@ -9,8 +9,9 @@ import type { BindOutcome, Author, ProjectInfo, Repo, TestResult } from '../../a
 import { toUiError } from '../../api/errors'
 import { Banner, Button, CodeText, codeMark, EmptyState, ErrorBanner, IconButton, Menu, Progress, Segmented, Skeleton, Tooltip } from '../../components'
 import { errorText, useI18n } from '../../i18n'
-import { takeOpen } from '../../lib/initialUI'
+import { initialUI, takeOpen } from '../../lib/initialUI'
 import { useRefreshHandler, useSearchShortcut } from '../../lib/keyboard'
+import { rankRepo } from '../../lib/repoSearch'
 import { useFlip } from '../../lib/motion'
 import { setRoute, useRoute } from '../../lib/route'
 import { formatRelative } from '../../lib/time'
@@ -31,9 +32,11 @@ import { Emph } from './Emph'
 import { FoundChooser } from './FoundChooser'
 import { MoveMenu } from './MoveMenu'
 import { ProjectModal } from './NewProjectModal'
+import { UpdateBanner } from '../update/UpdateBanner'
 import { ProjectRow } from './ProjectRow'
 import type { ProjectRowCallbacks } from './ProjectRow'
 import { ProjectSection } from './ProjectSection'
+import type { ProviderKind } from '../../components'
 import { HIDDEN_SECTION, UNGROUPED, activeSuggestion, changesCount, displayOrder, groupRepos, isCodeCommit, moveTargets, movable, providerKind } from './model'
 import type { ProjectFilter, SourceFilter } from './model'
 import { useProjectOps } from './ops'
@@ -86,7 +89,9 @@ export function ProjectsPage() {
   const [filter, setFilter] = useState<ProjectFilter>(route.filter === 'todo' ? 'todo' : 'all')
   const [source, setSource] = useState<SourceFilter>('all')
   const [showHidden, setShowHidden] = useState(false)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialUI.search ?? '')
+  /** The row the arrow keys picked in the search field; null = the best match. */
+  const [searchPick, setSearchPick] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [testing, setTesting] = useState<Set<string>>(new Set())
   const [comparing, setComparing] = useState<Set<string>>(new Set())
@@ -108,7 +113,7 @@ export function ProjectsPage() {
   const [localCollapsed, setLocalCollapsed] = useState<Map<string, boolean>>(new Map())
   const [active, setActive] = useState<Record<string, string>>({})
   const [live, setLive] = useState({ n: 0, text: '' })
-  const [mockDrag, setMockDrag] = useState<{ label: string; x: number; y: number } | null>(null)
+  const [mockDrag, setMockDrag] = useState<{ label: string; x: number; y: number; provider: ProviderKind | null } | null>(null)
 
   const searchRef = useRef<HTMLInputElement>(null)
   const anchorRef = useRef<HTMLElement | null>(null)
@@ -134,15 +139,23 @@ export function ProjectsPage() {
   }, [showHidden, counts.hidden])
 
   const sections = useMemo(() => groupRepos(state, { filter, source, query, showHidden }, t('projects.ungrouped')), [state, filter, source, query, showHidden, t])
+  const searching = query.trim() !== ''
+  // Sections the user folds while searching: in memory only, dropped when the search ends (never saved)
+  const [searchCollapsed, setSearchCollapsed] = useState<Map<string, boolean>>(new Map())
+  useEffect(() => {
+    if (!searching) setSearchCollapsed((m) => (m.size === 0 ? m : new Map()))
+  }, [searching])
   const constrained = filter !== 'all' || source !== 'all' || query.trim() !== ''
   const isCollapsed = useCallback(
     (id: string) => {
       if (id === HIDDEN_SECTION) return false
+      // While searching every section is open: a match in a collapsed project must be reachable with Enter
+      if (searching) return searchCollapsed.get(id) ?? false
       const local = localCollapsed.get(id)
       if (local !== undefined) return local
       return projects.find((p) => p.id === id)?.collapsed ?? false
     },
-    [localCollapsed, projects],
+    [localCollapsed, projects, searching, searchCollapsed],
   )
   const collapsedIds = useMemo(() => new Set(sections.filter((s) => isCollapsed(s.id)).map((s) => s.id)), [sections, isCollapsed])
   const order = useMemo(() => displayOrder(sections, collapsedIds), [sections, collapsedIds])
@@ -268,10 +281,10 @@ export function ProjectsPage() {
         await reload()
         return true
       }
-      if (ids.length > 0) await ops.moveRepos(ids, id, name)
-      if (identity) {
-        await ops.applyProjectIdentity(id, name, identity)
-      }
+      // The identity goes onto the empty project first (nothing to confirm); the move then writes it into the
+      // repositories with one confirm, not two.
+      if (identity) await ops.applyProjectIdentity(id, name, identity, { quiet: true })
+      if (ids.length > 0) await ops.moveRepos(ids, id, name, !!identity)
       await reload()
       announce(t('projects.live.created', { name }))
       toast({ kind: 'ok', title: t('projects.new.done', { name, n: ids.length }) })
@@ -309,7 +322,12 @@ export function ProjectsPage() {
 
   // ---------------------------------------------------------------- repository actions
   const openBind = useCallback((id: string, initial: string, options: string[], anchor?: HTMLElement) => {
-    anchorRef.current = anchor ?? rowEl(id)?.querySelector<HTMLElement>('.row__actions') ?? rowEl(id)
+    // From a menu item there is no anchor: the menu has just given focus back to its trigger, so the popover hangs
+    // there and returns focus there. `.row__actions` cannot take focus (Esc would drop it to <body>); the row can.
+    const rowNode = rowEl(id)
+    const active = document.activeElement as HTMLElement | null
+    const trigger = active && rowNode && active !== rowNode && rowNode.contains(active) ? active : null
+    anchorRef.current = anchor ?? trigger ?? rowNode
     setBindTarget({ repoId: id, initial, options })
   }, [])
 
@@ -429,6 +447,59 @@ export function ProjectsPage() {
     },
     [report],
   )
+
+  // The search field's selection: the best match until the arrow keys pick another row (design 5.2).
+  const matchIds = useMemo(
+    () => (searching && !showHidden ? order.filter((id) => { const r = find(id); return !!r && rankRepo(r, query) !== null }) : []),
+    [searching, showHidden, order, find, query],
+  )
+  const searchBest = useMemo(() => {
+    let best: string | null = null
+    let bestRank = Infinity
+    for (const id of matchIds) {
+      const r = find(id)
+      const k = r ? rankRepo(r, query) : null
+      if (k !== null && k < bestRank) {
+        best = id
+        bestRank = k
+      }
+    }
+    return best
+  }, [matchIds, find, query])
+  const searchSel = searchPick && matchIds.includes(searchPick) ? searchPick : searchBest
+  const matchCount = searching ? sections.reduce((n, s) => n + s.repos.filter((r) => rankRepo(r, query) !== null).length, 0) : 0
+  const hiddenMatches = searching && !showHidden ? (state?.hiddenRepos ?? []).filter((r) => rankRepo(r, query) !== null && (source === 'all' || r.provider === source)).length : 0
+
+  useEffect(() => {
+    if (searchSel) rowEl(searchSel)?.scrollIntoView?.({ block: 'nearest' })
+  }, [searchSel])
+
+  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // An IME composition owns Enter, Esc and the arrows (WKWebView sends the commit Enter after compositionend with keyCode 229)
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (matchIds.length === 0) return
+      e.preventDefault()
+      const at = searchSel ? matchIds.indexOf(searchSel) : -1
+      const next = e.key === 'ArrowDown' ? Math.min(at + 1, matchIds.length - 1) : Math.max(at - 1, 0)
+      setSearchPick(matchIds[next])
+    } else if (e.key === 'Enter') {
+      // Enter and Cmd/Ctrl+Enter: Cmd/Ctrl+Enter will open the new-task sheet with milestone 2; until then it opens the repository like Enter
+      const repo = searchSel ? find(searchSel) : undefined
+      if (!repo) return
+      e.preventDefault()
+      openRepo(repo)
+    } else if (e.key === 'Escape') {
+      if (query !== '') {
+        e.preventDefault()
+        e.stopPropagation()
+        setQuery('')
+        setSearchPick(null)
+      } else {
+        e.currentTarget.blur()
+      }
+    }
+  }
 
   const hideMany = useCallback(
     async (ids: string[]) => {
@@ -552,10 +623,14 @@ export function ProjectsPage() {
   const toggleCollapsed = useCallback(
     (id: string) => {
       const next = !isCollapsed(id)
+      if (searching) {
+        setSearchCollapsed((m) => new Map(m).set(id, next))
+        return
+      }
       setLocalCollapsed((m) => new Map(m).set(id, next))
       if (id !== UNGROUPED) void Repos.SetProjectCollapsed(id, next).catch(report)
     },
-    [isCollapsed, report],
+    [isCollapsed, report, searching],
   )
 
   const renameProject = useCallback(
@@ -795,7 +870,7 @@ export function ProjectsPage() {
         window.setTimeout(() => {
           const head = document.querySelector<HTMLElement>(`[data-drop="${CSS.escape(p.id)}"] .portal__title`)?.getBoundingClientRect()
           const at = head ?? new DOMRect(300, 500, 0, 0)
-          setMockDrag({ label: r.localName, x: at.left - 20, y: at.bottom + 50 })
+          setMockDrag({ label: r.localName, x: at.left - 20, y: at.bottom + 50, provider: providerKind(r) })
         }, 300)
       }
       return
@@ -895,6 +970,8 @@ export function ProjectsPage() {
       flash={flashId === r.id}
       dragging={dragIds.includes(r.id)}
       asking={asking === r.id}
+      query={query}
+      searchSel={searchSel === r.id}
       cb={cb}
     />
   )
@@ -932,6 +1009,7 @@ export function ProjectsPage() {
     <div className="page">
       {header}
       <GlobalBanner scope="repos" />
+      <UpdateBanner />
       <div className="page__body proj-page" style={{ gap: 'var(--sp-5)' }}>
         {error && <ErrorBanner error={error} onRetry={() => void reload()} />}
         {writable && (
@@ -983,9 +1061,23 @@ export function ProjectsPage() {
           )}
           <label className="search">
             <Search aria-hidden="true" />
-            <input ref={searchRef} className="input" placeholder={t('projects.search')} aria-label={t('projects.search.aria')} value={query} onChange={(e) => setQuery(e.target.value)} />
+            <input ref={searchRef} className="input" placeholder={t('projects.search')} aria-label={t('projects.search.aria')} value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setSearchPick(null)
+              }}
+              onKeyDown={onSearchKey}
+            />
           </label>
         </div>
+
+        {searching && !showHidden && matchCount > 0 && (
+          <div className="proj-search-line" role="status" aria-live="polite">
+            {searchSel && find(searchSel)
+              ? t('projects.search.count', { n: matchCount, name: find(searchSel)?.localName ?? '' })
+              : t('projects.search.count.plain', { n: matchCount })}
+          </div>
+        )}
 
         {isScanning && (
           <div className="stack" style={{ '--gap': 'var(--sp-1)' } as React.CSSProperties}>
@@ -1011,18 +1103,28 @@ export function ProjectsPage() {
           />
         ) : nothingShown ? (
           <EmptyState
-            title={t('projects.empty.match.title')}
+            title={searching && filter === 'all' && source === 'all' ? t('projects.search.none', { q: query.trim() }) : t('projects.empty.match.title')}
+            text={hiddenMatches > 0 ? t('projects.search.hidden', { n: hiddenMatches }) : undefined}
             actions={
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setQuery('')
-                  setFilter('all')
-                  setSource('all')
-                }}
-              >
-                {t('projects.empty.clear')}
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setQuery('')
+                    setSearchPick(null)
+                    setFilter('all')
+                    setSource('all')
+                    searchRef.current?.focus()
+                  }}
+                >
+                  {t('projects.empty.clear')}
+                </Button>
+                {hiddenMatches > 0 && (
+                  <Button variant="secondary" onClick={() => setShowHidden(true)}>
+                    {t('projects.search.hidden.show')}
+                  </Button>
+                )}
+              </>
             }
           />
         ) : (
@@ -1120,7 +1222,7 @@ export function ProjectsPage() {
           setModal({ mode: 'create', initialIds: ids })
         }}
       />
-      <DragGhost drag={drag ?? (mockDrag ? { ids: dragIds, label: mockDrag.label, x: mockDrag.x, y: mockDrag.y, over: overSection } : null)} extra={dragExtra} moveLabel={sectionName(drag ? drag.over : overSection) ? t('projects.drag.moveTo', { name: sectionName(drag ? drag.over : overSection) ?? '' }) : null} />
+      <DragGhost drag={drag ?? (mockDrag ? { ids: dragIds, label: mockDrag.label, provider: mockDrag.provider, x: mockDrag.x, y: mockDrag.y, over: overSection } : null)} extra={dragExtra} moveLabel={sectionName(drag ? drag.over : overSection) ? t('projects.drag.moveTo', { name: sectionName(drag ? drag.over : overSection) ?? '' }) : null} />
 
       {modal && (
         <ProjectModal

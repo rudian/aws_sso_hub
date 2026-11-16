@@ -13,6 +13,8 @@ export interface InitialUI {
   section?: string
   filter?: string
   open?: string
+  /** ?search=<text>: the text in the Projects search field (screenshots of design 5.2). */
+  search?: string
   addPortalStep?: 1 | 2 | 3
   onboardingStep?: 1 | 2 | 3
   mockLogin: MockLoginMode
@@ -55,6 +57,7 @@ export function parseInitialUI(search: string, enabled: boolean): InitialUI {
     section: q.get('section') ?? undefined,
     filter: q.get('filter') ?? undefined,
     open: q.get('open') ?? undefined,
+    search: q.get('search') ?? undefined,
     addPortalStep: step123(q.get('addPortalStep')),
     onboardingStep: step123(q.get('onboardingStep')),
     mockLogin: pick(q.get('mockLogin'), LOGIN_MODES) ?? 'success',

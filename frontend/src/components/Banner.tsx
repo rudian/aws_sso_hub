@@ -1,19 +1,21 @@
 import clsx from 'clsx'
 import { CircleCheck, Info, OctagonAlert, TriangleAlert } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 
 export interface BannerProps {
   kind: 'info' | 'warn' | 'danger' | 'ok'
   title?: ReactNode
   actions?: ReactNode
+  /** Replaces the icon of the kind (a lucide icon). */
+  icon?: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>
   className?: string
   children?: ReactNode
 }
 
 const ICONS = { info: Info, warn: TriangleAlert, danger: OctagonAlert, ok: CircleCheck }
 
-export function Banner({ kind, title, actions, className, children }: BannerProps) {
-  const Icon = ICONS[kind]
+export function Banner({ kind, title, actions, icon, className, children }: BannerProps) {
+  const Icon = icon ?? ICONS[kind]
   return (
     <div className={clsx('banner', kind !== 'info' && `banner--${kind}`, className)} role={kind === 'danger' ? 'alert' : 'status'}>
       <Icon className="banner__icon" aria-hidden="true" />

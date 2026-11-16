@@ -1,4 +1,4 @@
-/* Clone modal styles (copied from pages/repos/repos.css; F1-CL removes the originals). */
+/* Clone modal styles. */
 /* Clone modal: repository picker. */
 .clone-pick { max-height: 248px; overflow: auto; scroll-padding-top: 36px; }
 .clone-pick__bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: var(--sp-3); min-height: 36px; padding: 0 var(--sp-4); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-12); color: var(--text-3); }

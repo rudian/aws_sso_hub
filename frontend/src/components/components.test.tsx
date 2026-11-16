@@ -1,3 +1,4 @@
+import { ArrowUp } from 'lucide-react'
 import { act, createElement } from 'react'
 import type { ReactElement } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -15,6 +16,7 @@ import { DiffView } from './DiffView'
 import { Segmented } from './Segmented'
 import { Tabs } from './Tabs'
 import { AcctChip } from './AcctChip'
+import { Banner } from './Banner'
 import { Button } from './Button'
 import { Field } from './Field'
 import { Input } from './Input'
@@ -235,6 +237,25 @@ describe('Menu', () => {
   })
 })
 
+describe('Banner icon', () => {
+  it('draws the icon of its kind, or the one it is given', () => {
+    render(<Banner kind="info">Plain</Banner>)
+    const kindIcon = host.querySelector('.banner__icon')?.outerHTML
+    render(<Banner kind="info" icon={ArrowUp}>Own icon</Banner>)
+    expect(host.querySelector('.banner__icon')?.outerHTML).not.toBe(kindIcon)
+    expect(host.querySelector('.banner__icon')?.getAttribute('class')).toContain('lucide-arrow-up')
+  })
+})
+
+describe('Menu origin', () => {
+  it('the popup grows from the trigger corner: end-aligned menus from the right', () => {
+    render(<Menu align="end" trigger={<Button>More</Button>} items={[{ id: 'a', label: 'Alpha', onSelect: () => undefined }]} />)
+    act(() => (host.querySelector('button') as HTMLButtonElement).click())
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement
+    expect(menu.style.getPropertyValue('--pop-origin')).toBe('top right')
+  })
+})
+
 describe('small components', () => {
   it('Segmented radiogroup exposes aria-checked and arrow keys', () => {
     const onChange = vi.fn()
@@ -245,6 +266,15 @@ describe('small components', () => {
       host.querySelector('.segmented')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     })
     expect(onChange).toHaveBeenCalledWith('b')
+  })
+
+  it('Segmented takes the next item from the focused radio when the value has not changed yet (two quick presses)', () => {
+    const onChange = vi.fn()
+    render(<Segmented role="radiogroup" ariaLabel="Theme" value="a" onChange={onChange} items={[{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }]} />)
+    const radios = Array.from(host.querySelectorAll<HTMLElement>('[role="radio"]'))
+    act(() => radios[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })))
+    act(() => radios[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })))
+    expect(onChange.mock.calls.map((c) => c[0])).toEqual(['b', 'c'])
   })
 
   it('Segmented moves focus on the next frame without reading a cleared currentTarget', () => {

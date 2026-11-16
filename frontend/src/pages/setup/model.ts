@@ -213,15 +213,17 @@ const CHECK_AGAIN_CAUSES: FailureCause[] = [FailureCause.CausePrefixExists, Fail
 export function primaryKind(phase: Phase, setup: SetupState | null, failure: InstallFailure | null | undefined, selfInstall: boolean): PrimaryKind {
   if (phase === 'done') return 'enter'
   if (phase === 'running') return 'busy'
-  if (selfInstall) return 'recheck'
+  const blocking = (setup?.tools ?? []).filter((t) => t.blocking)
+  const onlyDetected = blocking.length > 0 && blocking.every((t) => t.fix === SetupFix.FixUseDetected)
+  // After "I'll install them myself" the user checks again, unless only use-detected rows still block: those wait for "Continue" (FU-15a)
+  if (selfInstall && !onlyDetected) return 'recheck'
   if (phase === 'failed' && failure) {
     if (CHECK_AGAIN_CAUSES.includes(failure.cause)) return 'recheck'
     return failure.cause === FailureCause.CauseDamagedDownload ? 'redownload' : 'retry'
   }
-  const blocking = (setup?.tools ?? []).filter((t) => t.blocking)
   if (blocking.some((t) => t.fix === SetupFix.FixRepairPrefix)) return 'recheck'
   if (blocking.some((t) => t.fix === SetupFix.FixOpenStore)) return 'open-store'
-  if (blocking.length > 0 && blocking.every((t) => t.fix === SetupFix.FixUseDetected)) return 'continue'
+  if (onlyDetected) return 'continue'
   return 'install'
 }
 

@@ -378,7 +378,7 @@ describe('Projects page', () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, 'no-such-thing')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(document.body.textContent).toContain('No matching repositories')
+    expect(document.body.textContent).toContain('No repository\'s folder or remote name contains "no-such-thing"')
     await click(buttonByText(/^Clear search$/))
     expect(Array.from(document.querySelectorAll('.proj .portal__title')).length).toBeGreaterThan(1)
   })
@@ -447,6 +447,45 @@ describe('Projects page: review round 1', () => {
     await waitFor(() => document.activeElement === chip)
   })
 
+  it('the bind popover names the repository by its folder name first, with the remote name as the tag', async () => {
+    await mount()
+    const r = Array.from(document.querySelectorAll<HTMLElement>('[role="row"][data-repo-id]')).find((x) => x.querySelector('.remote-name') && x.querySelector('.proj-chip'))
+    expect(r).toBeTruthy()
+    const local = (r as HTMLElement).querySelector('.repo-nm__local')?.textContent ?? ''
+    await click((r as HTMLElement).querySelector('.proj-chip'))
+    await waitFor(() => !!document.querySelector('.popover'))
+    const head = document.querySelector('.popover .repo-nm')
+    expect(head?.querySelector('.repo-nm__local')?.textContent).toBe(local)
+    expect(head?.querySelector('.remote-name')).toBeTruthy()
+    expect(document.querySelector('.popover')?.getAttribute('aria-label') ?? '').toContain(local)
+  })
+
+  it('the bind popover takes focus on open and Cancel returns it to the chip (FU-14c)', async () => {
+    await mount()
+    const chip = document.querySelector<HTMLElement>('.proj-chip') as HTMLElement
+    chip.focus()
+    await click(chip)
+    await waitFor(() => !!document.querySelector('.popover'))
+    expect(document.querySelector('.popover')?.contains(document.activeElement)).toBe(true)
+    await click(buttonByText(/^Cancel$/, document.querySelector('.popover') as HTMLElement))
+    await waitFor(() => !document.querySelector('.popover'))
+    expect(document.activeElement).toBe(chip)
+  })
+
+  it('"Change account" from the row menu hangs the popover on the menu trigger, so Esc returns focus there (FU-14b)', async () => {
+    await mount()
+    const more = buttonByText(/^More$/, row('acme_api')) as HTMLElement
+    more.focus()
+    await click(more)
+    await click(buttonByText(/^Change account$/, document.querySelector('[role="menu"]') as HTMLElement))
+    await waitFor(() => !!document.querySelector('.popover'))
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    await waitFor(() => !document.querySelector('.popover'))
+    expect(document.activeElement).toBe(more)
+  })
+
   it('ArrowDown on a menu trigger opens the menu and does not move to the next row', async () => {
     await mount()
     const more = buttonByText(/^More$/, row('acme_api')) as HTMLElement
@@ -466,7 +505,7 @@ describe('Projects page: review round 1', () => {
     const w = getWorld()
     for (const m of Object.values(w.portalModels)) m.loginAt = Date.now() - (m.sessionMinutes - 9) * 60_000
     await mount()
-    expect(document.body.textContent).toContain('Sign-in ends: 9 min left')
+    expect(document.body.textContent).toContain('Sign-in ends in 9 min')
     expect(document.body.textContent).toContain('Sign in again')
   })
 
@@ -534,6 +573,24 @@ describe('Projects page: review round 1', () => {
     await waitFor(() => (document.body.textContent ?? '').includes('was created, but its author identity was not saved'))
     expect(document.body.textContent).toContain('dashboard-main')
   })
+
+  it('a new project with an identity shows no separate identity toast', async () => {
+    vi.spyOn(Identity, 'PreviewProject').mockResolvedValue({ projectId: 'p', name: 'idp', repos: [], writes: 0, keepsOwn: 0, planHash: 'pp1' } as never)
+    const apply = vi.spyOn(Identity, 'ApplyProject').mockResolvedValue({ outcomes: [], undoId: 'u-proj', recordUpdated: true } as never)
+    await mount()
+    await click(buttonByText(/^New project$/, document.querySelector('.page__actions') as HTMLElement))
+    await waitFor(() => !!document.querySelector('.modal'))
+    await setValue(document.querySelector('.modal input.input') as HTMLInputElement, 'idp')
+    await click(document.querySelector('.proj-new__disclose'))
+    const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('.modal .proj-new__fields input'))
+    await setValue(inputs[0], 'Alex')
+    await setValue(inputs[1], 'alex@acme.example.com')
+    await click(buttonByText(/^Create project$/, document.querySelector('.modal') as HTMLElement))
+    await waitFor(() => apply.mock.calls.length === 1)
+    await waitFor(() => (document.body.textContent ?? '').includes('Created project idp') || (document.body.textContent ?? '').includes('idp'))
+    await settle(200)
+    expect(document.body.textContent).not.toContain('Author identity set for idp')
+  })
 })
 
 describe('Projects page motion', () => {
@@ -574,5 +631,135 @@ describe('Projects page motion', () => {
     await waitFor(() => rowsIn('p_acme').includes('initech_site'), 8000)
     expect(animate).not.toHaveBeenCalled()
     delete (Element.prototype as unknown as { animate?: unknown }).animate
+  })
+})
+
+describe('Projects page: find a repository by typing (design 5.2)', () => {
+  const input = () => document.querySelector('.toolbar input.input') as HTMLInputElement
+  const type = (v: string) =>
+    act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input(), v)
+      input().dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  const pressKey = (k: string) =>
+    act(async () => {
+      input().dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }))
+    })
+  const selected = () => document.querySelector('[data-search-sel]')?.getAttribute('aria-label')
+  const line = () => document.querySelector('.proj-search-line')?.textContent ?? ''
+
+  it('shows the count and the best match; matched letters are bold', async () => {
+    await mount()
+    await type('acme_a')
+    expect(rowsIn('p_acme').slice(0, 2)).toEqual(['acme_agent_portal', 'acme_api'])
+    expect(line()).toMatch(/^\d+ repositories match · ⏎ opens acme_agent_portal$/)
+    expect(selected()).toBe('acme_agent_portal')
+    expect(row('acme_agent_portal').querySelector('.repo-nm__hit')?.textContent).toBe('acme_a')
+  })
+
+  it('Down and Up move the selection, Enter opens it (and so does Cmd/Ctrl+Enter)', async () => {
+    const mark = vi.spyOn(Repos, 'MarkOpened')
+    const open = vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
+    await mount()
+    await type('acme_a')
+    await pressKey('ArrowDown')
+    expect(selected()).toBe('acme_api')
+    expect(line()).toContain('⏎ opens acme_api')
+    await pressKey('ArrowUp')
+    await pressKey('ArrowUp')
+    expect(selected()).toBe('acme_agent_portal')
+    await pressKey('ArrowDown')
+    await pressKey('Enter')
+    const id = row('acme_api').getAttribute('data-repo-id')
+    expect(mark).toHaveBeenCalledWith(id)
+    expect(open).toHaveBeenCalledWith(id)
+    open.mockClear()
+    await act(async () => {
+      input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, ctrlKey: true, bubbles: true, cancelable: true }))
+    })
+    expect(open).toHaveBeenCalledTimes(1)
+  })
+
+  it('Enter opens the best match until another is selected', async () => {
+    const open = vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
+    await mount()
+    await type('agent')
+    await pressKey('Enter')
+    expect(open).toHaveBeenCalledWith(row('acme_agent_portal').getAttribute('data-repo-id'))
+  })
+
+  it('Esc clears the text; a second Esc leaves the field', async () => {
+    await mount()
+    input().focus()
+    await type('acme')
+    await pressKey('Escape')
+    expect(input().value).toBe('')
+    expect(document.activeElement).toBe(input())
+    await pressKey('Escape')
+    expect(document.activeElement).not.toBe(input())
+  })
+
+  it('a search with no match says so, counts the hidden matches and Show lists them', async () => {
+    await mount()
+    await type('handbook')
+    expect(document.body.textContent).toContain('No repository\'s folder or remote name contains "handbook"')
+    expect(document.body.textContent).toContain('1 more is hidden')
+    await click(buttonByText(/^Show$/))
+    expect(rowsIn('__hidden__')).toEqual(['acme_handbook'])
+  })
+
+  it('IME composition: Enter and arrows do not act, and Esc keeps the text', async () => {
+    const open = vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
+    await mount()
+    await type('acme_a')
+    const fire = (init: KeyboardEventInit & { keyCode?: number }) =>
+      act(async () => {
+        const ev = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+        if (init.keyCode !== undefined) Object.defineProperty(ev, 'keyCode', { value: init.keyCode })
+        input().dispatchEvent(ev)
+      })
+    await fire({ key: 'Enter', isComposing: true })
+    await fire({ key: 'Enter', keyCode: 229 })
+    await fire({ key: 'ArrowDown', isComposing: true })
+    await fire({ key: 'Escape', isComposing: true })
+    expect(open).not.toHaveBeenCalled()
+    expect(selected()).toBe('acme_agent_portal')
+    expect(input().value).toBe('acme_a')
+  })
+
+  it('folding a section while searching is not saved and is dropped with the search', async () => {
+    const save = vi.spyOn(Repos, 'SetProjectCollapsed')
+    await mount()
+    save.mockClear()
+    await type('acme')
+    const toggle = document.querySelector('[data-section="p_acme"] .portal__toggle')
+    await click(toggle)
+    expect(section('p_acme').classList.contains('is-collapsed')).toBe(true)
+    await click(document.querySelector('[data-section="p_acme"] .portal__toggle'))
+    expect(section('p_acme').classList.contains('is-collapsed')).toBe(false)
+    await click(document.querySelector('[data-section="p_acme"] .portal__toggle'))
+    await type('')
+    expect(save).not.toHaveBeenCalled()
+    expect(section('p_acme').classList.contains('is-collapsed')).toBe(false)
+  })
+
+  it('with a filter on, a text that only hidden-by-filter repositories match says no matching repositories', async () => {
+    await mount()
+    const all = Array.from(document.querySelectorAll('[role="row"][data-repo-id]')).map((r) => r.getAttribute('aria-label') ?? '')
+    await click(buttonByText(/^To fix/))
+    const todo = new Set(Array.from(document.querySelectorAll('[role="row"][data-repo-id]')).map((r) => r.getAttribute('aria-label')))
+    const other = all.find((n) => !todo.has(n))
+    expect(other).toBeTruthy()
+    await type(other as string)
+    expect(document.body.textContent).toContain('No matching repositories')
+    expect(document.body.textContent).not.toContain("No repository's folder or remote name contains")
+  })
+
+  it('opens collapsed projects while searching', async () => {
+    await mount()
+    await click(document.querySelector('[data-section="p_umbrella"] .portal__toggle'))
+    await type('initech_site')
+    expect(rowsIn('p_umbrella')).toEqual(['initech_site'])
+    expect(section('p_umbrella').classList.contains('is-collapsed')).toBe(false)
   })
 })

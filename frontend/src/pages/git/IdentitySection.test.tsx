@@ -2,7 +2,7 @@ import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetIdentityMock } from '../../api/mock/identity'
+import { repoIdOf, resetIdentityMock } from '../../api/mock/identity'
 import { I18nProvider } from '../../i18n'
 import { ActionsProvider } from '../../shell/AppActions'
 import { IdentitySection } from './IdentitySection'
@@ -107,12 +107,29 @@ describe('IdentitySection', () => {
     expect(pop.textContent).toContain('This repository has its own')
     await act(async () => pencil('acme_api').click())
     await flush(10)
-    // a project member that follows global by marker has that option checked, and focus is inside the popover
+    // in the page scenario globex_backend has no marker: it follows its project, and focus is inside the popover
     await act(async () => pencil('globex_backend').click())
     await flush(10)
     pop = document.querySelector('.ident-pop')!
     expect(pop.textContent).toContain('Follow project globex')
     expect(radios(pop).map((r) => r.checked)).toEqual([true, false, false])
+    expect(pop.contains(document.activeElement)).toBe(true)
+  })
+
+  it('"Follow global" writes the marker; reopening shows it checked with focus inside the popover', async () => {
+    await mount()
+    await act(async () => pencil('globex_backend').click())
+    await flush(10)
+    let pop = document.querySelector('.ident-pop')!
+    await act(async () => radios(pop)[1]!.click())
+    const save = Array.from(pop.querySelectorAll('button')).find((b) => b.textContent === 'Save')!
+    await act(async () => save.click())
+    await flush()
+    expect(document.querySelector('.ident-pop')).toBeNull()
+    await act(async () => pencil('globex_backend').click())
+    await flush(10)
+    pop = document.querySelector('.ident-pop')!
+    expect(radios(pop).map((r) => r.checked)).toEqual([false, true, false])
     expect(pop.contains(document.activeElement)).toBe(true)
   })
 
@@ -148,7 +165,7 @@ describe('IdentitySection', () => {
     await flush()
     expect(rowOf('acme_merchant_portal_v4')?.textContent).toContain('From project')
     // focus stays on that repository's row, not on <body>
-    expect(document.activeElement?.getAttribute('data-repo')).toBe('r_acme_merchant_portal_v4')
+    expect(document.activeElement?.getAttribute('data-repo')).toBe(repoIdOf('acme_merchant_portal_v4'))
   })
 
   it('shows the cannot-write state with the file and Retry when the repository config cannot be read', async () => {
@@ -190,6 +207,40 @@ describe('IdentitySection', () => {
     spy.mockRestore()
     expect(document.querySelector('.ident-pop')?.textContent).toContain('~/code/acme_api/.git/config')
     expect(document.querySelector('.ident-pop')?.textContent).toContain('Try again')
+  })
+
+  it('after a failed Save the focus stays in the popover, on Try again (FU-16b)', async () => {
+    resetIdentityMock('readerr')
+    await mount()
+    await act(async () => pencil('acme_api').click())
+    await flush(10)
+    const pop = document.querySelector('.ident-pop')!
+    await act(async () => radios(pop)[1]!.click())
+    const { mockIdentityService } = await import('../../api/mock/identity')
+    const spy = vi.spyOn(mockIdentityService, 'PreviewRepo').mockRejectedValue(Object.assign(new Error('x'), { cause: { code: 'E_GIT_FAILED', message: 'x', params: { file: '~/code/acme_api/.git/config' } } }))
+    const save = Array.from(pop.querySelectorAll('button')).find((b) => b.textContent === 'Save')!
+    await act(async () => save.click())
+    await flush()
+    spy.mockRestore()
+    expect(pop.contains(document.activeElement)).toBe(true)
+    expect(document.activeElement?.textContent).toBe('Try again')
+  })
+
+  it('an E_FILE_IO for projects.json is a toast, not "cannot write this repository\u2019s config" (FU-16b)', async () => {
+    await mount()
+    await act(async () => pencil('acme_api').click())
+    await flush(10)
+    const pop = document.querySelector('.ident-pop')!
+    await act(async () => radios(pop)[1]!.click())
+    const { mockIdentityService } = await import('../../api/mock/identity')
+    const spy = vi.spyOn(mockIdentityService, 'PreviewRepo').mockRejectedValue(Object.assign(new Error('x'), { cause: { code: 'E_FILE_IO', message: 'x', params: { file: '~/Library/Application Support/Codepass/projects.json' } } }))
+    const save = Array.from(pop.querySelectorAll('button')).find((b) => b.textContent === 'Save')!
+    await act(async () => save.click())
+    await flush()
+    spy.mockRestore()
+    expect(document.querySelector('.ident-pop')?.textContent).not.toContain('Cannot write this repository')
+    expect(document.querySelector('.toast')).not.toBeNull()
+    expect(document.activeElement && document.querySelector('.ident-pop')?.contains(document.activeElement)).toBe(true)
   })
 
   it('a member that followed global shows the global email struck through in the sheet', async () => {

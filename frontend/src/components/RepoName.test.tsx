@@ -36,4 +36,14 @@ describe('RepoName', () => {
   it('speaks zh-CN', () => {
     expect(render('zh-CN', { localName: 'api-main', remoteName: 'acme_api' }).querySelector('.remote-name')?.textContent).toBe('远程 acme_api')
   })
+  it('draws the matched letters bold, in the name and in the remote tag', () => {
+    const h = render('en', { localName: 'acme_agent_portal', remoteName: 'agent-portal', query: 'agent' })
+    expect([...h.querySelectorAll('.repo-nm__hit')].map((e) => e.textContent)).toEqual(['agent', 'agent'])
+    expect(h.querySelector('.repo-nm__local')?.textContent).toBe('acme_agent_portal')
+    expect(h.querySelector('.remote-name')?.textContent).toBe('remote agent-portal')
+  })
+  it('bolds nothing without a query or a match', () => {
+    expect(render('en', { localName: 'acme_api', query: '' }).querySelector('.repo-nm__hit')).toBeNull()
+    expect(render('en', { localName: 'acme_api', query: 'zzz' }).querySelector('.repo-nm__hit')).toBeNull()
+  })
 })

@@ -32,6 +32,7 @@ import { useSettings } from '../../state/settings'
 import { TerminalAppSelect } from '../terminal/TerminalAppSelect'
 import { NotifyStatusCard, NotifyWindowsHelp, useNotifyState } from './NotifyRows'
 import { RestoreModal } from './RestoreModal'
+import { UpdatesCard } from './UpdatesCard'
 import { REPO_URL, backupReasonText, formatBytes, newestBackup, platformName } from './util'
 import './settings.css'
 
@@ -327,6 +328,8 @@ export function SettingsPage() {
             <TerminalAppSelect platform={platform} value={s.terminalApp} onChange={(v) => void save({ terminalApp: v })} />
           </Row>
         </Card>
+
+        <UpdatesCard />
 
         <Card id="set-paths" title={t('settings.paths')}>
           <Row stack label={t('settings.paths.hint')}>

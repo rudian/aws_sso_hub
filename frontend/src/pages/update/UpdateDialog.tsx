@@ -33,8 +33,14 @@ export function UpdateFooter({ s, onClose, focusRef }: { s: UpdateState; onClose
   const primary = focusRef ?? own
   const phase = s.phase
 
+  const firstPhase = useRef(true)
   useEffect(() => {
-    // After the flow changes, focus goes to the action that makes sense next.
+    // After the flow changes, focus goes to the action that makes sense next. Not on the first render: a dialog that
+    // opens in one of these phases is focused by the Modal after it has noted the opener (Esc returns focus there).
+    if (firstPhase.current) {
+      firstPhase.current = false
+      return
+    }
     if (phase === UpdatePhase.UpdateReady || phase === UpdatePhase.UpdateError || phase === UpdatePhase.UpdateRefused) primary.current?.focus()
   }, [phase])
 
@@ -81,7 +87,7 @@ export function UpdateFooter({ s, onClose, focusRef }: { s: UpdateState; onClose
                 <Button key="now" disabled={!ready} onClick={() => void updateActions.restart()}>
                   {t('update.action.reopenNow')}
                 </Button>
-                <Button key="wait" ref={primary} variant="primary" disabled={!flowing || waiting} onClick={updateActions.reopenWhenIdle}>
+                <Button key="wait" ref={primary} variant="primary" disabled={!flowing} aria-disabled={waiting || undefined} onClick={waiting ? undefined : updateActions.reopenWhenIdle}>
                   {t('update.action.reopenWhenIdle')}
                 </Button>
               </>

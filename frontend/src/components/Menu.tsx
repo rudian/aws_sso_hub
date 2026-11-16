@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { cloneElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactElement, ReactNode } from 'react'
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, ReactElement, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 
@@ -33,7 +33,7 @@ export interface MenuProps {
 /** Menu button pattern: ArrowDown/Enter/Space opens, arrows + Home/End + type-ahead move, Enter selects, Esc closes and returns focus. */
 export function Menu({ trigger, items, align = 'start' }: MenuProps) {
   const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; origin: string } | null>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -57,8 +57,13 @@ export function Menu({ trigger, items, align = 'start' }: MenuProps) {
     left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
     let top = r.bottom + 4
     const h = l?.offsetHeight ?? 0
-    if (h && top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4)
-    setPos({ top, left })
+    let vertical = 'top'
+    if (h && top + h > window.innerHeight - 8) {
+      top = Math.max(8, r.top - h - 4)
+      vertical = 'bottom'
+    }
+    // the open animation grows from the corner next to the trigger
+    setPos({ top, left, origin: `${vertical} ${align === 'end' ? 'right' : 'left'}` })
   }, [open, align])
 
   useEffect(() => {
@@ -131,7 +136,7 @@ export function Menu({ trigger, items, align = 'start' }: MenuProps) {
       })}
       {open &&
         createPortal(
-          <div ref={listRef} id={id} role="menu" className="menu" style={{ position: 'fixed', top: pos?.top ?? -9999, left: pos?.left ?? -9999, minWidth: 180 }} onKeyDown={onListKey}>
+          <div ref={listRef} id={id} role="menu" className="menu" style={{ position: 'fixed', top: pos?.top ?? -9999, left: pos?.left ?? -9999, minWidth: 180, ...(pos ? ({ '--pop-origin': pos.origin } as CSSProperties) : {}) }} onKeyDown={onListKey}>
             {items.map((it) => (
               <div key={it.id}>
                 {it.separatorBefore && <div className="menu__sep" role="separator" />}

@@ -8,6 +8,7 @@ import { ErrorCode } from '../../api/models'
 import { RepoAction } from '../../api/models'
 import type { Author, ProjectInfo, Repo, RepoChangePlan, ReposState } from '../../api/models'
 import { RepoName } from '../../components/RepoName'
+import { useIdentityToast } from '../git/identityHooks'
 import { errorText, useI18n } from '../../i18n'
 import { useActions } from '../../shell/AppActions'
 import { useReportError } from '../repos/hooks'
@@ -23,10 +24,10 @@ export interface OpsDeps {
 
 export interface ProjectOps {
   /** Move repositories into a project ('' = Ungrouped). Resolves true when at least one moved. */
-  moveRepos(ids: readonly string[], projectId: string, targetName?: string): Promise<boolean>
+  moveRepos(ids: readonly string[], projectId: string, targetName?: string, targetHasIdentity?: boolean): Promise<boolean>
   removeProject(p: ProjectInfo): Promise<boolean>
   /** Save a project's author identity after showing which repositories change (design 5.12). Reports its own result. */
-  applyProjectIdentity(projectId: string, name: string, identity: Author): Promise<void>
+  applyProjectIdentity(projectId: string, name: string, identity: Author, opts?: { quiet?: boolean }): Promise<void>
   hideRepo(r: Repo): Promise<boolean>
   unhideRepo(r: Repo): Promise<void>
 }
@@ -83,6 +84,7 @@ export function useProjectOps({ state, identities, reload, announce }: OpsDeps):
   const { t } = useI18n()
   const { toast, confirm } = useActions()
   const report = useReportError()
+  const identityToast = useIdentityToast()
 
   const repoById = useMemo(() => {
     const m = new Map<string, Repo>()
@@ -104,7 +106,7 @@ export function useProjectOps({ state, identities, reload, announce }: OpsDeps):
   }, [])
 
   const moveRepos = useCallback(
-    async (idsIn: readonly string[], to: string, targetName?: string): Promise<boolean> => {
+    async (idsIn: readonly string[], to: string, targetName?: string, targetHasIdentity?: boolean): Promise<boolean> => {
       const repos = idsIn.map((id) => repoById.get(id)).filter((r): r is Repo => !!r && (r.projectId ?? '') !== to)
       if (repos.length === 0) return false
       const target = targetName ?? projectName(to)
@@ -117,7 +119,7 @@ export function useProjectOps({ state, identities, reload, announce }: OpsDeps):
         return false
       }
       const split = splitMove(items)
-      if (needsMoveConfirm(split, identities.has(to))) {
+      if (needsMoveConfirm(split, targetHasIdentity ?? identities.has(to))) {
         const ok = await confirm({
           title: t('projects.move.confirm.title', { project: target, n: items.length }),
           confirmLabel: t('projects.move.confirm.action'),
@@ -215,7 +217,7 @@ export function useProjectOps({ state, identities, reload, announce }: OpsDeps):
               <>
                 <p>{t('projects.remove.confirm.identity', { n: falling.length })}</p>
                 <RepoList items={falling} tone="change" />
-                <p className="muted">{t('projects.move.confirm.backup')}</p>
+                <p className="muted">{t('projects.remove.confirm.backup')}</p>
               </>
             )}
           </div>
@@ -273,7 +275,7 @@ export function useProjectOps({ state, identities, reload, announce }: OpsDeps):
   )
 
   const applyProjectIdentity = useCallback(
-    async (projectId: string, name: string, identity: Author) => {
+    async (projectId: string, name: string, identity: Author, opts?: { quiet?: boolean }) => {
       const failedToast = (body?: string) => toast({ kind: 'warn', title: t('projects.new.identityFailed', { name }), body })
       try {
         const req = { projectId, identity }
@@ -312,11 +314,13 @@ export function useProjectOps({ state, identities, reload, announce }: OpsDeps):
         const res = await Identity.ApplyProject(req, pv.planHash)
         const bad = (res.outcomes ?? []).filter((o) => !o.ok)
         if (bad.length > 0 || !res.recordUpdated) failedToast(bad.map((o) => o.name).join(', ') || undefined)
+        // The confirm promises Undo: the toast carries it (the undo ID covers the repositories written)
+        else if (res.undoId && !opts?.quiet) identityToast.done(t('projects.identity.done', { name }), res)
       } catch (e) {
         failedToast(errorText(toUiError(e), t).title)
       }
     },
-    [confirm, toast, t, announce],
+    [confirm, toast, t, announce, identityToast],
   )
 
   return useMemo(() => ({ moveRepos, removeProject, applyProjectIdentity, hideRepo, unhideRepo }), [moveRepos, removeProject, applyProjectIdentity, hideRepo, unhideRepo])

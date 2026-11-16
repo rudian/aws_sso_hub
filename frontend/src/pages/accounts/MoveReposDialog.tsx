@@ -13,6 +13,7 @@ import { ErrorBanner } from '../../components/ErrorBanner'
 import { Modal } from '../../components/Modal'
 import { Radio } from '../../components/Radio'
 import { useI18n } from '../../i18n'
+import { RepoName } from '../../components/RepoName'
 import { useActions } from '../../shell/AppActions'
 import { useAccounts } from '../../state/accounts'
 import { useRepos } from '../../state/repos'
@@ -114,7 +115,7 @@ export function MoveReposDialog({ from, onClose }: { from: Profile; onClose: () 
             <ul className="move-repos__list">
               {repos.map((r) => (
                 <li key={r.id}>
-                  <span>{r.name}</span>
+                  <RepoName localName={r.localName} remoteName={r.remoteName} />
                   <span className="mono muted">{r.displayPath}</span>
                 </li>
               ))}

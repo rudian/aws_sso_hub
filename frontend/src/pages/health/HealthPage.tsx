@@ -16,6 +16,7 @@ import { GlobalBanner } from '../../shell/GlobalBanner'
 import { useAccounts } from '../../state/accounts'
 import { useEnv } from '../../state/env'
 import { EnvChecks } from './EnvChecks'
+import { ToolRows } from './ToolRows'
 import { describeConfigIssue, describeFinding } from './findings'
 import type { FindingAction } from './findings'
 import { StatusRow } from './StatusRow'
@@ -29,10 +30,12 @@ export function HealthPage() {
   const accounts = useAccounts()
   const health = useAsync(() => System.CheckHealth(), [])
   const [rechecking, setRechecking] = useState(false)
+  const [toolsKey, setToolsKey] = useState(0)
 
   const recheck = async () => {
     setRechecking(true)
     try {
+      setToolsKey((k) => k + 1)
       await Promise.all([env.recheck(), health.reload()])
     } finally {
       setRechecking(false)
@@ -92,7 +95,8 @@ export function HealthPage() {
               {t('health.group.env')}
             </h2>
           </div>
-          <EnvChecks />
+          <ToolRows reloadKey={toolsKey} />
+          <EnvChecks hideTools />
         </section>
 
         <section className="card" aria-labelledby="health-sec">

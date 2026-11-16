@@ -17,3 +17,6 @@
 .health__good { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-5); }
 .health__good .hrow__icon { width: 28px; height: 28px; margin: 0; }
 .health__good .hrow__icon svg { width: 26px; height: 26px; }
+
+/* ToolRows and EnvChecks are two lists in one card: keep the divider between the last row of the first and the first of the next */
+.card > .list:has(+ .list) > .list__item:last-child { border-bottom: 1px solid var(--border-subtle); }

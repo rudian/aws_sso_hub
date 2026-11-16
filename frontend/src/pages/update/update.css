@@ -1,7 +1,7 @@
 /* The update banner, dialog, page and the Settings dot (design 5.13). Tokens only. */
 .nav__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--info); margin-left: auto; flex: none; }
 
-.update-banner { display: flex; align-items: center; gap: var(--sp-3); padding: 10px var(--sp-4); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-13); color: var(--text-2); }
+.update-banner { display: flex; align-items: center; gap: var(--sp-3); padding: 10px var(--sp-4); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-13); color: var(--text-2); margin-bottom: var(--sp-4); }
 .update-banner--failed { border-color: var(--danger-border, var(--danger)); }
 .update-banner__mark { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--ink); color: var(--on-ink); flex: none; }
 .update-banner__mark svg { width: 15px; height: 15px; }

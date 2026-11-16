@@ -1,6 +1,8 @@
 // Namespace "login": the sign-in modal and the sign-in toast.
 export const zh = {
   'login.title': '登录 {portal}',
+  'login.queued': '另一个登录正在进行。它结束后会接着登录 {portal}。',
+  'login.running': '{portal} 的登录已经在进行。',
   'login.starting': '正在打开浏览器…',
   'login.waiting.title': '请在浏览器中完成授权',
   'login.waiting.body': '授权页面已在默认浏览器中打开。登录后点击“允许访问”，这里会自动继续。',
@@ -50,6 +52,8 @@ export const zh = {
 
 export const en: { [K in keyof typeof zh]: string } = {
   'login.title': 'Sign in to {portal}',
+  'login.queued': 'Another sign-in is running. {portal} opens when it ends.',
+  'login.running': 'The sign-in for {portal} is already running.',
   'login.starting': 'Opening your browser…',
   'login.waiting.title': 'Finish signing in in your browser',
   'login.waiting.body': 'We opened the sign-in page in your default browser. Sign in and choose “Allow access”. This window continues on its own.',

@@ -608,6 +608,34 @@ describe('CloneModal local folder name', () => {
   })
 })
 
+describe('CloneModal stale previews', () => {
+  const nameInput = (repo: string) => document.querySelector<HTMLInputElement>(`input[aria-label="Local folder name for ${repo}"]`) as HTMLInputElement
+
+  it('a renamed folder does not keep the count of its earlier preview (FU-19a)', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code' })
+    await click(rowCheck('acme_api'))
+    await click(rowCheck('acme_auth'))
+    await click(rowCheck('acme_usage'))
+    await settle()
+    expect(cloneBtn().textContent).toBe('Clone 1 repository')
+    // acme_api exists. Typed a new name: until its own preview is back the old answer says nothing about it.
+    await setInput(nameInput('acme_api'), 'api-new')
+    expect(cloneBtn().textContent).not.toBe('Clone 1 repository')
+    expect(cloneBtn().disabled).toBe(true)
+    await settle()
+    expect(cloneBtn().textContent).toBe('Clone 2 repositories')
+    expect(cloneBtn().disabled).toBe(false)
+  })
+
+  it('"Clones into" joins with the separator the chosen folder uses (FU-19b)', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: 'C:\\Users\\alex\\code' })
+    await click(rowCheck('acme_auth'))
+    await settle()
+    await setInput(nameInput('acme_auth'), 'auth-2')
+    expect(text()).toContain('Clones into C:\\Users\\alex\\code\\auth-2')
+  })
+})
+
 describe('folderNameReason', () => {
   const cases: [string, string][] = [
     ['api-main', ''], ['acme_api', ''], ['a.b', ''], ['.hidden', ''], ['con-sole', ''], ['console', ''], ['nulled', ''],

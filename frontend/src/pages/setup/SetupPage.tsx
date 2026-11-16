@@ -44,6 +44,8 @@ export function SetupPage() {
   const [cancelAsked, setCancelAsked] = useState(false)
   const [stillBlocked, setStillBlocked] = useState<string | null>(null)
   const [wingetStuck, setWingetStuck] = useState(false)
+  // A run just ended without a failure: the gate is read again before the footer says anything about what is missing (FU-15c)
+  const [verifying, setVerifying] = useState(false)
   const [announce, setAnnounce] = useState('')
   const [now, setNow] = useState(() => Date.now())
   const primaryRef = useRef<HTMLButtonElement>(null)
@@ -90,7 +92,10 @@ export function SetupPage() {
   const doneSteps = (install?.steps ?? []).filter((s) => s.state === 'done').length
   const finished = !!install?.finished
   useEffect(() => {
-    if (install) void refreshSetup()
+    if (!install) return
+    const clean = finished && !install.failure && !install.cancelled
+    if (clean) setVerifying(true)
+    void refreshSetup().finally(() => setVerifying(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doneSteps, finished])
 
@@ -182,7 +187,8 @@ export function SetupPage() {
   const watchFocus = kind === 'open-store' || selfInstall
   useEffect(() => {
     if (!watchFocus) return
-    const onFocus = () => void refreshSetup().then(noteStore)
+    // Only an explicit "Check again" may say "ask IT": coming back from the Store page proves nothing yet
+    const onFocus = () => void refreshSetup()
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [watchFocus, refreshSetup])
@@ -314,12 +320,13 @@ export function SetupPage() {
     enter: t('setup.btn.enter'),
     busy: t('setup.btn.installing'),
   }
-  const busy = kind === 'busy' || starting || checking
+  const busy = kind === 'busy' || starting || checking || verifying
   let footText: string
   if (phase === 'done') footText = t('setup.foot.done')
   else if (phase === 'running') footText = cancelling ? t('setup.foot.cancelling') : t('setup.foot.running')
+  else if (verifying) footText = t('setup.foot.verifying')
   else if (stillBlocked) footText = t('setup.foot.stillBlocked', { names: stillBlocked })
-  else if (selfInstall) footText = t('setup.foot.self')
+  else if (selfInstall && kind !== 'continue') footText = t('setup.foot.self')
   else if (phase === 'failed' && ready > 0) footText = t('setup.foot.failed')
   else if (cancelledRun) footText = t('setup.foot.cancelled')
   else if (unverified) footText = t('setup.foot.unverified', { names: blockedNames })
@@ -341,7 +348,7 @@ export function SetupPage() {
         </Button>
       )
     }
-    if (selfInstall) {
+    if (selfInstall && kind !== 'continue') {
       return (
         <Button variant="ghost" onClick={() => setSelfInstall(false)} disabled={busy}>
           {t('setup.btn.useOneClick')}
@@ -410,7 +417,7 @@ export function SetupPage() {
           )}
 
           {failView && (
-            <div className="banner banner--danger setup__fail" role="alert">
+            <div className={failure ? 'banner banner--danger setup__fail' : 'banner banner--warn setup__fail'} role={failure ? 'alert' : 'status'}>
               {failView.icon === 'lock' ? <Lock className="banner__icon" aria-hidden="true" /> : <TriangleAlert className="banner__icon" aria-hidden="true" />}
               <div className="banner__body">
                 <div className="banner__title">{t(failView.titleKey, failView.params)}</div>

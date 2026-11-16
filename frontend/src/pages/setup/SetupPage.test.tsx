@@ -417,10 +417,54 @@ describe('Windows without winget', () => {
     expect(text()).not.toContain('cannot open Microsoft Store')
     act(() => button('Check again')!.click())
     await flush(300)
-    expect(host.querySelector('.banner--danger')?.textContent).toContain('This PC has no winget and cannot open Microsoft Store')
-    expect(host.querySelector('.banner--danger')?.textContent).toContain('Ask IT to install App Installer')
+    // a hint, not an alarm: warn, not danger
+    expect(host.querySelector('.banner--danger')).toBeNull()
+    expect(host.querySelector('.banner--warn')?.textContent).toContain('This PC has no winget and cannot open Microsoft Store')
+    expect(host.querySelector('.banner--warn')?.textContent).toContain('Ask IT to install App Installer')
     expect(primary().textContent).toBe('Open Microsoft Store to get App Installer')
     expect(button('Check again')).toBeDefined()
+  })
+})
+
+describe('FU-15a to FU-15c', () => {
+  it('coming back from the Store page does not say "ask IT" by itself; only Check again does (FU-15b)', async () => {
+    await start('nowinget', 'windows')
+    act(() => primary().click())
+    await flush(300)
+    act(() => window.dispatchEvent(new Event('focus')))
+    await flush(300)
+    expect(host.querySelector('.banner--warn')).toBeNull()
+    expect(host.querySelector('.banner--danger')).toBeNull()
+    act(() => button('Check again')!.click())
+    await flush(300)
+    expect(host.querySelector('.banner--warn')?.textContent).toContain('Ask IT')
+  })
+
+  it('after "I\u2019ll install them myself", only use-detected rows still blocking: the primary is Continue (FU-15a)', async () => {
+    await start('missing')
+    act(() => button('I\u2019ll install them myself')!.click())
+    await flush(300)
+    expect(primary().textContent).toBe('Check again')
+    // the tools were installed by hand, except that a path from Settings still needs "Continue"
+    resetToolMock('chosen-git', 'darwin')
+    act(() => window.dispatchEvent(new Event('focus')))
+    await flush(300)
+    expect(primary().textContent).toBe('Continue')
+    expect(text()).not.toContain('When you are done, press Check again')
+  })
+
+  it('after a successful run the footer never says a tool is still missing (FU-15c)', async () => {
+    await start('missing')
+    act(() => primary().click())
+    const seen: string[] = []
+    for (let i = 0; i < 80; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100)
+      })
+      seen.push(host.querySelector('.setup__foottext')?.textContent ?? '')
+    }
+    expect(primary().textContent).toBe('Open Codepass')
+    expect(seen.filter((x) => x.includes('is still not found'))).toEqual([])
   })
 })
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toUiError } from '../errors'
 import { ErrorCode, IdentitySourceKind, RepoAction, RepoIdentityMode } from '../models'
 import { onEvent } from '../events'
-import { mockIdentityService as svc, resetIdentityMock } from './identity'
+import { mockIdentityService as svc, repoIdOf, resetIdentityMock } from './identity'
 import { add, ctx, del } from './world'
 
 async function call<T>(p: Promise<T>, ms = 2000): Promise<T> {
@@ -69,24 +69,24 @@ describe('identity mock', () => {
 
   it('rejects invalid input and an undo ID it never handed out', async () => {
     expect(await code(svc.PreviewGlobal({ name: 'Alex', email: 'nope' }))).toBe(ErrorCode.ErrInvalidInput)
-    expect(await code(svc.PreviewRepo({ repoId: 'r_acme_api', mode: RepoIdentityMode.RepoModeOwn }))).toBe(ErrorCode.ErrInvalidInput)
+    expect(await code(svc.PreviewRepo({ repoId: repoIdOf('acme_api'), mode: RepoIdentityMode.RepoModeOwn }))).toBe(ErrorCode.ErrInvalidInput)
     expect(await code(svc.Undo('../../x'))).toBe(ErrorCode.ErrInvalidInput)
   })
 
   it('follow global is offered under a project with an identity and project saves then skip the repository', async () => {
-    const req = { repoId: 'r_acme_api', mode: RepoIdentityMode.RepoModeGlobal }
+    const req = { repoId: repoIdOf('acme_api'), mode: RepoIdentityMode.RepoModeGlobal }
     const pv = await call(svc.PreviewRepo(req))
     expect(pv.plan.action).toBe(RepoAction.RepoActionRemove)
     const res = await call(svc.ApplyRepo(req, pv.planHash))
     let ov = await call(svc.GetOverview())
-    const row = ov.projects![0]!.repos!.find((r) => r.repoId === 'r_acme_api')!
+    const row = ov.projects![0]!.repos!.find((r) => r.repoId === repoIdOf('acme_api'))!
     expect(row).toMatchObject({ followsGlobal: true })
     expect(row.effective.source.kind).toBe(IdentitySourceKind.IdentitySrcGlobal)
     const proj = await call(svc.PreviewProject({ projectId: 'p_acme', identity: { name: 'Alex', email: 'alex@acme-new.example.com' } }))
-    expect(proj.repos!.find((p) => p.repoId === 'r_acme_api')!.action).toBe(RepoAction.RepoActionKeepOwn)
+    expect(proj.repos!.find((p) => p.repoId === repoIdOf('acme_api'))!.action).toBe(RepoAction.RepoActionKeepOwn)
     await call(svc.Undo(res.undoId))
     ov = await call(svc.GetOverview())
-    expect(ov.projects![0]!.repos!.find((r) => r.repoId === 'r_acme_api')!.followsGlobal).toBe(false)
+    expect(ov.projects![0]!.repos!.find((r) => r.repoId === repoIdOf('acme_api'))!.followsGlobal).toBe(false)
     expect(await code(svc.Undo(res.undoId))).toBe(ErrorCode.ErrInvalidInput)
   })
 
@@ -115,14 +115,14 @@ describe('identity mock', () => {
   })
 
   it('move into a project writes its identity, move out removes it', async () => {
-    const pv = await call(svc.PreviewMove('r_scratch', 'p_globex'))
+    const pv = await call(svc.PreviewMove(repoIdOf('scratch'), 'p_globex'))
     expect(pv.plan.action).toBe(RepoAction.RepoActionSet)
-    await call(svc.ApplyMove('r_scratch', 'p_globex', pv.planHash))
+    await call(svc.ApplyMove(repoIdOf('scratch'), 'p_globex', pv.planHash))
     let ov = await call(svc.GetOverview())
     expect(ov.projects!.find((p) => p.id === 'p_globex')!.repos!.find((r) => r.name === 'scratch')!.effective.email).toBe('alex@globex.example.com')
-    const out = await call(svc.PreviewMove('r_scratch', ''))
+    const out = await call(svc.PreviewMove(repoIdOf('scratch'), ''))
     expect(out.plan.action).toBe(RepoAction.RepoActionRemove)
-    await call(svc.ApplyMove('r_scratch', '', out.planHash))
+    await call(svc.ApplyMove(repoIdOf('scratch'), '', out.planHash))
     ov = await call(svc.GetOverview())
     expect(ov.ungrouped!.find((r) => r.name === 'scratch')!.effective.source.kind).toBe(IdentitySourceKind.IdentitySrcGlobal)
   })
@@ -136,5 +136,27 @@ describe('identity mock', () => {
     await call(svc.Undo(res.undoId))
     expect(seen).toHaveBeenCalledTimes(2)
     off()
+  })
+
+  it('an unreadable repository gets an error plan in a project save and in a move, and the project record is kept (FU-16e)', async () => {
+    resetIdentityMock('readerr')
+    const req = { projectId: 'p_acme', identity: { name: 'Alex', email: 'alex@acme-new.example.com' } }
+    const pv = await call(svc.PreviewProject(req))
+    const bad = pv.repos!.find((p) => p.name === 'acme_cs_portal')!
+    expect(bad.action).toBe(RepoAction.RepoActionError)
+    expect(bad.error?.params?.file).toContain('acme_cs_portal/.git/config')
+    const res = await call(svc.ApplyProject(req, pv.planHash))
+    expect(res.recordUpdated).toBe(false)
+    expect(res.outcomes!.find((o) => !o.ok)?.name).toBe('acme_cs_portal')
+    // a move reads the repository first, so Go rejects it with the coded error instead of returning a plan
+    await expect(call(svc.PreviewMove(repoIdOf('acme_cs_portal'), 'p_globex'))).rejects.toBeTruthy()
+    await expect(call(svc.ApplyMove(repoIdOf('acme_cs_portal'), 'p_globex', 'x'))).rejects.toBeTruthy()
+  })
+
+  it('the repository IDs are the ones of the repos mock, so a move shows its identity confirm (FU-14i)', async () => {
+    const { getWorld, resetWorld } = await import('./world')
+    resetWorld('done')
+    const world = getWorld().repos.find((r) => r.localName === 'acme_api')!
+    expect(repoIdOf('acme_api')).toBe(world.id)
   })
 })

@@ -3,6 +3,7 @@ import { GitGlobal } from '../../api'
 import type { BindOutcome, URLRulePlan } from '../../api/models'
 import { Banner, Button, DiffView, Modal } from '../../components'
 import { useI18n } from '../../i18n'
+import { RepoName } from '../../components/RepoName'
 import { useAccounts } from '../../state/accounts'
 import { useActions } from '../../shell/AppActions'
 import { ProfileSelect } from '../repos/ProfileSelect'
@@ -79,7 +80,9 @@ export function UrlRuleModal({ plan, onClose, onDone }: UrlRuleModalProps) {
               {repos.map((r) => (
                 <div key={r.id} className="list__item" role="listitem">
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="row__primary truncate">{r.name}</div>
+                    <div className="row__primary truncate">
+                      <RepoName localName={r.localName} remoteName={r.remoteName} />
+                    </div>
                     <div className="row__secondary mono truncate">{r.displayPath}</div>
                   </div>
                   <div style={{ width: 260 }}>

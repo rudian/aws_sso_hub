@@ -3,6 +3,7 @@ import { toUiError } from '../../api/errors'
 import type { BindItem, BindOutcome, Repo } from '../../api/models'
 import { Repos } from '../../api'
 import { AcctChip, Banner, Button, Dot, Modal } from '../../components'
+import { RepoName } from '../../components/RepoName'
 import { errorText, useI18n } from '../../i18n'
 import { useAccounts } from '../../state/accounts'
 import { ProfileSelect } from './ProfileSelect'
@@ -103,7 +104,9 @@ export function BulkBindModal({ mode, repos, items: planned, skipped, onClose }:
             return (
               <div key={r.id} className="list__item" role="listitem" style={{ alignItems: 'center' }}>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="row__primary truncate">{r.name}</div>
+                  <div className="row__primary truncate">
+                    <RepoName localName={r.localName} remoteName={r.remoteName} />
+                  </div>
                   <div className="row__secondary mono truncate">{r.displayPath}</div>
                 </div>
                 {results ? (

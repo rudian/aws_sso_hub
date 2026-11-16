@@ -103,7 +103,10 @@ describe('footer: reopen', () => {
     expect(wait.disabled).toBe(false)
     act(() => wait.click())
     expect(getReopenState().mode).toBe('waiting')
-    expect((button('Reopen when no task is running') as HTMLButtonElement).disabled).toBe(true)
+    // not disabled: the pressed button keeps the focus (FU-17a); it only reports that it is already set
+    const set = button('Reopen when no task is running') as HTMLButtonElement
+    expect(set.disabled).toBe(false)
+    expect(set.getAttribute('aria-disabled')).toBe('true')
   })
 
   it('lets "Reopen when no task is running" be set while downloading; Reopen now waits for the verified copy', () => {
@@ -176,6 +179,22 @@ describe('banner', () => {
   })
 })
 
+describe('stale answers (FU-17h)', () => {
+  it('a State() answer that arrives after a newer update:state event is dropped', async () => {
+    vi.useFakeTimers()
+    resetUpdateMock('available')
+    resetUpdateStore()
+    mount(<UpdateBanner />)
+    // the event comes first; the mock's State() answer (the older "available") follows 120 ms or more later
+    await act(async () => {
+      mockEmit('update:state', st({ phase: UpdatePhase.UpdateDownloading, written: 31_200_000, total: 48_600_000 }))
+      await vi.advanceTimersByTimeAsync(3000)
+    })
+    expect(host.querySelector('.update-banner')?.textContent).toContain('Downloading')
+    vi.useRealTimers()
+  })
+})
+
 describe('dialog focus and the armed watch', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -193,6 +212,48 @@ describe('dialog focus and the armed watch', () => {
       await vi.advanceTimersByTimeAsync(50)
     })
     expect(document.activeElement?.textContent?.trim()).toBe('Reopen when no task is running')
+  })
+
+  it('"Reopen when no task is running" keeps the focus after it is pressed (FU-17a)', async () => {
+    setRunningTasks(2)
+    mount(<UpdateDialog />)
+    await act(async () => {
+      mockEmit('update:state', st({ phase: UpdatePhase.UpdateReady }))
+      openUpdateDialog()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    const wait = button('Reopen when no task is running') as HTMLButtonElement
+    expect(document.activeElement).toBe(wait)
+    await act(async () => {
+      wait.click()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(document.activeElement).toBe(wait)
+  })
+
+  it.each([UpdatePhase.UpdateReady, UpdatePhase.UpdateError, UpdatePhase.UpdateRefused])('opened in phase %s, Esc gives the focus back to the opener (FU-17b)', async (phase) => {
+    const opener = document.createElement('button')
+    opener.textContent = 'opener'
+    document.body.appendChild(opener)
+    opener.focus()
+    mount(<UpdateDialog />)
+    await act(async () => {
+      mockEmit('update:state', st({ phase, step: 'verify', code: 'x' }))
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    opener.focus()
+    await act(async () => {
+      openUpdateDialog()
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(document.querySelector('[role=dialog]')?.contains(document.activeElement)).toBe(true)
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await vi.advanceTimersByTimeAsync(50)
+    })
+    expect(document.querySelector('[role=dialog]')).toBeNull()
+    expect(document.activeElement).toBe(opener)
+    opener.remove()
   })
 
   it('keeps focus inside the dialog after Update is pressed', async () => {

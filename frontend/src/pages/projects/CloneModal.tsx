@@ -160,16 +160,20 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
   const multi = picked.length >= 2
   const single = picked.length === 1 ? picked[0] : undefined
   const hidden = picked.filter((r) => !list.includes(r)).length
-  const existing = picked.filter((r) => previews[r.name]?.exists)
-  const toClone = picked.filter((r) => !previews[r.name]?.exists)
   const folderOf = (n: string) => names[n] ?? n
+  // A preview counts only for the folder name it was made for: while the debounced preview of a typed name is on its
+  // way, the earlier answer says nothing about it (FU-19a).
+  const fresh = (n: string) => previews[n]?.folderName === folderOf(n)
+  const isExisting = (n: string) => fresh(n) && previews[n]?.exists === true
+  const existing = picked.filter((r) => isExisting(r.name))
+  const toClone = picked.filter((r) => !isExisting(r.name))
+  const allFresh = picked.every((r) => fresh(r.name))
   // A preview of an earlier name is stale while the debounced preview of the typed one is on its way.
   const rawPreview = single ? (previews[single.name] ?? null) : null
   const preview = rawPreview && single && rawPreview.folderName === folderOf(single.name) ? rawPreview : null
   const exists = !multi && preview?.exists === true
   // In several-at-once, an unchanged name that exists is skipped; a name the user typed that exists is an error.
   const renamed = (n: string) => folderOf(n) !== n
-  const fresh = (n: string) => previews[n]?.folderName === folderOf(n)
   const takenAfterRename = (n: string) => multi && renamed(n) && fresh(n) && previews[n]?.exists === true
   const anyTaken = picked.some((r) => takenAfterRename(r.name))
   const existingSkipped = existing.filter((r) => !renamed(r.name) && fresh(r.name))
@@ -194,7 +198,7 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
   }, [picked.map((r) => r.name).join('\n'), names, serverErrs])
   const nameBad = Object.keys(nameErrors).length > 0
   const ready = profile !== '' && parentDir !== '' && picked.length > 0 && !nameBad
-  const canClone = ready && cliReady && !previewing && toClone.length > 0
+  const canClone = ready && cliReady && !previewing && allFresh && toClone.length > 0
   const allShown = list.length > 0 && list.every((r) => sel.has(r.name))
   const someShown = list.some((r) => sel.has(r.name))
 
@@ -392,8 +396,8 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
       picked.map((r) => ({
         name: r.name,
         folder: folderOf(r.name),
-        dest: previews[r.name]?.dest ?? '',
-        ...(previews[r.name]?.exists ? { status: 'skipped' as const, skip: 'exists' as const } : { status: 'queued' as const }),
+        dest: (fresh(r.name) ? previews[r.name]?.dest : '') ?? '',
+        ...(isExisting(r.name) ? { status: 'skipped' as const, skip: 'exists' as const } : { status: 'queued' as const }),
       })),
     )
   const retry = () =>
@@ -410,6 +414,7 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
     .join(', ') + (existingSkipped.length > 3 ? ` +${existingSkipped.length - 3}` : '')
 
   const cmdText = toClone
+    .filter((r) => fresh(r.name))
     .map((r) => previews[r.name]?.command)
     .filter(Boolean)
     .join('\n')
@@ -713,7 +718,9 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
             <div className="clone-into" aria-live="polite">
               {(() => {
                 const [before, after = ''] = t('clone.intoPath', { path: '\u0001' }).split('\u0001')
-                const path = preview?.dest ?? `${parentDir.replace(/[\\/]+$/, '')}/${folderOf(single.name)}`
+                // the separator the chosen folder itself uses (a Windows path keeps its backslashes)
+                const sep = parentDir.includes('\\') && !parentDir.includes('/') ? '\\' : '/'
+                const path = preview?.dest ?? `${parentDir.replace(/[\\/]+$/, '')}${sep}${folderOf(single.name)}`
                 return (
                   <>
                     {before}

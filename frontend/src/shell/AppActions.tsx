@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { LoginMode } from '../api/models'
 import type { LoginResult } from '../api/models'
@@ -25,6 +25,12 @@ export interface ConfirmInput {
 }
 export interface AppActions {
   openLogin(portal: string, opts?: { mode?: LoginMode }): Promise<LoginResult | null>
+  /**
+   * A login asked for from outside the window (a notification button, the tray): opens the login modal, or, when one is
+   * already open for another portal, keeps the request and opens it when that modal closes. 'running' = the open modal
+   * is for the same portal, so there is nothing to add.
+   */
+  requestLogin(portal: string): 'opened' | 'queued' | 'running'
   toast(t: ToastInput): void
   confirm(c: ConfirmInput): Promise<boolean>
   navigate(r: Route): void
@@ -46,6 +52,9 @@ export function ActionsProvider({ children }: { children?: ReactNode }) {
   const nextId = useRef(1)
   const loginRef = useRef<LoginHost | null>(null)
   loginRef.current = login
+
+  // Portals waiting behind the open login modal, in the order asked (no duplicates)
+  const pendingLogin = useRef<string[]>([])
 
   const toast = useCallback((t: ToastInput) => {
     setToasts((list) => [...list, { ...t, id: nextId.current++ }])
@@ -79,7 +88,28 @@ export function ActionsProvider({ children }: { children?: ReactNode }) {
     [],
   )
 
-  const value = useMemo<AppActions>(() => ({ openLogin, toast, confirm, navigate: setRoute }), [openLogin, toast, confirm])
+  const requestLogin = useCallback(
+    (portal: string): 'opened' | 'queued' | 'running' => {
+      const cur = loginRef.current
+      if (!cur) {
+        void openLogin(portal)
+        return 'opened'
+      }
+      if (cur.portal === portal) return 'running'
+      if (!pendingLogin.current.includes(portal)) pendingLogin.current.push(portal)
+      return 'queued'
+    },
+    [openLogin],
+  )
+
+  // The login modal closed and another portal was waiting behind it: open that one now.
+  useEffect(() => {
+    if (login) return
+    const next = pendingLogin.current.shift()
+    if (next) void openLogin(next)
+  }, [login, openLogin])
+
+  const value = useMemo<AppActions>(() => ({ openLogin, requestLogin, toast, confirm, navigate: setRoute }), [openLogin, requestLogin, toast, confirm])
 
   return (
     <Ctx.Provider value={value}>

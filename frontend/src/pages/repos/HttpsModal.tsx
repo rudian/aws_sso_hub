@@ -7,6 +7,7 @@ import { useAccounts } from '../../state/accounts'
 import { ProfileSelect } from './ProfileSelect'
 import { bindableProfiles, suggestedProfile } from './model'
 import { useReportError } from './hooks'
+import { useRepoSentence } from './RepoSentence'
 
 export interface HttpsModalProps {
   repo: Repo
@@ -17,6 +18,7 @@ export interface HttpsModalProps {
 /** SSH -> HTTPS: shows the old and the new origin URL and binds the repository in the same step. */
 export function HttpsModal({ repo, onClose, onDone }: HttpsModalProps) {
   const { t } = useI18n()
+  const sentence = useRepoSentence()
   const { state: accounts } = useAccounts()
   const report = useReportError()
   const choices = useMemo(() => bindableProfiles(accounts?.profiles ?? []), [accounts])
@@ -38,7 +40,7 @@ export function HttpsModal({ repo, onClose, onDone }: HttpsModalProps) {
     <Modal
       open
       size="sm"
-      title={t('repos.https.title', { repo: repo.name })}
+      title={sentence.node('repos.https.title', repo)}
       dismissible={!busy}
       onClose={onClose}
       footer={

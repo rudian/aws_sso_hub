@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { onEvent } from './api/events'
 import { setWindowTitle } from './api/platform'
+import appicon from './assets/appicon.svg'
 import { Notify, System, Tools } from './api/services'
 import { NotifyAction, NotifyTone, SessionState } from './api/models'
 import { I18nProvider, systemLang, useI18n } from './i18n'
@@ -83,12 +84,14 @@ function useAppEffects(gate: Gate) {
   const gateOpen = gate === 'open'
   const info = useAppInfo()
   const { state: accounts } = useAccounts()
-  const { openLogin, toast } = useActions()
+  const { openLogin, requestLogin, toast } = useActions()
   const { t } = useI18n()
   const accountsRef = useRef(accounts)
   accountsRef.current = accounts
   const tRef = useRef(t)
   tRef.current = t
+  const gateRef = useRef(gate)
+  gateRef.current = gate
 
   // first run: no explicit page parameter -> onboarding. Decided only once the tools gate is open, so the setup screen wins.
   const routed = useRef(false)
@@ -98,14 +101,14 @@ function useAppEffects(gate: Gate) {
     if (info.firstRun && !initialUI.page) setRoute({ page: 'onboarding' })
   }, [info, gateOpen])
 
-  // ?open=login:<portal>
+  // ?open=login:<portal>: waits for the tools gate, so a blocked gate keeps it for after the setup
   const opened = useRef(false)
   useEffect(() => {
-    if (!accounts || opened.current) return
+    if (!accounts || !gateOpen || opened.current) return
     opened.current = true
     const portal = takeOpen('login:')
     if (portal !== null) void openLogin(portal || (accounts.portals?.[0]?.name ?? ''))
-  }, [accounts, openLogin])
+  }, [accounts, gateOpen, openLogin])
 
   // toast.renewed
   useEffect(
@@ -138,12 +141,18 @@ function useAppEffects(gate: Gate) {
       onEvent('app:navigate', (req) => {
         const page = (req.page as PageId) || 'accounts'
         setRoute({ page })
-        if (req.action === 'login' && req.arg) void openLogin(req.arg)
+        // A closed tools gate shows the setup screen alone: a login request waits for nothing and is dropped
+        if (req.action === 'login' && req.arg && gateRef.current === 'open') {
+          // another portal's login is open (often in the hidden window): keep this one and say so
+          const r = requestLogin(req.arg)
+          if (r === 'queued') toast({ kind: 'info', title: tRef.current('login.queued', { portal: req.arg }) })
+          else if (r === 'running') toast({ kind: 'info', title: tRef.current('login.running', { portal: req.arg }) })
+        }
         // a notification: show this portal once; "signed-in" is a button that came too late
         if ((req.action === 'show' || req.action === 'signed-in') && req.arg) requestPortalFocus(req.arg)
         if (req.action === 'signed-in') toast({ kind: 'ok', title: tRef.current('notify.alreadySignedIn') })
       }),
-    [openLogin, toast],
+    [requestLogin, toast],
   )
 
   // Tell Go when clicks on notifications may run: the accounts are loaded and the tools gate is open. A click that
@@ -174,6 +183,7 @@ function useAppEffects(gate: Gate) {
         if (focusSearch()) e.preventDefault()
       } else if (k === 'l') {
         e.preventDefault()
+        if (gateRef.current !== 'open') return
         const ps = (accountsRef.current?.portals ?? []).filter((p) => !p.draft && !p.legacyFormat)
         const target = ps.find((p) => p.session.state !== SessionState.SessionActive) ?? ps[0]
         if (target) void openLogin(target.name)
@@ -205,11 +215,34 @@ function useToolsGate(): Gate {
   return gate
 }
 
+function CheckingBrand() {
+  const { t } = useI18n()
+  return (
+    <div className="brand">
+      <img className="brand__mark" src={appicon} alt="" />
+      <div>
+        <div className="brand__name">{t('app.name')}</div>
+        <div className="brand__sub">{t('app.subtitle')}</div>
+      </div>
+    </div>
+  )
+}
+
 function Shell() {
   const route = useRoute()
   const gate = useToolsGate()
   useAppEffects(gate)
-  if (gate === 'checking') return <div className="app" />
+  if (gate === 'checking') {
+    // The window is never an empty grid: the title bar's drag strip and the brand, until the check answers
+    return (
+      <div className="app" style={{ gridTemplateColumns: '1fr' }} aria-busy="true">
+        <main className="app__main" id="main">
+          <div className="app__titlebar" aria-hidden="true" />
+          <CheckingBrand />
+        </main>
+      </div>
+    )
+  }
   if (gate === 'blocked') {
     return (
       <div className="app" style={{ gridTemplateColumns: '1fr' }}>

@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode, RefObject } from 'react'
+import type { CSSProperties, ReactNode, RefObject } from 'react'
 import { createPortal } from 'react-dom'
 
 export interface PopoverProps {
@@ -17,7 +17,7 @@ export interface PopoverProps {
 /** Floating panel under an anchor element. Closes on Esc and on outside click. Rendered in a portal. */
 export function Popover({ anchorRef, open, onClose, align = 'start', ariaLabel, className, children }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; origin: string } | null>(null)
 
   useLayoutEffect(() => {
     if (!open) {
@@ -33,8 +33,13 @@ export function Popover({ anchorRef, open, onClose, align = 'start', ariaLabel, 
     left = Math.max(8, Math.min(left, window.innerWidth - w - 8))
     let top = r.bottom + 6
     const h = p?.offsetHeight ?? 0
-    if (h && top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6)
-    setPos({ top, left })
+    let vertical = 'top'
+    if (h && top + h > window.innerHeight - 8) {
+      top = Math.max(8, r.top - h - 6)
+      vertical = 'bottom'
+    }
+    // the open animation grows from the corner next to the anchor
+    setPos({ top, left, origin: `${vertical} ${align === 'end' ? 'right' : 'left'}` })
   }, [open, align, anchorRef, children])
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export function Popover({ anchorRef, open, onClose, align = 'start', ariaLabel, 
 
   if (!open) return null
   return createPortal(
-    <div ref={ref} role="dialog" aria-label={ariaLabel} className={clsx('popover', className)} style={{ position: 'fixed', top: pos?.top ?? -9999, left: pos?.left ?? -9999 }}>
+    <div ref={ref} role="dialog" aria-label={ariaLabel} className={clsx('popover', className)} style={{ position: 'fixed', top: pos?.top ?? -9999, left: pos?.left ?? -9999, ...(pos ? ({ '--pop-origin': pos.origin } as CSSProperties) : {}) }}>
       {children}
     </div>,
     document.body,

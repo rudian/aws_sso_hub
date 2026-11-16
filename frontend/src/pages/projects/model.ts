@@ -3,6 +3,7 @@
 import { RepoAction, RepoProvider } from '../../api/models'
 import type { MoveIdentityPreview, ProjectInfo, ProjectSuggestion, Repo, ReposState } from '../../api/models'
 import type { ProviderKind } from '../../components'
+import { rankRepo, searchRepos } from '../../lib/repoSearch'
 
 export type ProjectFilter = 'all' | 'todo' | 'changes'
 /** 'all', or one provider; 'hidden' lists the hidden repositories instead of the listed ones. */
@@ -45,9 +46,7 @@ export function needsFix(r: Repo): boolean {
 
 /** Search matches the folder name, the remote name, the CodeCommit name and the path. */
 export function repoMatches(r: Repo, query: string): boolean {
-  const q = query.trim().toLowerCase()
-  if (!q) return true
-  return [r.localName, r.remoteName, r.name, r.displayPath].some((s) => !!s && s.toLowerCase().includes(q))
+  return rankRepo(r, query) !== null
 }
 
 export function providerKind(r: Repo): ProviderKind | null {
@@ -78,7 +77,7 @@ function passes(r: Repo, o: GroupOptions): boolean {
 export function groupRepos(state: ReposState | null, o: GroupOptions, ungroupedName = ''): Section[] {
   if (!state) return []
   if (o.showHidden) {
-    const hidden = (state.hiddenRepos ?? []).filter((r) => repoMatches(r, o.query) && (o.source === 'all' || r.provider === o.source))
+    const hidden = searchRepos((state.hiddenRepos ?? []).filter((r) => o.source === 'all' || r.provider === o.source), o.query)
     return [{ id: HIDDEN_SECTION, repos: hidden, total: hidden.length }]
   }
   const repos = state.repos ?? []
@@ -96,7 +95,10 @@ export function groupRepos(state: ReposState | null, o: GroupOptions, ungroupedN
   const build = (id: string, project: ProjectInfo | undefined, name: string) => {
     const all = byProject.get(id) ?? []
     const nameHit = q !== '' && name.toLowerCase().includes(q)
-    const shown = all.filter((r) => passes(r, o) && (nameHit || repoMatches(r, o.query)))
+    // Better matches first (design 5.2); a repository kept only by its project's name follows the real matches.
+    const passing = all.filter((r) => passes(r, o))
+    const hits = searchRepos(passing, o.query)
+    const shown = nameHit ? [...hits, ...passing.filter((r) => !hits.includes(r))] : hits
     if (constrained && shown.length === 0) return
     if (!project && all.length === 0) return
     out.push({ id, project, repos: shown, total: all.length })

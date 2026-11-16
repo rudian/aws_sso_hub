@@ -73,7 +73,7 @@ function InstallButton() {
 }
 
 /** The environment rows shared by the Health page and the first-run screen. */
-export function EnvChecks({ report, compact }: { report?: EnvReport | null; compact?: boolean }) {
+export function EnvChecks({ report, compact, hideTools }: { report?: EnvReport | null; compact?: boolean; /** Health draws the AWS CLI and Git rows with ToolRows. */ hideTools?: boolean }) {
   const { t } = useI18n()
   const env = useEnv()
   const r = report === undefined ? env.report : report
@@ -93,8 +93,12 @@ export function EnvChecks({ report, compact }: { report?: EnvReport | null; comp
   const grcOk = r.grc.status === ToolStatus.ToolOK
   return (
     <div className="list">
-      <StatusRow compact={compact} status={cli.status} title={t('health.cli.title')} text={cli.text} meta={cli.meta && <span className="mono">{cli.meta}</span>} action={cli.install ? <InstallButton /> : undefined} />
-      <StatusRow compact={compact} status={git.status} title={t('health.git.title')} text={git.text} meta={git.meta && <span className="mono">{git.meta}</span>} />
+      {!hideTools && (
+        <>
+          <StatusRow compact={compact} status={cli.status} title={t('health.cli.title')} text={cli.text} meta={cli.meta && <span className="mono">{cli.meta}</span>} action={cli.install ? <InstallButton /> : undefined} />
+          <StatusRow compact={compact} status={git.status} title={t('health.git.title')} text={git.text} meta={git.meta && <span className="mono">{git.meta}</span>} />
+        </>
+      )}
       <StatusRow
         compact={compact}
         status={grcOk ? 'ok' : 'info'}
