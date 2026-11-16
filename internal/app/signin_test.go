@@ -3,7 +3,12 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/rudian/aws_sso_hub/internal/api"
 )
@@ -12,11 +17,58 @@ type fakePrivate struct {
 	private bool
 	err     error
 	urls    []string
+
+	isolated bool // OpenIsolated starts a fake isolated browser
+	isoErr   error
+	mu       sync.Mutex
+	windows  []*fakeWindow
 }
 
 func (f *fakePrivate) OpenPrivate(_ context.Context, u string) (bool, error) {
 	f.urls = append(f.urls, u)
 	return f.private, f.err
+}
+
+func (f *fakePrivate) OpenIsolated(_ context.Context, u, dir string) (signInWindow, error) {
+	if f.isoErr != nil || !f.isolated {
+		return nil, f.isoErr
+	}
+	w := &fakeWindow{url: u, dir: dir}
+	f.mu.Lock()
+	f.windows = append(f.windows, w)
+	f.mu.Unlock()
+	return w, nil
+}
+
+func (f *fakePrivate) RemoveStale(context.Context, string, func(string) bool) {}
+
+// fakeWindow is an isolated browser that records being closed.
+type fakeWindow struct {
+	url, dir string
+	mu       sync.Mutex
+	closed   int
+}
+
+func (w *fakeWindow) Close(context.Context) error {
+	err := os.RemoveAll(w.dir)
+	w.mu.Lock()
+	w.closed++
+	w.mu.Unlock()
+	return err
+}
+
+func (w *fakeWindow) isClosed() bool { w.mu.Lock(); defer w.mu.Unlock(); return w.closed > 0 }
+
+// waitFor polls cond for up to 2 s (windows are closed in the background).
+func waitFor(t *testing.T, cond func() bool) {
+	t.Helper()
+	for i := 0; i < 200; i++ {
+		if cond() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("condition not met in time")
 }
 
 const signInURL = "https://device.sso.us-east-1.amazonaws.com/?user_code=ABCD-EFGH"
@@ -31,6 +83,8 @@ func TestOpenSignInPage(t *testing.T) {
 		wantPrivCal int
 		wantNormal  int
 	}{
+		{"isolated browser first", nil, &fakePrivate{private: true, isolated: true}, true, 0, 0},
+		{"isolation fails, private window", nil, &fakePrivate{private: true, isolated: true, isoErr: errors.New("boom")}, true, 1, 0},
 		{"private window", nil, &fakePrivate{private: true}, true, 1, 0},
 		{"default browser has no private switch", nil, &fakePrivate{private: false}, false, 1, 1},
 		{"detection error falls back", nil, &fakePrivate{err: errors.New("boom")}, false, 1, 1},
@@ -97,5 +151,55 @@ func TestOpenSignInPageSandbox(t *testing.T) {
 	}
 	if rt := w.c.RT.(*fakeRuntime); len(rt.urls) != 1 {
 		t.Fatalf("%v", rt.urls)
+	}
+}
+
+func TestIsolatedSignInWindows(t *testing.T) {
+	w := newWorld(t)
+	w.c.Paths.Sandbox = false
+	fake := &fakePrivate{private: true, isolated: true}
+	w.c.private = fake
+	w.c.signInDelay = 10 * time.Millisecond
+	svc := NewAccountService(w.c)
+
+	got, err := svc.OpenSignInPage(signInURL)
+	if err != nil || !got.Private || !got.Isolated || len(fake.urls) != 0 || len(w.c.RT.(*fakeRuntime).urls) != 0 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	first := fake.windows[0]
+	if !strings.HasPrefix(first.dir, filepath.Join(w.c.Paths.AppDataDir, "signin-browser")+string(filepath.Separator)) {
+		t.Fatalf("profile outside the app folder: %s", first.dir)
+	}
+	if st, err := os.Stat(first.dir); err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
+		t.Fatalf("fresh private profile folder: %v %v", st, err)
+	}
+	// "Open again" replaces the window
+	if _, err := svc.OpenSignInPage(signInURL); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, first.isClosed)
+	second := fake.windows[1]
+	if second.isClosed() || second.dir == first.dir {
+		t.Fatal("the new window stays open")
+	}
+	// a sign-in that ended for another page leaves it alone; its own end closes it
+	w.c.signInEnded([]string{"https://device.sso.us-east-1.amazonaws.com/?user_code=OTHER"}, true)
+	time.Sleep(50 * time.Millisecond)
+	if second.isClosed() {
+		t.Fatal("closed by another sign-in")
+	}
+	w.c.signInEnded([]string{"https://device.sso.us-east-1.amazonaws.com/", signInURL}, true)
+	waitFor(t, second.isClosed)
+	if _, err := os.Stat(second.dir); !os.IsNotExist(err) {
+		t.Fatal("profile kept")
+	}
+	// quitting the app closes what is still open
+	if _, err := svc.OpenSignInPage(signInURL); err != nil {
+		t.Fatal(err)
+	}
+	third := fake.windows[2]
+	w.c.closeSignInWindows()
+	if !third.isClosed() {
+		t.Fatal("shutdown must close sign-in windows")
 	}
 }

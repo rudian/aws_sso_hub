@@ -60,7 +60,8 @@ func (c *Container) StartLoops() {
 			}
 		}
 	})
-	c.spawn(func() { // environment check, then scan and owner detection
+	c.spawn(func() { c.removeStaleSignIn(ctx) }) // sign-in browsers left behind by a crash
+	c.spawn(func() {                             // environment check, then scan and owner detection
 		c.CheckEnvironment(ctx)
 		select {
 		case <-ctx.Done():

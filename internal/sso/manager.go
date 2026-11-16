@@ -39,9 +39,13 @@ type Config struct {
 	RegistrationsDir string
 	Endpoints        Endpoints
 	OpenBrowser      func(url string) error
-	// OpenSignIn, when set, opens the sign-in page instead of OpenBrowser and reports whether it did so in a
-	// private browser window.
-	OpenSignIn      func(url string) (private bool, err error)
+	// OpenSignIn, when set, opens the sign-in page instead of OpenBrowser and reports how (private window,
+	// isolated browser).
+	OpenSignIn func(url string) (api.SignInWindow, error)
+	// SignInEnded, when set, is called when an interactive sign-in ends, with every sign-in page URL it
+	// offered (authorize URL, device pages) and whether it succeeded, so that windows opened for them can be
+	// closed.
+	SignInEnded     func(pages []string, ok bool)
 	Lang            func() string // "zh-CN" | "en"
 	Now             func() time.Time
 	Sleep           func(ctx context.Context, d time.Duration) error // nil = real

@@ -162,8 +162,8 @@ func (s *AccountService) OpenSignInPage(url string) (api.SignInWindow, error) {
 	if err := checkSignInURL(url, s.c.Paths.Sandbox); err != nil {
 		return api.SignInWindow{}, fail(err)
 	}
-	private, err := s.c.openSignIn(url)
-	return api.SignInWindow{Private: private}, fail(err)
+	w, err := s.c.openSignIn(url)
+	return w, fail(err)
 }
 
 // OpenConsole: P1
