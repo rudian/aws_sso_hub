@@ -18,11 +18,12 @@ var recMu sync.Mutex // serialises read-modify-write of session records
 // administrator set, but it never issues an access token that outlives the session: a token normally lives
 // one hour, and a token issued in the session's last hour is cut short to the session's end. So a token
 // that does not get the full hour shows exactly when the session ends. probeDelay after a sign-in by this
-// app, the ticker renews once to catch sessions of an hour or less right away.
+// app, the ticker renews once to catch sessions of an hour or less right away (by then a token cut short is
+// clearly more than grantSlack short of the hour).
 const (
 	fullGrant  = time.Hour
 	grantSlack = 30 * time.Second
-	probeDelay = 2 * time.Minute
+	probeDelay = time.Minute
 )
 
 // cutShort reports whether AWS gave a newly issued access token less than the full hour.
@@ -91,7 +92,13 @@ func (e *Engine) sessionStatusFor(pd portalDef, now time.Time) api.SessionStatus
 	var left, total time.Duration
 	if rec.LoginAt != "" && rec.ClientIDHash != "" && rec.ClientIDHash == raw.ClientIDHash {
 		if loginAt, err := time.Parse(time.RFC3339, rec.LoginAt); err == nil {
-			ends, exact := sessionEnd(rec, loginAt, minutes, raw.ExpiresAt)
+			m := minutes
+			if rec.SessionMinutes == 0 && e.checkPending(pd.name, rec.LoginAt) {
+				// Nothing learned for this portal yet and the check renewal is about to ask AWS: claim no
+				// more than the access token rather than the AWS default of 8 hours.
+				m = 0
+			}
+			ends, exact := sessionEnd(rec, loginAt, m, raw.ExpiresAt)
 			total = ends.Sub(loginAt)
 			out.SessionKnown, out.SessionEndExact = true, exact
 			out.LoginAt, out.SessionEndsAt = fmtTime(loginAt), fmtTime(ends)
@@ -342,6 +349,17 @@ func (e *Engine) noteRefusal(pd portalDef, now time.Time) {
 			r.SessionEndsAt = fmtTime(raw.ExpiresAt)
 		}
 	})
+}
+
+// checkPending reports whether the check renewal for the sign-in at loginAt has yet to run (it runs only
+// with automatic renewal on).
+func (e *Engine) checkPending(portal, loginAt string) bool {
+	if !e.d.Store.AutoRenew() {
+		return false
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.probes[portal] == loginAt
 }
 
 // probeDue reports whether the check renewal after this app's sign-in (probeDelay later) is due for the

@@ -81,7 +81,7 @@ func runScenario(w *world) {
 	}
 	st = ok(w.acc.GetState(bg))
 	p, _ := portalOf(st, "initech")
-	if p.Session.State != api.SessionActive || !p.Session.SessionKnown || p.Session.SessionEndsAt == "" || p.Session.SessionMinutes != 480 {
+	if p.Session.State != api.SessionActive || !p.Session.SessionKnown || p.Session.SessionEndsAt == "" || p.Session.SessionMinutes != 60 {
 		t.Fatalf("session after login: %+v", p.Session)
 	}
 	if w.rt.count(api.EventLoginProgress) == 0 || w.rt.count(api.EventSessionChanged) == 0 {

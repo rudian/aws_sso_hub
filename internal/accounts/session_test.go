@@ -55,6 +55,7 @@ func TestLoginEmitsProgress(t *testing.T) {
 
 func TestSessionKnownAfterAppLogin(t *testing.T) {
 	h := newHarness(t, true)
+	h.store.autoRenew = false // no check renewal: the countdown starts from the AWS default
 	h.login()
 	st := h.status("initech")
 	if st.State != api.SessionActive || !st.SessionKnown || st.SessionMinutes != 480 || st.SessionOverrun || st.CanRefresh != true {
@@ -291,8 +292,9 @@ func TestProbeFindsAnHourLongSession(t *testing.T) {
 	if rec, _ := h.store.SessionRecord("initech"); !rec.NewSession || rec.SessionEndsAt != "" {
 		t.Fatalf("%+v", rec)
 	}
-	if st := h.status("initech"); st.SessionEndExact || st.SessionMinutes != 480 {
-		t.Fatalf("first sign-in starts from the AWS default: %+v", st)
+	// nothing learned yet and AWS not asked yet: no more than the access token's hour, not the 8 h default
+	if st := h.status("initech"); st.SessionEndExact || st.SessionMinutes != 60 || st.SessionEndsAt != loginAt.Add(time.Hour).Format(time.RFC3339) {
+		t.Fatalf("first sign-in claims only the token: %+v", st)
 	}
 	h.eng.Tick(bg)
 	if n := len(h.oidc.TokenCalls()); n != 1 {
