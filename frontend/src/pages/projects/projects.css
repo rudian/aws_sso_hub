@@ -1,0 +1,118 @@
+/* Projects page (design 5.2). The look follows docs/design/codepass-mockup/mockup.css; the clone modal and the bind
+   popover keep the rules of pages/repos/repos.css, which this page imports. */
+
+.proj-page { position: relative; }
+.proj { display: flex; flex-direction: column; gap: var(--sp-3); }
+.proj__head { display: flex; align-items: center; gap: var(--sp-3); min-height: 36px; border-radius: var(--r-lg); transition: box-shadow var(--dur-1), background var(--dur-1); }
+.proj__id { flex: 1 1 auto; min-width: 0; }
+.proj__id .portal__title { margin: 0; font-size: var(--fs-16); }
+.proj__ident { font-size: var(--fs-12); color: var(--text-3); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.proj__ident svg { width: 13px; height: 13px; }
+.proj__ident b { color: var(--text-2); font-weight: var(--fw-medium); }
+.proj__rename { height: 28px; max-width: 320px; font-size: var(--fs-16); font-weight: var(--fw-semibold); }
+.proj .portal__meta { gap: var(--sp-2); }
+
+/* Collapse: grid rows 0fr -> 1fr with a fade (design 3). */
+.proj__body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--dur-panel) var(--ease-move), opacity var(--dur-2) var(--ease-enter); }
+.proj__body > div { min-height: 0; overflow: hidden; }
+.proj.is-collapsed .proj__body { grid-template-rows: 0fr; opacity: 0; }
+.proj.is-collapsed { gap: 0; }
+/* The table's shadow and focus rings are clipped by the collapse wrapper; give them room. */
+.proj__body > div { padding: 2px 2px 4px; margin: -2px -2px -4px; }
+
+/* A drag is running: valid targets get a 2px ring within 90ms. */
+.proj.is-drop .proj__head { box-shadow: 0 0 0 2px var(--focus); background: color-mix(in srgb, var(--focus) 6%, transparent); transition-duration: 90ms; }
+body.is-dragging-row, body.is-dragging-row * { cursor: grabbing !important; user-select: none; }
+
+.proj__empty { padding: var(--sp-4); border: 1px dashed var(--border-strong); border-radius: var(--r-lg); font-size: var(--fs-13); color: var(--text-3); text-align: center; }
+
+/* The table: 6 columns (select, repository, account, branch, status, actions). */
+.proj-table { --cols: 20px minmax(220px, 1.5fr) minmax(150px, .9fr) minmax(190px, 1.1fr) minmax(170px, 1fr) 140px; overflow: visible; }
+.proj-table .row { min-height: 50px; cursor: default; position: relative; }
+.proj-table .row[role="row"] { outline-offset: -2px; }
+.proj-table .row:focus-visible { outline: 2px solid var(--focus); }
+.proj-table .row:hover .grip, .proj-table .row:focus .grip, .proj-table .row:focus-within .grip { opacity: 1; }
+.proj-row.is-dim { opacity: .62; }
+.proj-row.is-dragging { opacity: .45; }
+.proj-table .row > [role="gridcell"] { min-width: 0; }
+.grip { opacity: 0; color: var(--text-disabled); margin-left: -14px; width: 12px; display: inline-grid; place-items: center; cursor: grab; touch-action: none; transition: opacity var(--dur-1); flex: none; }
+.grip:hover { color: var(--text-3); }
+.repo-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.repo-cell__text { min-width: 0; display: flex; flex-direction: column; gap: 0; flex: 1; }
+.repo-cell__name { display: flex; align-items: center; min-width: 0; }
+.repo-cell__text .row__secondary { font-family: var(--font-mono); font-size: 11.5px; }
+.remote-name { font-weight: var(--fw-regular); font-size: 11px; color: var(--text-3); padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm); margin-left: 4px; white-space: nowrap; }
+
+.proj-acct { flex-direction: column; align-items: flex-start; gap: 4px; }
+.proj-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; border-radius: var(--r-md); max-width: 100%; min-width: 0; cursor: default; }
+.proj-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.proj-branch { gap: 10px; flex-wrap: wrap; }
+.branch { display: inline-flex; align-items: center; gap: 5px; font: var(--fw-medium) 12px/1 var(--font-mono); color: var(--text); min-width: 0; }
+.branch svg { width: 13px; height: 13px; color: var(--text-3); flex: none; }
+.sync { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-12); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sync b { font-weight: var(--fw-medium); color: var(--text-2); }
+.sync .up { color: var(--info); }
+.sync .chg { color: var(--warn); }
+.proj-status { display: flex; align-items: flex-start; gap: 8px; }
+.proj-status .dot { margin-top: 5px; flex: none; }
+.proj-status .hint__label { font-weight: var(--fw-regular); }
+
+/* Suggestions and the newly-found strip. */
+.suggest--solid { border-style: solid; }
+.proj-wrap { display: flex; flex-direction: column; gap: var(--sp-5); }
+.suggest .spacer { flex: 1; }
+
+/* The moved-folder question, under its row. */
+.proj-row__ask { grid-column: 1 / -1; padding: 0 0 4px 30px; }
+.moved-ask { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: 6px var(--sp-3); border-radius: var(--r-md); background: var(--warn-soft); color: var(--text); font-size: var(--fs-13); }
+.moved-ask__q { font-weight: var(--fw-medium); margin-right: var(--sp-2); }
+.proj-check__text .moved-ask { margin-top: var(--sp-2); }
+
+/* Drag ghost: lifted, fixed under the pointer. */
+.drag-ghost { position: fixed; z-index: 400; display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border-strong); box-shadow: var(--shadow-3); font-weight: var(--fw-semibold); font-size: var(--fs-13); color: var(--text); pointer-events: none; white-space: nowrap; }
+.drag-ghost__n { color: var(--text-3); font-weight: var(--fw-regular); }
+
+/* Move menu. */
+.popover.proj-move { padding: var(--sp-1); min-width: 200px; max-width: 320px; }
+.proj-move .menu__item { width: 100%; justify-content: flex-start; }
+.proj-move .menu__item[aria-current="true"] { color: var(--text-3); }
+.proj-move__label { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Checklist (New project, Add repositories, Choose which to show). */
+.proj-check { border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); }
+.proj-check__bar { display: flex; align-items: center; gap: var(--sp-3); min-height: 36px; padding: 0 var(--sp-4); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-12); color: var(--text-3); }
+.proj-check__all { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-2); }
+.proj-check__count { margin-left: auto; font-variant-numeric: tabular-nums; }
+.proj-check__list { max-height: 248px; overflow: auto; }
+.proj-check__row { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--border-subtle); }
+.proj-check__row:last-child { border-bottom: 0; }
+.proj-check__text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.proj-check__text .row__secondary { font-size: 11.5px; }
+.proj-check__meta { font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; }
+.proj-check__empty { padding: var(--sp-4); border: 1px dashed var(--border-strong); border-radius: var(--r-lg); text-align: center; font-size: var(--fs-13); }
+.proj-found__note { margin: 0 0 var(--sp-3); font-size: var(--fs-13); color: var(--text-2); }
+.modal:has(.proj-check) .modal__body { overflow: visible; }
+
+/* New project dialog. */
+.proj-new { display: flex; flex-direction: column; gap: var(--sp-4); }
+.proj-new__disclose { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-13); color: var(--text-2); cursor: default; }
+.proj-new__disclose svg { transition: transform var(--dur-2) var(--ease-out); }
+.proj-new__disclose svg.is-open, .proj-new__disclose[aria-expanded="true"] svg { transform: rotate(90deg); }
+.proj-new__disclose:hover { color: var(--text); }
+.proj-new__fields { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.proj-new__fields p { margin: 0; font-size: var(--fs-12); }
+
+/* Confirm bodies (move, remove). */
+.proj-confirm { display: flex; flex-direction: column; gap: var(--sp-2); }
+.proj-confirm p { margin: 0; }
+.proj-confirm__list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border-subtle); border-radius: var(--r-md); background: var(--surface-2); max-height: 180px; overflow: auto; }
+.proj-confirm__list li { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-13); border-bottom: 1px solid var(--border-subtle); }
+.proj-confirm__list li:last-child { border-bottom: 0; }
+.proj-confirm__name { font-weight: var(--fw-medium); color: var(--text); }
+.proj-confirm__diff { display: flex; flex-direction: column; align-items: flex-end; font-size: var(--fs-12); color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
+.proj-confirm__diff s { color: var(--text-3); }
+
+@media (max-width: 1180px) {
+  .proj-table { --cols: 20px minmax(150px, 1.3fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(130px, 1fr) 140px; }
+  .proj-table .hint__detail { display: none; }
+}

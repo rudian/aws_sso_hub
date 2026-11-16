@@ -54,6 +54,7 @@ import type {
   SavedCredential,
   SessionStatus,
   Settings,
+  TestResult,
   StaticIdentity,
   URLRule,
 } from '../models'
@@ -126,6 +127,13 @@ export interface OwnerTruth {
   headMatch?: string
 }
 
+export interface MovedRecord {
+  projectId?: string
+  hidden: boolean
+  lastTest?: TestResult
+  identity?: { name: string; email: string }
+}
+
 export interface GitState {
   globalDefault: { profile: string } | null
   urlRules: Array<{ pattern: string; profile: string }>
@@ -147,6 +155,10 @@ export interface World {
   repoWarnings: RepoWarning[]
   /** The mock's scan finds the "newly found" repositories once (F1-11). */
   foundSeeded: boolean
+  /** What the record of a vanished folder held (FU-11c), by its old ID: ReattachMoved gives it back to the folder found at the new place. */
+  movedRecords: Record<string, MovedRecord>
+  /** A repository's own author identity, as the app recorded it (only kept here so a re-attached row gets it back). */
+  repoIdentity: Record<string, { name: string; email: string }>
   truth: Record<string, OwnerTruth>
   repoMeta: { scannedAt: string; scanning: boolean; detecting: boolean }
   awsCliReady: boolean
@@ -806,6 +818,8 @@ function emptyWorld(scenario: ScenarioId, firstRun: boolean): World {
     dismissedSuggestions: [],
     repoWarnings: [],
     foundSeeded: false,
+    movedRecords: {},
+    repoIdentity: {},
     truth: {},
     repoMeta: { scannedAt: iso(now() - 30_000), scanning: false, detecting: false },
     awsCliReady: true,
@@ -1075,6 +1089,13 @@ function seedProjectsAndReview(w: World): void {
   // initech_dashboard was renamed to dashboard-main in Finder: the new folder has no project of its own, the old record has.
   const mv = repoByDefN(w, 10)
   const oldId = mv.id
+  // What the old record held, for ReattachMoved to give back (FU-11c).
+  w.movedRecords[oldId] = {
+    projectId: mv.projectId,
+    hidden: false,
+    lastTest: mv.lastTest ? { ...mv.lastTest } : undefined,
+    identity: { name: 'Alex', email: 'alex@initech.example.com' },
+  }
   const path = `${SCAN_ROOT}/dashboard-main`
   mv.path = path
   mv.displayPath = path.replace(HOME, '~')

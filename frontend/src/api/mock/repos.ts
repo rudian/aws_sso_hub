@@ -606,7 +606,23 @@ export const mockRepoService: typeof RepoReal = {
       const r = needRepo(w, newID)
       if (!r.movedFrom) throw fail(ErrorCode.ErrMovedGone, 'the moved-folder question is out of date')
       if (r.projectId || r.hidden) throw fail(ErrorCode.ErrMovedHasData, 'the repository found at the new place already has data of its own')
+      // The row takes the old record back: the old ID with the old project, hidden flag, identity and test result (FU-11c).
+      const oldId = r.movedFrom.oldId
+      const rec = w.movedRecords[oldId]
+      // Go answers E_MOVED_GONE when the old record is gone or its ID is in use again.
+      if (!rec || w.repos.some((x) => x !== r && x.id === oldId)) throw fail(ErrorCode.ErrMovedGone, 'the moved-folder question is out of date')
       delete r.movedFrom
+      const newId = r.id
+      r.id = oldId
+      if (w.truth[newId]) {
+        w.truth[oldId] = w.truth[newId]
+        delete w.truth[newId]
+      }
+      if (rec.projectId && w.projects.some((p) => p.id === rec.projectId)) r.projectId = rec.projectId
+      r.hidden = rec.hidden
+      if (rec.lastTest) r.lastTest = { ...rec.lastTest, repoId: oldId }
+      if (rec.identity) w.repoIdentity[oldId] = { ...rec.identity }
+      delete w.movedRecords[oldId]
       return pushState(w)
     }),
 
