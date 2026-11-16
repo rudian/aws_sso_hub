@@ -22,7 +22,7 @@ A desktop app for macOS and Windows that signs you in to all your AWS IAM Identi
 
 - **One SSO sign-in button per portal**, with a live countdown of how long the session lasts. One sign-in unlocks every profile of that portal.
 - **The sign-in survives quitting the app.** It is stored where the AWS CLI keeps it, so `git` and `aws` keep working with the app closed.
-- **Sign-in opens in a private browser window** (on by default, where your browser supports it), so an earlier web session is never reused: password and MFA every time, and nothing stays signed in after you close the window.
+- **Each sign-in opens in its own fresh private browser window** (on by default) in Chrome, Edge, Brave and Chromium, so another user's earlier sign-in is never reused. The app closes that window when the sign-in ends. Other browsers use a normal private window, where they support one.
 - **Migrate access-key profiles to SSO and keep their names**, so `--profile acme`, scripts and repositories keep working. The wizard verifies the new setup before it removes the old key, then helps you deactivate it in IAM.
 - **Per-repository CodeCommit binding with automatic account detection.** Two clones of the same repository can use two accounts.
 - **Add an existing repository** from any folder, and **bind all suggestions** in one go.

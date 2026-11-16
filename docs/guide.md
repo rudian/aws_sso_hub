@@ -111,7 +111,7 @@ Click the countdown to see the details:
 
 ![Sign-in details](screenshots/guide/en/07-session-details.png)
 
-- **Session length** is set by your administrator (8 hours by default). If the countdown does not match, choose **Change** and enter the same length.
+- **Session length** is set by your administrator in IAM Identity Center (8 hours by default). The app cannot read it. It works out when the session ends from what AWS returns each time it renews the sign-in. The first sign-in may show 8 hours until AWS reveals the end. A session of an hour or less is detected within about two minutes.
 - The **access token** inside the session renews itself automatically; you never need to watch it.
 - **Quitting the app does not sign you out.** The sign-in is stored where the AWS CLI keeps it, so `git` and `aws` keep working until the session ends, even with the app closed.
 
@@ -245,7 +245,7 @@ The repository is probably not bound yet: bind it on the Repositories page. If i
 Your session ended. Choose **SSO sign-in** for that portal.
 
 **The countdown says my session ends earlier or later than it really does.**
-The session length is set by your administrator. Click the countdown, choose **Change**, and enter the same length.
+The session length is set by your administrator, and the app cannot read it. The app works out the real end from what AWS returns each time it renews the sign-in, so the countdown corrects itself. The first sign-in may show 8 hours until AWS reveals the end. A session of an hour or less is detected within about two minutes.
 
 **"AWS CLI not found" or "too old".**
 Install AWS CLI v2 2.22 or later. If the app still cannot find it, enter the full path under Settings, tool paths.
