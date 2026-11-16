@@ -74,6 +74,13 @@ Milestone 8 (2026-11-16; plan 4.16 and 4.17). Specified in words and text sketch
 | Four queue notifications replace the placeholder row. | 6 |
 | Queue settings card. | 5.14 |
 
+Finding a repository fast (2026-11-16, second batch; plan 4.4):
+
+| Change | Where |
+|---|---|
+| The Projects search ranks by the local folder name, bolds the matched letters, and is driven by the keyboard: Cmd/Ctrl+F, Down / Up, Enter opens the repository, Cmd/Ctrl+Enter opens it with a new task. | 5.2, 4.3 |
+| New: **Open repository** (Cmd/Ctrl+O) from any screen, a panel like the session switcher: recent first, type a folder name, Enter. Not drawn yet (A2-16 is "Fable first"). | 5.7c, 4.3 |
+
 ---
 
 ## 1. What stays, what changes
@@ -223,6 +230,8 @@ Rules:
 | Cmd/Ctrl + Shift + N | Quick capture: a new ticket from any screen (5.15). Works while a terminal has focus. |
 | Cmd/Ctrl + , | Settings |
 | Cmd/Ctrl + K | Palette: project, repository, task, file, command |
+| Cmd/Ctrl + O | Open repository: type part of the folder name, Enter (5.7c; milestone 2). On macOS also while a terminal has focus; on Windows not inside a terminal (Ctrl+O belongs to the terminal program there). |
+| Cmd/Ctrl + F on the Projects page | Focus the search: type a folder name, Down / Up to choose, Enter to open (5.2) |
 | Cmd + J (mac) / Ctrl + J (win) | Session switcher: every live AI session in every repository (5.7a). On Windows, while a terminal has focus, it is Ctrl + Shift + J, because Ctrl+J is a line feed that terminal programs use for a new line. |
 | In a workspace | |
 | Ctrl + 1..6 (mac) / Alt + 1..6 (win) | workspace tabs |
@@ -241,7 +250,7 @@ Rules:
 | Ctrl + Tab | Cycle working trees |
 | Esc | Close peek, popover, sheet, modal; in the terminal it goes to the terminal |
 
-When the terminal has focus, only Ctrl+`, Cmd/Ctrl+1..5, quick capture (Cmd/Ctrl+Shift+N) and the session switcher (Cmd+J on macOS, Ctrl+Shift+J on Windows) are taken by the app. Everything else, including Esc and Ctrl+C, goes to the process.
+When the terminal has focus, only Ctrl+`, Cmd/Ctrl+1..5, quick capture (Cmd/Ctrl+Shift+N), the session switcher (Cmd+J on macOS, Ctrl+Shift+J on Windows) and, on macOS only, Open repository (Cmd+O) are taken by the app. Everything else, including Esc and Ctrl+C, goes to the process.
 
 ### 4.4 App menu, closing the window, quitting
 
@@ -339,6 +348,13 @@ Shots: `projects-light-zh`, `projects-dark-en`, `projects-drag-light-zh`.
 **Header.** Title "项目 / Projects"; subtitle "3 个项目 · 12 个仓库 · 刚刚扫描 ~/Documents/code". Actions: Rescan (icon), "克隆仓库 / Clone repository", primary "新建项目 / New project".
 
 **Toolbar.** Segmented filter 全部 / 待处理 / 有改动 (All / To fix / With changes), a provider filter menu, search (repository or project name; matching repositories stay under their project header, other projects hide).
+
+**Find a repository by typing** (owner, 2026-11-16, second batch; plan 4.4). The search is how the owner gets to work: type a few letters of the local folder name, press Enter.
+- Cmd/Ctrl+F focuses the field from anywhere on the page; its placeholder becomes "输入文件夹名找仓库 / Type a folder name to find a repository".
+- Ranking, best first: the local folder name starts with the text; a word inside the folder name starts with it (after `_`, `-`, `.` or a case change, so `agent` finds `acme_agent_portal`); the text anywhere in the folder name; then the remote name, the CodeCommit name and the path. Rows keep their project grouping; inside a project, better matches come first.
+- The matched letters are bold in the name (the `.remote-name` tag too when it matched).
+- Keys while the field has focus: Down / Up move a visible selection (the ink bar of the session switcher) through the matching rows; **Enter opens the selected repository**, which is the best match until another is selected; Cmd/Ctrl+Enter opens it with the new-task sheet (milestone 2 on); Esc clears the text, then a second Esc leaves the field.
+- One line under the toolbar while searching: "3 个仓库匹配 · ⏎ 打开 acme_agent_portal / 3 repositories match · ⏎ opens acme_agent_portal". No match: "没有文件夹名或远程名包含「xyz」的仓库 / No repository's folder or remote name contains "xyz"" with "清除搜索 / Clear search"; hidden repositories that match are counted: "另有 1 个已隐藏 / 1 more is hidden" with "显示 / Show".
 
 **Project section** (`.proj`). The portal-section pattern from Accounts, reused: chevron + layers tile, name, meta ("4 个仓库 · 2 个 AI 任务运行中"), the project's author identity on the right if it has one, a menu (rename, author identity, add repositories, new AI task in..., remove project). Collapse state is remembered. Collapsed sections show the account chips of their repositories as a peek, as portals do.
 
@@ -680,6 +696,32 @@ The owner runs several sessions in several repositories at once. Cmd+J (Ctrl+J o
 **Motion.** The panel fades in and drops 4px (160ms), like other popovers; rows do not animate when the list is filtered.
 
 **Accessibility.** `role="dialog"` labelled "切换会话 / Switch session"; the field controls the listbox with `aria-activedescendant`; each option's name is "title, repository, state, elapsed"; group labels are presentation. The shortcut is listed in the View menu and in the palette.
+
+#### 5.7c Open repository (`repo-switcher`)
+
+Owner request (2026-11-16, second batch; plan 4.4): find the repository to work in by typing its folder name, from any screen. Not drawn yet: A2-16 is "Fable first" (shots `repo-switcher-light-zh`, `repo-switcher-dark-en`).
+
+The same panel as the session switcher (5.7a: `.switcher`, position, backdrop, motion, focus return), opened with Cmd/Ctrl+O or from the app menu "打开仓库… / Open Repository…".
+
+```
+  🔍 输入文件夹名…                                    14 个仓库   ⌘O
+  ─────────────────────────────────────────────────────────────────
+  最近打开 / Recent
+  ▌ [aws] acme_agent_portal          acme · main · 2 个 AI 任务运行中
+    [aws] api-main  acme_api         acme · ai/fix-rounding
+    [gh]  globex_web                 globex · main
+  全部 / All (A–Z)
+    [bb]  initech_tools              umbrella · develop
+  ─────────────────────────────────────────────────────────────────
+  ↑↓ 选择   ⏎ 打开   ⌘⏎ 打开并新建任务   esc 关闭
+```
+
+- **Rows**: provider mark; the local folder name (the remote name as the small tag when it differs, as in 5.2); second part: project, current branch, and the live AI task count when there is one. Recent first (the last 5 opened), then all others A to Z; with text typed, one list ranked as in 5.2's search, matched letters bold.
+- **Keys**: Enter opens the repository's workspace (the last tab used there); Cmd/Ctrl+Enter opens it with the new-task sheet; 1 to 9 jump while the field is empty; Esc or a click outside closes and returns focus.
+- **Placeholder** "输入文件夹名… / Type a folder name..."; no match: "没有匹配的仓库 / No matching repository" with "去项目页 / Go to Projects".
+- **Not listed**: hidden repositories. A repository whose folder is gone is listed dimmed with "找不到这个文件夹 / This folder is gone"; Enter on it opens its row on the Projects page.
+- **Windows**: Ctrl+O inside a terminal goes to the terminal program; there the menu item opens the panel.
+- **Accessibility**: `role="dialog"` labelled "打开仓库 / Open repository", the field drives the listbox with `aria-activedescendant`; option name "folder name, remote name if different, project, branch".
 
 #### 5.7b Free up space (`free-space`)
 
@@ -1107,6 +1149,8 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
 ## 8. Not drawn, and open points
 
 Not drawn in the mockup; specified above in words: quick open / palette, create pull request sheet, repository settings sheet, working-tree switcher menu (open), reset / discard confirms, blame margin, the cross-repository Pull requests page, the Windows window frame around the workspace, the updated clone modal (the local folder name field; later the source switch: AWS profile / GitHub account / Bitbucket account / paste a URL, and a Project field), the Force stop confirm, the "moved by hand" row, the running and failed states of Rename local folder and Free up space, the system notification banner (drawn by macOS or Windows; title, body and button are given in the table in section 6), the Settings rows for sign-in reminders and for notifications turned off (5.14).
+
+**Open repository (5.7c) is drawn later**, by A2-16 ("Fable first"), from the session switcher's drawing.
 
 **Milestone 8 screens are drawn later.** Tickets (5.15: the page, the queue bar in each state, the editor, quick capture), AI accounts and usage (5.16: the accounts group, the add-account sheet, the usage popover, the sidebar chip), the limit banner and account chip on the session bar (5.6), the queue settings card (5.14) and the Tickets item in the sidebar (4.1) exist only as words and text sketches. The milestone's tasks draw them in the mockup first ("Fable first"), take the shots, and only then build. Mock data for them: AI accounts "工作 / Work" (default) and "个人 / Personal" for Claude Code, "默认 / Default" for Codex; tickets #6 to #17 in the repositories of section 7.
 

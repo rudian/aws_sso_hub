@@ -53,6 +53,7 @@
 | 在 Codepass 里看 Claude 的用量（代替 Claude Desktop） | **里程碑 8** | plan 4.16 |
 | 用量、多账号切换、票队列也要支持 GPT（Codex），因为有的用户不用 Claude | **里程碑 8** | plan 4.16、4.17；`docs/research/claude-usage-accounts.md` |
 | PHP 也要代码提示（悬停、补全、跳到定义、引用、诊断） | **E5-11** | plan 4.12；tasks E5-11 |
+| 在仓库列表里打文件夹名就能快速找到仓库、马上开始干活 | **F1-CL**（项目页搜索：按文件夹名排序、上下键选、回车打开）和 **A2-16**（任何页面按 Cmd/Ctrl+O 打开仓库） | plan 4.4；design 4.3、5.2、5.7c；检查 C25 |
 
 **规划时 planner 自己定的事**（用户可以改；都写在 `tasks.md` 里）：
 - 全部进 1.0.0（和 decision 4 一致）。
@@ -88,7 +89,7 @@
 | `docs/plan/codepass/tasks.md` | **唯一的任务清单**。每个任务有 Build / Owns / Deps / Accept / Tests / Review。还有用户决定、两批需求、open questions、Follow-ups（FU-xx）和每组的合并记录。 |
 | `docs/plan/codepass/product-plan.md` | 产品方案，文中引用为 "plan N.N"。新的：4.15 系统通知、4.16 AI 账号和用量、4.17 票队列。 |
 | `docs/plan/codepass/ui-design.md` | 设计规范，文中引用为 "design N.N"。新的：第 6 节「System notifications」表、5.14 的提醒设置、里程碑 8 的新页面。 |
-| `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A、B（含 B19）、C（C1–C24）、D（里程碑 8） |
+| `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A、B（含 B19）、C（C1–C25）、D（里程碑 8） |
 | `docs/plan/codepass/reviews/` | 每组的接线笔记 `group*-wiring.md`、传给 workflow 的说明 `group*-args.md`（原始结果 `*.json` 只在本机） |
 | `docs/plan/codepass/orchestration/` | `codepass-group-v2.js`（每组用的 workflow 脚本）和 `gate.sh` |
 | `docs/plan/codepass/shoturl.sh` | 截图工具（headless Chrome，支持 `file://`） |
@@ -106,11 +107,11 @@
    - 2026-11-16 试合并过：8 个文件冲突（两个 bindings、`package-lock.json`、`version.go`、`app_test.go`、两个 tutorial 文件、`loops.go`）。`main` 新加的文件里有旧的 import 路径 `rudian/aws_sso_hub`，要改成 `rudian/codepass`。细节都在 F1-21 条目里。
    - args 里**一定要有** `keepHistory: ["F1-21"]`。这样合并步骤用 `--no-ff`，不会 squash，`main` 的历史会留在 `codepass` 里。合并后 `git log codepass..main` 应该什么都没有。
 2. **F1-22（G 组，单独跑）**：系统通知服务 `internal/notify`，加上 AWS 登录快过期 / 已过期的通知和「重新登录」按钮。开发版和已安装的 app 用同一个 bundle ID，所以 sandbox 和测试**只用 fake**。
-3. **F1-CL（H 组）**：修所有标了「F1-CL」的 follow-up（大约 60 条，加上 F1-21、F1-22 留下的）。挂上 `UpdatesCard`、`UpdateBanner`、`ToolRows`；删掉 `pages/repos/` 里没人用的文件；`RepoName` 覆盖所有显示仓库名的地方。建议拆成 F1-CLa（Go）和 F1-CLb（前端）并行跑，按文件分开。
+3. **F1-CL（H 组）**：修所有标了「F1-CL」的 follow-up（大约 60 条，加上 F1-21、F1-22 留下的）。加上用户要的「在项目页打文件夹名找仓库、回车打开」（放在 F1-CLb）。挂上 `UpdatesCard`、`UpdateBanner`、`ToolRows`；删掉 `pages/repos/` 里没人用的文件；`RepoName` 覆盖所有显示仓库名的地方。建议拆成 F1-CLa（Go）和 F1-CLb（前端）并行跑，按文件分开。
 4. **里程碑 1 关卡**（`tasks.md` 里里程碑 1 的「Gate」）：
    - 跑标准 gate；重新截所有截图，和设计稿对比（E 组有几张修复后没重截）。
    - 和用户一起确认设计偏差（清单在 Gate 里），加上 F1-22 的设置行和通知文字。
-   - 用户手动检查：C 组（含 C19–C24）、A9、B1–B3、B5、B9、B19 等。
+   - 用户手动检查：C 组（含 C19–C25）、A9、B1–B3、B5、B9、B19 等。
 5. 然后按顺序：里程碑 2（AI 终端，A2-xx）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
 
 **这些事必须由用户本人来做或在场，不要自己做：**
@@ -221,7 +222,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 7 Windows、打磨、发布 | 未开始 |
 
 **整体约 23%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）和里程碑 8（21），现在一共 231 分，已经完成 53 分，约 23%。
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（21），现在一共 232 分，已经完成 53 分，约 23%。
 - 按计划的周数算：原来约 35 周，现在约 43 周，完成约 19%。
 
 ## 10. 建议用的技能（Skill）
