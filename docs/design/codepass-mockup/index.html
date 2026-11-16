@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codepass - v1.0 mockup</title>
+<!-- Static mockup. index.html?screen=<id>&theme=light|dark&lang=zh-CN|en  (optional: &os=win, &state=..., &panel=find, &bar=0)
+     tokens.css and components.css are unchanged copies of frontend/src/styles; mockup.css holds only what is new. -->
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="mockup.css">
+</head>
+<body>
+<div id="root"></div>
+<script src="core.js"></script>
+<script src="s-pages.js"></script>
+<script src="s-ws.js"></script>
+<script src="s-git.js"></script>
+<script src="s-m0.js"></script>
+<script>
+(function () {
+  var ORDER = ['setup', 'projects', 'workspace-code', 'workspace-changes', 'repo-commit', 'workspace-ai', 'new-task', 'ai-tasks', 'ai-leftover', 'free-space', 'session-switcher', 'quit-dialog', 'rename-folder', 'repo-history', 'repo-branches', 'repo-stash', 'repo-merge-conflict', 'repo-prs', 'pr-detail', 'accounts', 'add-account', 'identity', 'update', 'settings'];
+  var fn = SCREENS[SCREEN];
+  document.getElementById('root').innerHTML = fn ? fn() : SCREENS._other(SCREEN);
+  document.title = 'Codepass - ' + SCREEN;
+  if (Q.get('bar') === '0') return;
+  var bar = document.createElement('div');
+  bar.className = 'mock-bar';
+  var go = function (o) { var p = new URLSearchParams({ screen: o.screen || SCREEN, theme: o.theme || THEME, lang: o.lang || LANG }); if (OS === 'win') p.set('os', 'win'); return 'index.html?' + p; };
+  bar.innerHTML = 'Mockup <select aria-label="screen">' + ORDER.map(function (s) { return '<option' + (s === SCREEN ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select>' +
+    '<a href="' + go({ theme: THEME === 'dark' ? 'light' : 'dark' }) + '">' + (THEME === 'dark' ? 'Light' : 'Dark') + '</a>' +
+    '<a href="' + go({ lang: LANG === 'en' ? 'zh-CN' : 'en' }) + '">' + (LANG === 'en' ? '中文' : 'EN') + '</a>';
+  bar.querySelector('select').onchange = function (e) { location.href = go({ screen: e.target.value }); };
+  document.body.appendChild(bar);
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    var i = ORDER.indexOf(SCREEN);
+    if (e.key === ']') location.href = go({ screen: ORDER[(i + 1) % ORDER.length] });
+    if (e.key === '[') location.href = go({ screen: ORDER[(i - 1 + ORDER.length) % ORDER.length] });
+  });
+})();
+</script>
+</body>
+</html>

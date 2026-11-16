@@ -1,0 +1,865 @@
+# Codepass v1.0 - UI/UX design
+
+Date: 2026-11-16 (revision 3, after the milestone-0 gate; revision 2 followed the principal engineer's review). Author: UI designer and planner (Fable). Audience: implementers (Sonnet), reviewers (Opus), the owner.
+Extends `docs/design/ui-spec.md` (the "Keycard" language). Everything in that spec still holds unless this document changes it.
+
+Companion files:
+
+| File | What it is |
+|---|---|
+| `docs/design/codepass-mockup/index.html` | Clickable static mockup. `index.html?screen=<id>&theme=light\|dark&lang=zh-CN\|en`. Extra switches: `&os=win`, `&state=...` (setup: `idle`, `failed`, `noadmin`, `done`; projects: `drag`, `found`; identity: `page`; update: `banner`; ai-tasks: `leftover`), `&panel=find`, `&bar=0` (hide the mockup switcher). `[` and `]` step through screens. Screens are functions in `core.js`, `s-pages.js`, `s-ws.js`, `s-git.js` and `s-m0.js` (the five screens added at the milestone-0 gate). |
+| `docs/design/codepass-mockup/tokens.css`, `components.css` | Unchanged copies of `frontend/src/styles/`. |
+| `docs/design/codepass-mockup/mockup.css` | Only what is new. Treat it as the draft of the new CSS; class names in this document are from it. |
+| `docs/design/codepass-mockup/shots/*.png` | 1440x900 renders (list at the end). |
+
+Screen ids: `setup`, `projects`, `workspace-code`, `workspace-changes`, `repo-commit`, `workspace-ai`, `new-task`, `ai-tasks`, `ai-leftover`, `free-space`, `session-switcher`, `quit-dialog`, `rename-folder`, `repo-history`, `repo-branches`, `repo-stash`, `repo-merge-conflict`, `repo-prs`, `pr-detail`, `accounts`, `add-account`, `identity`, `update`, `settings`.
+
+---
+
+## 0. Decisions and review changes applied in this revision
+
+`product-plan.md` (revision 2) and this document now agree. The owner's decisions: the name **Codepass** in both languages; macOS Apple silicon with macOS 15+, and Windows 10 1809+ / 11 amd64; Homebrew (macOS) and winget (Windows) are required; Claude Code, Codex and OpenCode, each installed on first use; six workspace tabs with **Code first, as a full editor for the whole repository** with code intelligence for Go and TS/JS; a comprehensive git client; pull requests in the app; a motion system; Developer ID signing with notarization; one release, v1.0.0.
+
+What the review changed in the design (details in the sections named):
+
+| Change | Where |
+|---|---|
+| Mock data, tests, tutorial and screenshots use generic names only (acme, globex, initech, `111122223333`, `@example.com`). Real names never reach the public branch. | all screens, 7 |
+| The setup gate blocks only when a tool is missing or below the hard minimum. It never needs the network to pass. New failure states. | 5.1 |
+| The app has its own menu. Cmd+W closes an editor tab, Cmd+R never reloads the page, closing the window while tasks run hides it. | 4.4 |
+| The sync button follows the selected folder ("Publish branch" for a task that was never pushed). Editor tabs are kept per folder. | 4.2 |
+| An AI task runs with the user's rights, and the UI says so. The "AWS_PROFILE not passed" badge is gone. The app never draws inside the tool's own screen: its line sits in a bar above the terminal. | 5.6 |
+| "Merge into main" updates the task first, then moves the base forward. | 5.5 |
+| Force push names the exact commits it replaces, counted from the last commit the user integrated. | 5.8, 6 |
+| Operations that can conflict start from a clean folder, so "Abort" is always safe to promise. | 5.9 |
+| Discarded changes can be brought back for 14 days. | 5.4 |
+| Text from other people (pull requests, release notes, hover docs, commit messages) is shown as text or safe Markdown, without remote images. | 6 |
+| Update dialog: "Reopen when no task is running"; release notes come from the signed file. | 5.13 |
+| "Hide repository" and a one-time review of newly found repositories. | 5.2 |
+| Comment colour raised to pass 4.5:1; line numbers declared decorative. | 2 |
+| Large files are read-only above a fixed limit. | 5.3 |
+
+What the milestone-0 gate changed (revision 3):
+
+| Change | Where |
+|---|---|
+| A repository has two names, the local folder name and the remote name. Both show wherever they differ. Clone under a custom name; "Rename local folder". | 5.2, 5.2a |
+| Session switcher on Cmd+J from any screen. | 4.3, 5.7a |
+| "Closed, still running" rows with Force stop. | 5.6a, 5.7 |
+| The quit dialog asks every time: stop all, or keep running in the background. | 4.4, 5.6b |
+| "Free up space" replaces "Clean up finished tasks": sizes per part, every path listed before anything is deleted. | 5.7b |
+| Setup: no "install into my own folder" button; "verify signature" comes before the password prompt; three new failure rows. | 5.1 |
+| A tool that sends no signals shows "Running (no signal)". | 5.6 |
+| TypeScript uses the TypeScript 7 native server first; at most 2 language servers by default. | 5.3 |
+| Add account: only the classic GitHub token with exact scopes; Bitbucket workspaces come from the token. | 5.11 |
+
+---
+
+## 1. What stays, what changes
+
+**Stays.** Neutral ink chrome on porcelain / slate. Saturated colour only for account identity (8 hues) and status. Identity stripe, monogram tile, perforated action row. Radius hierarchy 16 / 12 / 8 / 6 / 4. Voice: calm, specific, short; no exclamation marks; say what happened and what to do next. Full-width punctuation in Chinese with a half-width space between CJK and Latin or digits. Sentence case in English.
+
+**Changes.**
+
+1. **Two window layouts.** Sidebar layout for the management pages; **workspace layout** (icon rail + full-width header + status bar) once a repository is open. One click goes back.
+2. **Three new surfaces need colour, so three rules are added.**
+   - *Syntax colours* (`--syn-*`) are low-chroma. An identity chip or a status dot must stay louder than any token in the editor.
+   - *Git status in trees and lists* reuses status hues (`--git-mod` = info, `--git-add` = ok, `--git-del` = danger) and is always paired with a letter (M, A, D, U, C).
+   - *The terminal* is one dark surface in both themes (`--term-*`). The tools inside draw their own colours; a light terminal would fight them. A setting can switch it to follow the app theme.
+3. **Provider marks.** A small monochrome glyph (cloud for CodeCommit, the GitHub and Bitbucket marks) tells providers apart. Colour still means "this account", never "this provider".
+4. **Tool marks.** Claude Code, Codex and OpenCode each get a neutral glyph in a 22px ink tile (`.tool`). No vendor colours or logos.
+5. **Words.** New nouns in primary UI: 项目 / project, 工作区 / workspace (a folder a task or you work in), 任务 / task, 贮藏 / stash, 拉取请求 / pull request, 密钥 / key, 令牌 / token (allowed now, because the user creates one by hand). Still kept out of primary UI: worktree, PTY, LSP, HEAD, index, caffeinate. "Worktree" is always "独立工作区 / own workspace".
+
+---
+
+## 2. New tokens and classes
+
+Defined in `mockup.css`. Existing tokens are untouched.
+
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `--rail-w` | 52px | | icon rail |
+| `--ws-head-h` / `--ws-tabs-h` / `--status-h` | 46 / 40 / 26px | | workspace frame |
+| `--syn-kw` `--syn-str` `--syn-num` `--syn-com` `--syn-type` `--syn-fn` | #7440B6 #10775B #9B541F #687180 #0B6C86 #2A4BB8 | #C3ABFF #7FDDBF #F0BC92 #838D9C #85DAEC #A9BCFF | editor, diff, hover, peek |
+| `--editor-bg` `--editor-gutter` `--editor-line` | #FFFFFF #9AA3AF #F4F6F9 | #181C22 #5B6470 #1F242C | editor |
+| `--git-mod` `--git-add` `--git-del` | info / ok / danger | same roles | trees, gutters, counts |
+| `--term-bg` `--term-fg` `--term-dim` `--term-line` + ok / warn / info / danger / accent | #151A21 ... | #0E1115 ... | terminal, setup log |
+| `--dur-page` `--dur-panel` `--dur-list` | 200 / 220 / 180ms | | section 3 |
+| `--ease-enter` `--ease-exit` `--ease-move` | (.2,.8,.2,1) (.4,0,1,1) (.3,.7,.2,1) | | section 3 |
+
+All syntax and git colours are at least 4.5:1 on `--editor-bg` in both themes (same method as the identity palette). Comments are `#687180` in light (4.9:1 on white, 4.55:1 on the current-line tint) and `#838D9C` in dark (5.1:1); the first draft's values failed the rule and were replaced. **Line numbers (`--editor-gutter`) are decorative**: 2.55:1 in light and 2.85:1 in dark. They repeat information the status bar gives as text ("行 27，列 32"), so they are exempt from the text-contrast rule; the current line's number uses `--text-2` and does pass.
+
+New class families (stable names): `.ws*` (frame), `.rail__btn`, `.tree-switch`, `.splitbtn`, `.pane*`, `.tree`, `.fl` (file list), `.ed*` (editor), `.ln` (code line), `.hover-card`, `.peek`, `.ac` (completion), `.outline`, `.bpanel` (bottom panel), `.found`, `.diff`, `.hunk`, `.dl` (diff line), `.composer`, `.src-tag`, `.taskbar`, `.task`, `.state`, `.task-head`, `.term*`, `.sheet*`, `.opt`, `.tool-pick`, `.commit`, `.ref`, `.who`, `.refs`, `.cmp`, `.cf*` (conflict), `.opbar`, `.pr-*`, `.checks`, `.tl` (timeline), `.mergebox`, `.prov`, `.tool`, `.proj*`, `.suggest`, `.ai-badge`, `.awake`, `.setup*`, `.tool-row`, `.keyline`, `.pubkey`, `.howto`, `.verify`, `.ident*`, `.ladder`, `.affect`, `.update-banner`, `.ver`, `.usteps`, `.set-row`.
+
+Reused unchanged: `.app`, `.nav`, `.keyring`, `.btn*`, `.icon-btn`, `.card`, `.pass`, `.portal*`, `.acct-*`, `.badge`, `.dot`, `.banner`, `.field`, `.input`, `.select`, `.checkbox`, `.radio`, `.switch`, `.modal*`, `.menu`, `.toast`, `.progress`, `.spinner`, `.empty`, `.table`, `.row`, `.tabs`, `.segmented`, `.stepper`, `.kbd`.
+
+---
+
+## 3. Motion
+
+The owner asked for tasteful animation. `ui-spec.md` section 9 said "no entrance animations"; that line is replaced by this section. The rule that survives: **motion explains a change of place or state; nothing moves to decorate.**
+
+| Change | Motion | Duration / easing |
+|---|---|---|
+| Page switch (sidebar), workspace tab switch | new content fades in and rises 6px; old content is removed at once | `--dur-page` 200ms, `--ease-enter` |
+| Enter / leave the workspace | sidebar narrows 232 -> 52px while labels fade; header slides down 8px | 220ms, `--ease-move` |
+| Modal | existing: fade + 8px rise + scale .985 | 240ms |
+| Side sheet | slides in 24px from the right with a fade; backdrop fades | `--dur-panel` 220ms; out 160ms `--ease-exit` |
+| Bottom panel (terminal, problems, find) | height grows from the status bar; content fades after 60ms | 220ms |
+| Popover, menu, hover card, completion list | fade + 4px drop + scale .98 from the anchor edge | 160ms; hover card waits 350ms before it shows |
+| Project / portal / file-list group expand and collapse | height (grid rows 0fr -> 1fr) + fade; chevron turns 90 degrees | 220ms / 160ms |
+| List insert (new task, new commit, staged file) | row fades in and drops 4px; siblings slide to make room | `--dur-list` 180ms |
+| List remove (discard, unstage, dismiss suggestion) | row fades and collapses its height | 160ms, `--ease-exit` |
+| Reorder / stage-unstage move | FLIP: the row travels to its new place | 200ms, `--ease-move` |
+| Drag a repo to a project | the row lifts into a ghost (shadow-3, 1.2 degree tilt, 96% scale); valid targets get a 2px focus ring within 90ms; on drop the ghost shrinks into the target header and the count ticks | lift 120ms, drop 200ms; cancel returns in 200ms |
+| Toast | existing 240ms in; out 160ms; stacked toasts slide up | |
+| Progress bars | width eases; never jumps backwards | 240ms |
+| Task state change | dot colour cross-fades; "waiting for you" breathes at 1.6s; "running" uses the existing pulse | 160ms |
+| Terminal session start | the terminal fades in after the first byte, never an empty flash | 120ms |
+| Success (verify key, install done, merge done) | existing check draw | 420ms |
+| Conflict block resolved | block bar turns from warn to ok; chosen lines flash the add colour once | 240ms |
+
+Rules:
+
+- Durations stay within 120-240ms except the check draw. Nothing blocks input: every animation can be interrupted by the next action.
+- Only `opacity`, `transform` and grid-row size are animated. No layout thrash in lists of hundreds of rows: above 200 rows, insert / remove / reorder motion is skipped.
+- Ambient loops are limited to three: the running pulse, the waiting breath, the login handoff dot. Each exists only while its state lasts.
+- `prefers-reduced-motion: reduce` or Settings > Appearance > Motion = Reduced: every transition and animation drops to about 1ms (the existing global rule), spinners keep a slow turn, the waiting breath becomes a steady warn dot, drag keeps the ring but no lift. Motion = Full overrides the OS; Motion = System follows it.
+- The terminal and the editor never animate their text.
+
+---
+
+## 4. Information architecture
+
+### 4.1 Sidebar (management layout)
+
+```
+[icon] Codepass
+       账号 · 仓库 · AI 编码          Accounts · repos · AI
+
+  项目          2 待处理             Projects        2 to fix
+  AI 任务       1 等待你             AI tasks        1 waiting
+  拉取请求      2 待评审             Pull requests   2 review
+  账号                               Accounts
+
+  登录状态                           Sign-in status
+   * [aws] acme-prod      6:12
+   * [aws] initech       48m
+   * [gh]  alex-dev       密钥 / Key
+   * [bb]  alex_acme      密钥 / Key
+
+  Git 设置                           Git settings
+  安全与环境                         Health
+  教程                               Tutorial
+  ------------------------------
+  [cup] 保持唤醒中     2 个任务      Keeping awake   2 tasks     (only while held)
+  设置  (dot when an update is ready) Settings
+```
+
+- Order is by daily use. Counts show work to do, never totals, and hide at zero. "AI tasks" turns warn when a task waits for the user and shows a pulsing info dot when tasks only run.
+- **Pull requests** (sidebar) is every GitHub / Bitbucket repository's list in one page, grouped by repository, with the same row component as the repository tab. It is not drawn separately in the mockup; the nav item opens the per-repository screen.
+- Keyring rows gain a provider mark. A GitHub / Bitbucket row shows `密钥 / Key` when the key is verified, `未验证 / Unverified` in warn when not, `令牌过期 / Token expired` in warn when the API token fails.
+- The Terminal helper page is gone. Its job moved into the workspace's terminal panel.
+- The keep-awake chip (`.awake`) sits above Settings: cup icon, "保持唤醒中", task count. Click opens AI tasks. Tooltip: "有 AI 任务在运行，这台 Mac 不会自动睡眠 / AI tasks are running, so this Mac will not sleep on its own".
+
+### 4.2 Workspace layout
+
+```
++--------------------------------------------------------------------------------------+
+| o o o [<] acme > [aws] acme_api  [主工作区 · main v]   [↓0 ↑2 推送|v] [AP acme-prod] [gear] |
++----+---------------------------------------------------------------------------------+
+|rail| 代码  改动 5  历史  分支  拉取请求  AI 任务 1            [搜索文件、符号、命令  ⌘K] |
+|    |---------------------------------------------------------------------------------|
+|    |  tab content                                                                    |
+|    |  (optional bottom panel: 终端 / 问题 / 查找结果)                                |
++----+---------------------------------------------------------------------------------+
+| 终端 ⌃`   ⊗1 ⚠0   在文件中查找 ⇧⌘F                 gopls ✓  tsserver ✓  行 27，列 32  UTF-8  Go  保持唤醒 · 2 个任务 |
++--------------------------------------------------------------------------------------+
+```
+
+- **Header** (`.ws__head`, 46px, full width, drag region). On macOS the first 84px are reserved for the traffic lights; on Windows the system title bar sits above and the reserve is dropped. Contents: back button (to Projects), project > provider mark + repository name, the **working-tree switcher**, spacer, the **sync button**, the account chip (opens the bind popover, as today), the gear (repository settings sheet).
+- **Working-tree switcher** (`.tree-switch`). A menu with "主工作区 · `<branch>`" first, then one row per AI task that has its own workspace (tool mark, title, branch, state). Choosing a row re-points Code, Changes, History and the terminal at that folder. While a task workspace is selected the pill turns info-tinted and the header gets a 2px info line along its bottom edge, so the folder on screen is never ambiguous. Shortcut: Ctrl+Tab cycles. Open editor tabs, unsaved edits, the selected file and the bottom panel are kept **per folder**: switching away and back restores them. Inside a task's folder the branch cannot be switched (the branch control is replaced by the task's branch chip with the tooltip "任务的工作区固定在它自己的分支上 / A task's workspace stays on its own branch").
+- **Sync button** (`.splitbtn`): `↓n ↑m` and the obvious verb. `↑>0` "推送 / Push"; `↓>0` "拉取 / Pull"; both "同步 / Sync"; no upstream "发布分支 / Publish branch"; nothing to do "获取 / Fetch". The caret menu: Fetch, Pull (merge), Pull (rebase), Push, Push with lease... (confirm), Manage remotes. While running, the icon spins and the label becomes the step ("正在推送... / Pushing..."). The button always describes the **selected folder**. With a task's workspace selected and its branch never pushed, it reads "发布分支 / Publish branch" with no counts (shot `workspace-changes-light-zh`). "Push with lease" is described in 5.8.
+- **Rail** (`.ws__rail`): the sidebar's destinations as 36px icon buttons with tooltips, pips for counts, the cup when keep-awake is held. The Projects button is active while a repository is open.
+- **Tabs** (`.ws__tabs`): six, with counts where there is work (changed files, open PRs, tasks waiting). The quick field on the right opens the palette (Cmd/Ctrl+K).
+- **Status bar** (`.ws__status`, 26px): terminal toggle; problems; context (branch, or the task folder); on the right the language servers, cursor position, encoding, language, keep-awake. Every item is a button with a tooltip.
+- **Bottom panel** (`.bpanel`): Terminal / Problems / Find results. It opens under any tab, 196px by default, resizable, remembered per repository. A plain shell here is not an AI task and never holds the computer awake.
+- **Repository settings sheet** (gear; `.sheet`, not drawn): account binding, remotes (add, rename, remove, set URL), author identity (follow project / follow global / own), AI defaults for this repository (tool, where tasks run, "启动 AI 任务时预先选好这个仓库的 AWS 账号 / Start AI tasks with this repository's AWS account selected", off by default. Its help line is honest: "这只是省一步操作。不论开关，任务都以你的身份运行，能使用你已登录的任何 AWS 账号。 / This only saves a step. Either way a task runs as you and can use any AWS account you are signed in to."), setup command for new workspaces. Also: "隐藏这个仓库 / Hide this repository" (5.2).
+
+### 4.3 Keyboard
+
+| Shortcut (mac / win) | Action |
+|---|---|
+| Cmd/Ctrl + 1..4 | Projects, AI tasks, Pull requests, Accounts |
+| Cmd/Ctrl + , | Settings |
+| Cmd/Ctrl + K | Palette: project, repository, task, file, command |
+| Cmd + J (mac) / Ctrl + J (win) | Session switcher: every live AI session in every repository (5.7a). On Windows, while a terminal has focus, it is Ctrl + Shift + J, because Ctrl+J is a line feed that terminal programs use for a new line. |
+| In a workspace | |
+| Ctrl + 1..6 (mac) / Alt + 1..6 (win) | workspace tabs |
+| Cmd/Ctrl + P | Quick open file |
+| Cmd/Ctrl + Shift + O | Go to symbol in file |
+| Cmd/Ctrl + T | New AI task |
+| Cmd/Ctrl + Shift + F | Find in files |
+| Cmd/Ctrl + F / G | Find in file / next |
+| Ctrl + G | Go to line |
+| F12 or Cmd/Ctrl + click | Go to definition; Alt + F12 peek; Shift + F12 references |
+| Ctrl + Space | Completion |
+| Cmd/Ctrl + S | Save; Cmd/Ctrl + W close the editor tab (never the window while a tab is open); Cmd/Ctrl + \ split |
+| Ctrl + ` | Toggle terminal panel |
+| Cmd/Ctrl + Enter | Commit (in the message box) |
+| F7 / Shift + F7 | Next / previous change or conflict |
+| Ctrl + Tab | Cycle working trees |
+| Esc | Close peek, popover, sheet, modal; in the terminal it goes to the terminal |
+
+When the terminal has focus, only Ctrl+`, Cmd/Ctrl+1..4 and the session switcher (Cmd+J on macOS, Ctrl+Shift+J on Windows) are taken by the app. Everything else, including Esc and Ctrl+C, goes to the process.
+
+### 4.4 App menu, closing the window, quitting
+
+The app installs its own menu. The default menu of the framework is not used, because it reloads the page on Cmd+R, closes the window on Cmd+W and has a Help item that loads a website into the app window.
+
+| Menu | Items |
+|---|---|
+| Codepass | About Codepass, Check for updates..., Settings... (Cmd+,), Hide, Hide others, Quit Codepass (Cmd+Q) |
+| File | New AI task (Cmd+T), Quick open (Cmd+P), Save (Cmd+S), Close tab (Cmd+W), Close window (Shift+Cmd+W) |
+| Edit | Undo, Redo, Cut, Copy, Paste, Select all (the system items; text fields, the editor and the terminal need them), Find (Cmd+F), Find in files (Shift+Cmd+F) |
+| View | Projects, AI tasks, Pull requests, Accounts (Cmd+1..4), Switch session (Cmd+J), Toggle terminal (Ctrl+`), Actual size / Zoom in / Zoom out, Enter full screen |
+| Window | Minimize, Zoom, Bring all to front |
+| Help | Tutorial, Illustrated guide, Report a problem (opens the repository's issues page in the browser) |
+
+- **Cmd+W** closes the active editor tab. With no tab open it does nothing in the workspace layout and closes the window in the management layout.
+- **Cmd+R** rescans repositories on the Projects page and does nothing elsewhere. The page is never reloaded by a shortcut.
+- **Closing the window while AI tasks run** hides the window; the app stays in the Dock (macOS) or the tray (Windows) and the tasks keep running. The first time, a toast-style system notification (built by A2-08) says so: "Codepass 还在运行，2 个 AI 任务没有中断 / Codepass is still running. 2 AI tasks were not interrupted". With no task running, closing the window quits, as today.
+- **Quit** (Cmd+Q, the menu, the Dock, the tray) with live AI sessions, or with programs a closed session left running, **always** opens the quit dialog (5.6b): "全部停止并退出 / Stop all and quit" or "留在后台继续运行 / Keep running in the background". It asks every time; there is no "don't ask again" and no setting. Unsaved files are listed in the same dialog (5.3). When the computer is logging out, restarting or shutting down, no dialog is shown (the framework cannot hold a logout open): everything is stopped and the app quits at once; unsaved edits are kept in the recovery store, and nothing blocks the shutdown.
+- **Background mode.** After "Keep running in the background" the window is closed and the app stays in the Dock (macOS) or the tray (Windows) with its sessions; clicking the icon brings the window back. The app does not quit when its last window is hidden.
+- **Unsaved edits survive a crash or reload.** Every unsaved change is mirrored to the app's recovery store within a second. After a crash, the file reopens with a bar: "恢复了上次没保存的修改 / Restored your unsaved changes from last time" - 保留 / 丢弃 (Keep / Discard).
+- Windows has no menu bar: the same commands live in the palette (Ctrl+K) and the shortcuts above; Alt+F4 and the close button follow the rules for closing the window.
+
+---
+
+## 5. Screens
+
+Each screen lists layout, components, states, interactions, accessibility and copy. Light and dark use the same structure; notes appear only where a theme needs care.
+
+### 5.1 First-run setup (`setup`)
+
+Shots: `setup-light-zh`, `setup-idle-light-zh`, `setup-failed-light-zh`, `setup-done-light-zh`, `setup-win-light-en`, `setup-dark-zh`.
+
+**When.** Every launch runs the environment check. It uses only local checks (does the file exist, what does `--version` print, with a 5 second limit) and **never the network**, so a Mac without a connection whose tools are installed goes straight into the app. This screen replaces the whole window only when something is **missing or below the hard minimum**: Homebrew (macOS) or winget (Windows) not installed, git older than 2.39.1, AWS CLI older than 2.9.0. No sidebar, no way around it except quitting. A tool that is merely older than recommended (for example AWS CLI below 2.22) never blocks: it shows as an "更新 / Update" action on the Health page.
+
+**Layout.** Two columns, centred: introduction on the left (app icon, title, lead, three notes), one card on the right (`.setup__card`): header with "n of 3 ready", one `.tool-row` per tool, the live log, the footer with the single primary button.
+
+**Tool rows.** Icon tile, name, one line saying what it is for, state on the right.
+
+| State | Right side |
+|---|---|
+| Found | ok check + "已安装 / Installed" + version (mono) |
+| Missing | "未安装 / Not installed" (muted) |
+| Too old | warn "版本太旧 / Too old" + found version; it will be upgraded |
+| Queued | "排队中 / Queued" |
+| Installing | spinner + "正在安装 / Installing"; the row tints info and shows a progress bar and the exact command with the current step |
+| Failed | danger "没有装上 / Not installed" |
+
+**Flow, macOS.** (1) Homebrew: download `Homebrew.pkg`; its size, checksum and signature are checked **before** any password is asked ("验证签名 / Verify signature"); then macOS shows its own password prompt once; under that single approval the package is copied to a protected place, checked again there against Homebrew's developer identity, and only then installed. The row shows three short steps (下载 / 验证签名 / 安装). The install step cannot report progress while it runs, so it shows one indeterminate state ("正在安装，大约一分钟 / Installing, about a minute") and then a single result line, not a live log. (2) `brew install git`. (3) `brew install awscli`. One click runs all three in order. The app turns off Homebrew's analytics for every brew command it runs, and the second note says so. **Flow, Windows.** winget must exist (if not: one button "打开 Microsoft Store 安装「应用安装程序」/ Open Microsoft Store to get App Installer", then re-check on focus). Then `winget install --id Git.Git -e` and `winget install --id Amazon.AWSCLI -e`; each raises a User Account Control prompt. The AWS CLI installer is treated as machine-wide and needing an administrator (a per-user install is offered only if the Windows test shows it works).
+
+**States.**
+
+- *Idle*: primary "一键安装 / Install everything"; ghost "我自己安装 / I'll install them myself" (opens the official pages and switches the footer to "重新检查 / Check again").
+- *Running*: primary shows the spinner; ghost becomes "取消 / Cancel" (stops after the current step; what is installed stays). The log (`.setup__log`) shows the real output, last 5 lines, expandable to full height. Over 10 s without output: "还在下载，网络较慢时会久一些 / Still downloading. This takes longer on a slow connection".
+- *Waiting for the OS prompt*: the current row says "等待你在 macOS 的窗口里确认 / Waiting for you to confirm in the macOS window" (Windows: "等待你在 Windows 的窗口里确认"). The app window dims nothing; the prompt belongs to the OS.
+- *Failed*: a danger banner inside the card names the tool and the cause in plain words, the log shows the failing lines in danger colour, buttons: "重试 / Try again" (continues from the failed step), "复制日志 / Copy log", "我自己安装". Known causes get their own sentence: timeout or proxy, password prompt cancelled ("你取消了 macOS 的密码窗口 / You cancelled the macOS password window"), disk full, package signature invalid ("安装包的签名不对，已停止 / The installer's signature is wrong, so nothing was run"), company policy blocks installs.
+- *Failure states with their own sentence and next step* (each keeps "复制日志 / Copy log" and "我自己安装 / I'll install them myself"):
+
+  | Cause | Title (zh / en) | Next step |
+  |---|---|---|
+  | Not an administrator (shot `setup-noadmin-light-zh`) | "Homebrew 没有装上：这个账号不是管理员 / Homebrew was not installed: this account is not an administrator" | "请管理员在 macOS 的窗口里输入他的用户名和密码，然后重试 / Ask an administrator to enter their name and password in the macOS window, then try again". Shown before the prompt when the account is not an administrator, so the user knows whom to fetch. There is no "install into my own folder" button: milestone 0 showed that such an install compiles from source and needs an administrator anyway. |
+  | Network or proxy | "下载超时 / The download timed out" | "检查网络后重试 / Check the network and try again". When the system has a proxy configured the line adds "已使用系统代理 proxy.example.com:8080 / Using the system proxy proxy.example.com:8080". |
+  | Blocked by company device management | "这台电脑的管理策略不允许安装 / This computer's management policy does not allow the install" | "请联系你的 IT 管理员 / Contact your IT administrator", with the exact package name to ask for. |
+  | Disk full | "磁盘空间不够，还需要大约 1.2 GB / Not enough disk space. About 1.2 GB more is needed" | "腾出空间后重试 / Free some space and try again" |
+  | Download damaged (size or checksum differs, or a proxy returned a web page) | "下载的安装包不完整 / The download is incomplete" | "重新下载 / Download again". No password was asked. |
+  | Package signature wrong | "安装包的签名不对，已停止 / The installer's signature is wrong, so nothing was run" | "重试 / Try again" downloads it again. |
+  | Homebrew's signer not recognised | "这个版本的 Codepass 不认识 Homebrew 安装包的签名者 / This version of Codepass does not know who signed Homebrew's installer" | "更新 Codepass 后重试 / Update Codepass, then try again"; "我自己安装" stays available. |
+  | Homebrew partly installed (`/opt/homebrew` exists without a working `brew`) | "/opt/homebrew 里已经有一份没装完的 Homebrew / There is an unfinished Homebrew in /opt/homebrew" | "请先自己修好或删除它，然后重新检查 / Repair or remove it yourself, then check again". Codepass never deletes it. |
+  | winget unavailable (Windows, Store blocked) | "这台电脑没有 winget，也打不开 Microsoft Store / This PC has no winget and cannot open Microsoft Store" | "请 IT 管理员安装「应用安装程序」/ Ask IT to install App Installer". |
+
+- The gate stays closed after a failed install (owner decision 1): there is no limited mode.
+- *Done*: all rows green, footer "都准备好了 / Everything is ready", primary "进入 Codepass / Open Codepass". The card's check draws once.
+- *Later in Health*: the same rows appear on the Health page with "更新 / Update" actions, plus the AI tools and language servers.
+
+**Copy.**
+
+| Key | zh-CN | en |
+|---|---|---|
+| title (mac / win) | 先把这台 Mac 准备好 / 先把这台电脑准备好 | Let's get this Mac ready / Let's get this PC ready |
+| lead (mac) | Codepass 用 Homebrew 安装和更新它需要的工具。点一次，其余的自动完成。 | Codepass uses Homebrew to install and update the tools it needs. One click, and the rest happens by itself. |
+| note 1 (mac) | 安装 Homebrew 时 macOS 会要你的密码。密码直接交给系统，Codepass 看不到。 | macOS asks for your password to install Homebrew. It goes straight to macOS; Codepass never sees it. |
+| note 2 (mac) | 只用官方安装包：Homebrew.pkg（先验证签名），再用 brew 安装 git 和 awscli。Codepass 运行 brew 时会关闭它的匿名统计。 | Only official installers: Homebrew.pkg (signature checked first), then git and awscli through brew. Codepass turns off Homebrew’s analytics for the commands it runs. |
+| note 3 | Claude Code、Codex 和 OpenCode 不在这里安装，第一次用到时再装。 | Claude Code, Codex and OpenCode are not installed here. Each one is installed the first time you use it. |
+| card title | 需要的工具 | Required tools |
+| why: Homebrew | 安装和更新下面两项，以及之后用到的工具 | Installs and updates the two tools below, and anything needed later |
+| why: Git / AWS CLI | 克隆、提交、推送 / 登录 AWS，访问 CodeCommit | Clone, commit, push / Sign in to AWS and reach CodeCommit |
+| fail title | Git 没有装上：下载超时 | Git was not installed: the download timed out |
+| fail text | 已经装好的不受影响。检查网络或代理后再试一次，会从这一步继续。 | What is already installed is untouched. Check the network or proxy and try again; it continues from this step. |
+
+**Accessibility.** The tool list is a `<ul>`; each state change is announced through one `aria-live="polite"` region ("Git 已安装，2 / 3"). The log is `role="log"` and is not announced line by line. Focus starts on the primary button; after a failure it moves to "Try again". Progress bars carry `aria-valuenow`.
+
+### 5.2 Projects (`projects`)
+
+Shots: `projects-light-zh`, `projects-dark-en`, `projects-drag-light-zh`.
+
+**Header.** Title "项目 / Projects"; subtitle "3 个项目 · 12 个仓库 · 刚刚扫描 ~/Documents/code". Actions: Rescan (icon), "克隆仓库 / Clone repository", primary "新建项目 / New project".
+
+**Toolbar.** Segmented filter 全部 / 待处理 / 有改动 (All / To fix / With changes), a provider filter menu, search (repository or project name; matching repositories stay under their project header, other projects hide).
+
+**Project section** (`.proj`). The portal-section pattern from Accounts, reused: chevron + layers tile, name, meta ("4 个仓库 · 2 个 AI 任务运行中"), the project's author identity on the right if it has one, a menu (rename, author identity, add repositories, new AI task in..., remove project). Collapse state is remembered. Collapsed sections show the account chips of their repositories as a peek, as portals do.
+
+**Repository row** (`.proj-table`, 6 columns): select; provider mark + name (two names when they differ, see below) + path (middle-truncated); account chip (or dashed "未绑定 / Not bound"); branch and sync (`↑2 · 5 个改动`, `↓4`, "干净 / Clean"); status (dot + two lines, same vocabulary as today); actions (AI badge, a primary fix button when the row needs one, else the More menu). **Clicking a row opens the workspace.** The chip still opens the bind popover; the checkbox and buttons do not open the workspace.
+
+- AI badge (`.ai-badge`): "1 运行中 / 1 running" in info with a pulsing dot; "1 等待你 / 1 waiting" in warn when any task of that repository waits. Click goes to the repository's AI tasks tab.
+- Status additions: "有 4 个新提交可以拉取 / 4 new commits to pull", "1 个拉取请求等你评审 / 1 pull request to review", "SSH 密钥还没验证 / SSH key not verified yet" (warn, action "验证 / Verify"), "登录还剩 48 分钟 / Sign-in ends in 48 min".
+
+**Two names** (`.remote-name`). A repository has a local folder name and a remote name (the last part of the origin URL). When they are the same, one name is shown, as before. When they differ, the **local folder name comes first** and the remote name follows as a small outlined tag: `api-main` `远程 acme_api` / `api-main` `remote acme_api`. This one component (`RepoName`) is used in project rows, the workspace header crumb, the AI tasks page, the session switcher, the quit dialog, the Free up space dialog, pull request groups and search results. Screen readers hear "api-main，远程仓库名 acme_api / api-main, remote name acme_api". Search matches either name. A repository with no remote shows only the folder name.
+
+**Row menu** (More): Open, Bind account..., Move to project, **重命名本地文件夹… / Rename local folder...** (5.2a), Reveal in Finder, Open in system terminal, Hide.
+
+**Moved by hand.** When a folder was renamed or moved outside the app, its row turns warn: "找不到这个文件夹 / This folder is gone" with "重新定位… / Locate..." and "从列表移除 / Remove from list". When a scan finds a repository that matches exactly one such row (same first commit and same remote), the found row asks instead: "这是移动过来的 acme_api 吗？ / Is this acme_api, moved here?" - 是，接上原来的记录 / 不是，当作新仓库 (Yes, keep its records / No, treat it as new).
+
+**Ungrouped.** The last section, "未分组 / Ungrouped", with a folder tile and no menu.
+
+**Suggestion** (`.suggest`, dashed, calm): "发现 3 个以 initech_ 开头的仓库，要放进同一个项目吗？ / Found 3 repositories that start with initech_. Put them in one project?" with "创建项目 initech / Create project initech" and "不用了 / No thanks". One suggestion at a time, placed directly above Ungrouped. Dismissed suggestions do not return for the same prefix.
+
+**Newly found repositories** (shot `projects-found-light-zh`). Codepass lists every git repository under the scan folders, not only CodeCommit ones. After the upgrade from AWS SSO Hub, and whenever a scan finds repositories it has not shown before, they are **not** added to the list. One solid `.suggest` row appears under the header: "又发现了 23 个仓库（Codepass 现在会列出所有 Git 仓库，不只是 CodeCommit）。它们还没有显示在列表里。 / Found 23 more repositories (Codepass now lists every Git repository, not only CodeCommit). They are not in the list yet." with primary "挑选要显示的 / Choose which to show" (a checklist modal: name, path, provider mark, last commit date; "全选 / Select all"; pre-ticked when the repository has a commit from the last 90 days) and "全部隐藏 / Hide them all". Repositories that were in the list before the upgrade stay.
+
+**Hide repository.** Row menu and bulk bar: "隐藏 / Hide". A hidden repository leaves the list, the counts, background checks and suggestions; nothing on disk changes. The toolbar's filter menu gains "已隐藏 12 / Hidden 12", which shows them dimmed with "取消隐藏 / Unhide". Toast: "已隐藏 old_fork / Hid old_fork" with Undo.
+
+**Create / rename / remove.**
+
+- New project: `.modal--sm`, one field "项目名 / Project name", then a checklist of ungrouped repositories (pre-ticked by prefix match), optional "作者身份 / Author identity" disclosure. Primary "创建项目 / Create project".
+- Rename: inline edit of the title (Enter saves, Esc cancels).
+- Remove: confirm "移除项目 acme？4 个仓库会回到「未分组」，磁盘上的文件不会动。 / Remove project acme? Its 4 repositories go back to Ungrouped. Nothing on disk is touched." Primary "移除项目 / Remove project". If the project has an identity: one more line listing the repositories that fall back to the global identity.
+
+**Move.** Drag a row by its grip (appears on hover and on keyboard focus) onto a project header or onto Ungrouped; or select rows and use the bulk bar: "已选 2 个仓库 · 移到项目 ▾ · 检查连接". Keyboard: focus a row, press M, pick a project in the menu. If the destination has an identity, a confirm lists which repositories' author identity will change and which keep their own. Toast: "已把 initech_gateway 移到 globex / Moved initech_gateway to globex" with Undo.
+
+**States.** Loading: skeleton rows under real section headers. Scanning: the indeterminate bar under the toolbar with "正在扫描 ~/Documents/code... 已找到 9 个". Empty (no repositories at all): `.empty` "还没有仓库 / No repositories yet" with "克隆仓库" and "添加文件夹 / Add a folder". Empty project: one dashed row "把仓库拖到这里，或者从菜单添加 / Drag repositories here, or add them from the menu". Search with no result: "没有匹配的仓库 / No matching repositories" + "清除搜索 / Clear search". Git status of a row failing to load shows "读取不了这个文件夹 / Cannot read this folder" in danger with "重试".
+
+**Clone** (the existing multi-select modal, now on this page). Each ticked repository row gains an inline field "本地文件夹名 / Local folder name", pre-filled with the remote name. Below the list, live: "会克隆到 ~/Documents/code/api-main / Clones into ~/Documents/code/api-main". Errors are inline and block the primary button: "这个文件夹已经存在 / This folder already exists", "名字里不能有 / 或 \\ / The name cannot contain / or \\", "两个仓库不能用同一个文件夹名 / Two repositories cannot use the same folder name". A changed name shows a small "和远程不同 / differs from remote" tag so a slip is visible. Nothing else in the AWS clone flow changes; the source switch and the Project field arrive with the new providers.
+
+**Accessibility.** Each section is a `<section>` with the toggle as a button (`aria-expanded`, `aria-controls`). The table keeps the roving grid from today. Drag and drop has the keyboard path above and announces "已拿起 initech_gateway / Picked up initech_gateway", "在 globex 上方 / Over globex", "已移到 globex / Moved to globex" through a live region.
+
+### 5.2a Rename local folder (`rename-folder`)
+
+Shot: `rename-folder-light-zh`.
+
+From the repository row menu and the repository settings sheet. Modal, 640px. It renames the folder on this computer and can move it under another parent folder on the same disk. The remote repository is not touched.
+
+**Layout, top to bottom.**
+
+1. Header: "重命名本地文件夹 / Rename local folder"; sub "只改这台电脑上的文件夹。远程仓库不会变。 / Only the folder on this computer changes. The remote repository stays as it is."
+2. **Two name boxes** (`.two-name`) with an arrow between them. Left, sunken and fixed: provider mark, "远程仓库名 / Remote name", the name in mono, "保持不变 / Stays the same". Right, ink-outlined (the only editable thing): folder icon, "本地文件夹名 / Local folder name", a mono input, hint "现在是 acme_api / Now acme_api". Focus starts here with the name selected.
+3. **放在哪里 / Location** (`.path-line`): the old path struck through, arrow, the new path in full; button "换一个上级文件夹… / Choose another parent folder...". The line updates as the user types.
+4. Two lists side by side (`.rf-cols`, each an `.affect` list with an icon, a title and one line):
+   - **开始前会停止 / Stopped first**: AI sessions (count, with the live state on the right; "对话会保留，改名后可以继续 / Conversations are kept and can be resumed"), terminals (count and shell), code intelligence ("之后自动重启 / restart by themselves"), file watching ("之后自动恢复 / Comes back by itself"). Rows that do not apply are left out. When nothing would be stopped, the list is replaced by "没有需要停止的程序 / Nothing needs to stop".
+   - **会跟着更新 / Updated to match**: project and repository records ("绑定的账号、作者身份不变 / Account binding and author identity are unchanged"), task workspaces ("重新连到新位置，文件夹不动 / Re-linked to the new location; their folders do not move"), task records and connection checks.
+5. Warnings, only when true (warn banner, one sentence each):
+   - "在主工作区运行过的 1 个 Claude Code 会话可能接不上原来的对话：这个工具按文件夹路径保存对话。 / 1 Claude Code session that ran in the main workspace may not find its earlier conversation: that tool files conversations by folder path."
+   - "~/.gitconfig 里有一条按旧路径写的规则，Codepass 不会改它。 / A rule in ~/.gitconfig names the old path. Codepass does not change it." with "打开那个文件 / Open that file".
+6. Promise line (`.note-line`, shield): "任何一步失败，文件夹都会改回原来的名字，记录也恢复原样。 / If any step fails, the folder gets its old name back and every record is restored."
+7. Footer: 取消 / Cancel; primary "停止并重命名 / Stop and rename" (or "重命名 / Rename" when nothing has to stop).
+
+**States.**
+
+| State | What shows |
+|---|---|
+| Name unchanged or empty | primary disabled |
+| Name taken | inline danger under the field: "~/Documents/code 里已经有 api-main / ~/Documents/code already has api-main" |
+| Invalid name | "名字里不能有 / 或 \\，也不能是 . 或 .. / The name cannot contain / or \\, or be . or .." |
+| Another disk chosen | warn under the location: "换到另一个磁盘需要整份复制，Codepass 1.0 不做这件事。请在访达里移动，再回来重新定位。 / Moving to another disk means copying everything, which Codepass 1.0 does not do. Move it in Finder, then locate it again here." Primary disabled. |
+| Operation in progress (merge, rebase) | banner "先完成或放弃正在进行的合并 / Finish or abort the merge in progress first"; primary disabled |
+| Running | the two lists become a step list with checks: 停止 2 个会话 / 重命名文件夹 / 更新记录 / 重新连接 2 个工作区 / 恢复监视 (Stop 2 sessions / Rename the folder / Update records / Re-link 2 workspaces / Resume watching). Cancel is disabled once the folder rename starts. |
+| Failed | danger banner naming the step: "没有重命名：有程序还在占用这个文件夹 / Not renamed: a program is still using this folder", then "已经改回原样 / Everything was put back", with "重试 / Try again". On Windows the banner names the program when it is known. |
+| Done | the modal closes; toast "已把 acme_api 重命名为 api-main / Renamed acme_api to api-main" with "撤销 / Undo" (while no session has started since); the row shows both names; stopped sessions show "继续 / Resume". |
+
+**Accessibility.** `role="dialog"`; the two boxes are a group labelled "名字 / Names"; the path line is `aria-live="polite"`; the lists are real lists; the failure banner is `role="alert"`.
+
+### 5.3 Code (`workspace-code`)
+
+Shots: `workspace-code-light-zh`, `workspace-code-dark-en`, `workspace-code-dark-zh`, `workspace-code-find-light-zh`.
+
+The Code tab is a full editor for the whole repository. It is the first tab and the default when a repository opens with no pending changes.
+
+**Layout.** Left column 248px (resizable 200-420): **Files** on top, **Outline** below (collapsible, 30% by default). Centre: one or two editor groups side by side (split is cheap with CodeMirror: two views on shared documents). Optional bottom panel.
+
+**Files** (`.tree`).
+
+- Header: "文件 / Files", New file, "只看有改动的文件 / Show changed files only" toggle. Filter field filters by path as you type (matches are bold; folders with matches stay open).
+- Rows 24px: chevron, folder / file icon, name, git letter on the right. Name colour follows git status: modified info, added ok, deleted danger with strike, conflicted danger, ignored disabled. A folder is tinted when something inside changed. Single-child folders are compacted (`web/admin/src/api`).
+- Interactions: click opens in a preview tab (italic title); double-click or editing pins it. Enter opens, arrows move, Right / Left expand / collapse, type-ahead. Context menu: New file, New folder, Rename, Delete (confirm, moves to the system trash), Copy path, Copy relative path, Reveal in Finder / Explorer, Open in terminal, File history, Discard changes.
+- Dotfiles are shown; `.git` is hidden; ignored folders (`node_modules`) appear dimmed and are not expanded by filter or search.
+
+**Outline** (`.outline`). Symbols of the active file from the language server (Go, TS/JS) or from the editor's parser for other languages. Kind tile (S struct, I interface, f function, m method, c const, v var), name, signature in muted text. The symbol holding the cursor is highlighted. Click jumps; the filter field appears on typing.
+
+**Editor group** (`.ed`).
+
+- **Tabs** (`.ed__tab`): file icon, name (git-coloured), close button or the dirty dot. Middle-click closes. Drag to reorder or to the other group. Overflow scrolls; a chevron menu lists all open files. Two files with the same name show their folder in muted text.
+- **Breadcrumbs** (`.ed__crumbs`): path segments then symbols. Each segment opens a menu of its siblings.
+- **Code** (`.ed__code`): 12.5px mono, 20px lines. Gutter: a 3px change bar (info modified, ok added, a danger wedge where lines were removed), then line numbers. Clicking the bar opens an inline diff of that hunk with "还原这一块 / Revert this hunk". Current line highlighted; matching brackets; indent guides; multiple cursors; soft wrap optional.
+- **Search in file**: a compact bar at the top right of the group (find, replace, case, word, regex, n of m).
+
+**Code intelligence (Go via gopls; TS/JS via the TypeScript 7 native server, or typescript-language-server for a project on TypeScript 5 or 6).** The status bar item reads "TypeScript ✓" either way; its tooltip names the server in use.
+
+| Affordance | Design |
+|---|---|
+| Hover (`.hover-card`) | After 350ms on a symbol: signature block (mono, highlighted), one paragraph of documentation, source file in muted text, footer with "⌘ 点击 跳到定义 / ⌘ click to go to definition" and "⇧F12 12 处引用 / 12 references". Stays while the pointer is inside it. Max 460x280, scrolls. |
+| Completion (`.ac`) | List of up to 8 rows: kind tile, name with the typed part in focus colour, type on the right. A side pane shows the selected item's signature and documentation. Enter inserts, Tab replaces the word, Esc closes. Appears after `.` and on Ctrl+Space. |
+| Go to definition | F12 or Cmd/Ctrl+click jumps (new preview tab if another file). The symbol under the pointer underlines while Cmd/Ctrl is held. |
+| Peek definition (`.peek`) | Alt+F12: an inline frame under the line, focus-coloured top and bottom borders, header with file, folder, "CalcFee 的定义 / definition of CalcFee", "打开文件 ⏎", "关闭 Esc". 6-10 lines, the definition line tinted. Editable. |
+| Find references | Shift+F12: results in the bottom panel's Find results tab, grouped by file. |
+| Diagnostics | Wavy underline (danger error, warn warning), a mark in the scrollbar, the count in the status bar, the list in Problems. Hovering shows the message first, then the hover content. |
+| Rename symbol, format | F2 and Shift+Alt+F when the server supports them. Not required for 1.0. |
+| Server status | Status bar: "gopls ✓". States: "正在启动 gopls... / Starting gopls...", "正在索引... / Indexing...", "gopls 没有运行 / gopls is not running" (danger, click for the log and "重新启动 / Restart"). First use: a quiet bar above the editor "打开 Go 文件需要 gopls，正在安装... / Go files need gopls. Installing..." with progress; failure offers "重试" and "先不用代码智能 / Continue without code intelligence". |
+
+Other languages (Python, Java, SQL, YAML, JSON, Markdown, Dockerfile, shell): highlighting, outline from the parser, bracket matching, find. No server.
+
+**Quick open** (Cmd/Ctrl+P; not drawn). A 560px palette at top centre: fuzzy match on path, recent files first, git letter on the right, `:` jumps to a line, `@` switches to symbols of the current file, `#` to workspace symbols (Go, TS). Cmd/Ctrl+K opens the same palette in "everything" mode with commands.
+
+**Find in files** (`panel=find`). Bottom panel tab "查找结果 / Find results": query field with case / word / regex toggles and include / exclude globs, "3 个文件中有 7 处 / 7 results in 3 files", results grouped by file with line numbers and the match marked. Enter or click opens the file at the match; F4 / Shift+F4 step. Replace all asks for confirmation with the count. Searches respect `.gitignore`.
+
+**States.**
+
+- *No file open*: centred, quiet: "打开一个文件开始 / Open a file to start" with the four shortcuts (Quick open, Find in files, New AI task, Terminal) as `kbd` rows.
+- *Loading a file*: skeleton lines for over 150ms.
+- *Unsaved*: dirty dot on the tab; closing asks "保存对 settlement.ts 的修改吗？ / Save changes to settlement.ts?" 保存 / 不保存 / 取消. Quitting lists all unsaved files.
+- *Changed on disk* (an AI task or git rewrote it): no unsaved edits, reload silently and flash the changed lines once; with unsaved edits, a bar: "这个文件在磁盘上被改了 / This file changed on disk" - 比较 / 用磁盘上的 / 保留我的 (Compare / Use the disk version / Keep mine).
+- *Large file*: over 1 MB or a line over 20,000 characters opens with highlighting and code intelligence off: "文件较大，已关闭高亮和代码智能 / Large file: highlighting and code intelligence are off". It can still be edited and saved up to **3 MB**. Above 3 MB the file is **read-only**: "这个文件超过 3 MB，只能查看。请用其他编辑器修改。 / This file is over 3 MB and can only be viewed here. Use another editor to change it." with "在 Finder 中显示 / Reveal in Finder". Above 50 MB only the first 5 MB are shown, with a line saying so. (The limit comes from how the app sends a save; see the plan, section 5.)
+- *Binary*: no editor. Images up to 5 MB preview with size and dimensions; larger images and other binaries show type and size with "在 Finder 中显示 / Reveal in Finder".
+- *Save failed*: danger bar with the OS reason and "重试".
+- *Restored after a crash*: see 4.4.
+- *Fresh task workspace without dependencies* (TypeScript, no `node_modules`): diagnostics are held back and one quiet bar says "这个工作区还没有安装依赖，先不显示类型错误 / Dependencies are not installed in this workspace yet, so type errors are hidden for now" with "运行安装命令 / Run the setup command" (the repository's setup command, in the terminal panel) and "仍然显示 / Show them anyway".
+- *Language tools missing*: gopls needs Go. On macOS the TypeScript 7 server needs nothing else; a project on TypeScript 5 or 6 needs typescript-language-server, which brings Node. On Windows Node is needed once, to install the server. The first-use bar names what will be installed and how big it is, and asks: "要用 Go 的代码智能，需要安装 Go（约 250 MB）和 gopls。 / Code intelligence for Go needs Go (about 250 MB) and gopls." - 安装 / 先不用 (Install / Not now). For an older TypeScript project: "这个项目用的是 TypeScript 5，需要另一个语言服务和 Node（约 120 MB）。 / This project uses TypeScript 5, which needs a different language server and Node (about 120 MB)." Nothing is installed without that click.
+- *Many folders open*: at most 2 language servers run at once (4 on a Mac with 32 GB or more), and servers for folders that have not been looked at for 10 minutes are shut down; the status bar item shows "gopls 已休眠 / gopls is asleep" and wakes on the next edit or hover. When the limit forces a server to stop, the item says which: "为了省内存，已让 acme_api 的 gopls 休眠 / To save memory, gopls for acme_api was put to sleep".
+- *Read-only workspace* (a finished task being inspected after its folder was removed) does not exist: removed workspaces leave the switcher.
+
+**Accessibility.** The tree is `role="tree"`; tabs are a `tablist`; the editor exposes CodeMirror's accessible text area. Hover content is reachable with Cmd/Ctrl+K Cmd/Ctrl+I at the cursor. Completion is a `listbox` tied with `aria-activedescendant`. Git status is announced as text ("已修改 / modified"), not only by colour.
+
+### 5.4 Changes and the commit composer (`repo-commit`)
+
+Shots: `repo-commit-light-zh`, `repo-commit-light-en`, `repo-commit-dark-zh`.
+
+**Layout.** Left pane 340px: file groups, then the composer pinned at the bottom. Right: the diff of the selected file.
+
+**File groups** (`.fl__group` + `.fl`): **已暂存 / Staged**, **未暂存 / Not staged** (tracked changes and untracked files together; untracked show U), **贮藏 / Stashes** (collapsed; section 5.8). Each group header has its count and one action ("全部取消 / Unstage all", "全部暂存 / Stage all", "贮藏当前改动 / Stash changes"). A row: checkbox (ticking stages, unticking unstages; a partly staged file shows the indeterminate mark), name, folder, letter. Space toggles, Enter focuses the diff. Context menu: Stage, Discard changes..., Open in editor, File history, Copy path, Add to .gitignore.
+
+**Diff** (`.diff`).
+
+- File header: name, folder, +/- counts, Unified / Side by side, "暂存文件 / Stage file" (or "取消暂存 / Unstage file"), "丢弃改动 / Discard changes", file history.
+- Hunk header (`.hunk`): the `@@` line with "暂存这一块 / Stage hunk" and "丢弃这一块 / Discard hunk". For a staged file the buttons read "取消暂存这一块 / Unstage hunk".
+- Lines (`.dl`): two line-number columns, sign, code with syntax colours. Drag across lines (or Shift+arrows) to select; a small floating bar appears: "暂存 3 行 / Stage 3 lines", "丢弃 3 行 / Discard 3 lines".
+- Whitespace-only changes can be hidden (view menu). Long unchanged runs collapse to "展开 24 行 / Expand 24 lines".
+- New files show all lines added; deleted files all removed; renames show "retry.go → retrier.go"; binary files show "二进制文件，大小从 12 KB 变为 14 KB".
+
+**Composer** (`.composer`). Message box (first line is the summary; a soft mark at 72 characters, never a block), the identity line, the amend checkbox, the commit split button.
+
+- Identity line: user icon, `Alex <alex@acme.example.com>`, and a source tag (`.src-tag`): "来自项目 acme / From project acme" (info tint), "来自全局 / From global" (neutral), "仓库自己的 / Repository's own" (warn tint). Clicking opens the identity editor. No identity at all: the line turns warn, "还没有设置作者身份 / No author identity yet" + "去设置 / Set it", and Commit is disabled.
+- Button: "提交 2 个文件 / Commit 2 files" with Cmd/Ctrl+Enter. Caret: "提交并推送 / Commit and push". Disabled with a tooltip when nothing is staged ("先暂存要提交的文件 / Stage the files you want to commit") or the message is empty.
+- Amend: ticking loads the last message and adds a note "会改写上一次提交 a41c9e2 / This rewrites the last commit a41c9e2"; if that commit is already pushed: warn "上一次提交已经推送，改写后需要强制推送 / The last commit is already pushed. Rewriting it needs a force push".
+
+**Discard** always confirms and says what happens: "丢弃 batch.go 里的改动？这 8 行改动会从文件里移除。14 天内可以在「最近丢弃」里找回。 / Discard the changes in batch.go? These 8 changed lines are removed from the file. You can bring them back from Recently discarded for 14 days." For untracked files: "文件会移到废纸篓 / The file moves to the Trash". Focus starts on Cancel. Primary repeats the verb. The toast offers Undo. **最近丢弃 / Recently discarded** is a collapsed group under Stashes in the left pane: one row per discard (file or hunk, time), with "恢复 / Restore" and "彻底删除 / Delete for good". Discarded changes stay inside the repository; they are never copied anywhere else.
+
+**States.** Clean: `.empty` "没有改动 / No changes" with the last commit line and "在这个仓库新建 AI 任务". Loading: skeleton list. Committing: button `.is-loading`; then the staged group empties with the remove motion and a toast "已提交 a41c9e2" with "推送 / Push". Hook failure: danger banner above the composer with the hook's output in a details disclosure. Operation in progress (merge, rebase, cherry-pick, revert): the `.opbar` replaces nothing and sits above both panes (section 5.9). Signing failure (the repository signs commits and the key needs a PIN or passphrase the app cannot ask for): danger banner "提交需要签名，但签名程序要你输入密码，Codepass 弹不出那个窗口 / This commit must be signed, and the signing program wants a passphrase that Codepass cannot show a window for", with "在终端里提交 / Commit in the terminal" (opens the terminal panel with the command typed, not run).
+
+### 5.5 Reviewing an AI task (`workspace-changes`)
+
+Shots: `workspace-changes-light-zh`, `workspace-changes-dark-en`.
+
+The same Changes tab, pointed at a task's workspace through the switcher. It is not a second diff UI.
+
+- Header: the switcher pill is info-tinted with the task's branch; the 2px info line runs under the header.
+- **Task bar** (`.taskbar`) across the top: tool mark, "正在查看任务 修复结算对账的四舍五入误差 / Reviewing task ...", `ai/fix-settlement-rounding → main`, the state, then: "回到任务终端 / Back to its terminal", "丢弃任务 / Discard task" (danger ghost), "推送分支 / Push branch", primary "合并到 main / Merge into main".
+- Left pane: **相对 main 的改动 / Changes against main** (everything the task did since it branched: committed and not), then **任务里的提交 / Commits in this task**, then **还没提交 / Not committed yet**. A footer line states which identity will be used if merging has to commit first.
+- Right: the combined diff, file after file, each with "在编辑器中打开 / Open in editor" (opens the Code tab in the task's folder; edits there are saved into the task's workspace).
+
+**Finish actions.**
+
+| Action | Confirm copy (zh / en) |
+|---|---|
+| Merge into `<base>` | "把 ai/fix-settlement-rounding 合并到 main？包含 2 个提交和 1 个还没提交的文件（会先提交）。任务的工作区随后会删除。" / "Merge ai/fix-settlement-rounding into main? It has 2 commits and 1 file not committed yet (it will be committed first). The task's workspace is removed afterwards." Fields: commit message for the uncommitted part; checkbox "合并后删除分支 / Delete the branch after merging" (on). The dialog lists the steps it will take (below) in one muted line. |
+| Push branch | No confirm. Toast "已推送 ai/fix-settlement-rounding" with "创建拉取请求 / Create pull request" (GitHub, Bitbucket) or "在 AWS 控制台创建拉取请求 / Create it in the AWS console" (CodeCommit). The task stays. |
+| Discard task | "丢弃这个任务？2 个提交和 4 个改动的文件会被删除，分支 ai/fix-settlement-rounding 也会删除。14 天内可以在「最近丢弃」里找回。" / "Discard this task? 2 commits and 4 changed files are deleted, and so is the branch ai/fix-settlement-rounding. You can bring it back from Recently discarded for 14 days." Primary "丢弃任务". |
+| Keep | The default: do nothing. |
+
+**How merging works, in the order the user sees it.**
+
+1. *Bring the task up to date.* If `main` moved since the task started, main is first merged **into the task's workspace**. Conflicts are resolved there, in the conflict screen, with the task stripe on. The main workspace is not touched while this happens.
+2. *Move `main` forward.* Once the task contains everything in main, main only needs to move forward to the task's last commit. Three cases:
+   - `main` is checked out in the main workspace and has no changes in the way: it moves forward, and the files in the main workspace update.
+   - `main` is not checked out anywhere (the main workspace is on another branch): it moves forward without touching any folder. The toast says "已合并到 main。主工作区还在 feat/x 分支，没有变化。 / Merged into main. The main workspace is still on feat/x and did not change."
+   - `main` is checked out and has uncommitted changes in the same files: the app stops and asks: "主工作区有 3 个还没提交的改动会受影响 / The main workspace has 3 uncommitted changes in the way" - 先贮藏再合并 / 取消 (Stash them, then merge / Cancel). Nothing is stashed without that click.
+3. *Clean up.* The task's workspace is removed and, if ticked, its branch is deleted.
+
+While the task is still running, Merge and Discard first ask to stop it. "Rebase onto main" on a branch that is not checked out follows the same honesty: the confirm says "会在一个临时文件夹里完成，你的工作区不会变 / This runs in a temporary folder. Your workspace does not change."
+
+### 5.6 AI tasks in a repository (`workspace-ai`, `new-task`)
+
+Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `new-task-light-en`, `new-task-naming-light-zh`.
+
+**Layout.** Left pane 330px: the repository's tasks. Right: the selected task's header, session tabs, terminal.
+
+**Task list.** Header "这个仓库的任务 / Tasks in this repository" and primary "新任务 / New task" (Cmd/Ctrl+T). Rows (`.task`): tool mark, title, elapsed time; second line: state, branch (or "主工作区 / main workspace"), changed-file count. Active row: ink bar on the left. Order: waiting first, then running by start time; "已结束 / Finished" is a collapsible group (done, failed, stopped). Context menu: Rename, Review changes, Stop, Discard, Reveal folder. Rename edits the title in place and changes only the label. One muted line under the edit box says so: "只改任务名。分支名不变，AI 可能已经在用它。 / Only the task's name changes. The branch keeps its name, because the AI may already use it."
+
+**States** (`.state`, always dot + word).
+
+| State | zh / en | Dot |
+|---|---|---|
+| starting | 启动中 / Starting | busy pulse |
+| running | 运行中 / Running | busy pulse (info) |
+| running, no signal | 运行中（没有信号）/ Running (no signal) | steady info dot, no pulse. For a tool that cannot tell the app what it is doing. Tooltip: "这个工具不会告诉 Codepass 它是在干活还是在等你，请看终端。 / This tool does not tell Codepass whether it is working or waiting. Look at its terminal." |
+| waiting | 等待你 / Waiting for you | warn, breathing |
+| done | 已完成 / Done | ok |
+| failed | 失败 / Failed | danger |
+| stopped | 已停止 / Stopped | hollow |
+| closed, still running | 已关闭，仍在运行 / Closed, still running | warn, steady; always with the process count (5.6a) |
+
+"Waiting" raises: the tab count, the rail pip, the sidebar count, the repository row's badge, and a system notification when the window is not focused ("acme_api：Claude Code 在等你回答 / Claude Code is waiting for your answer").
+
+**Task header** (`.task-head`). Large tool mark, title (double-click to rename), branch chip (`.ref--ai`), "从 main 创建 · 独立工作区 / from main · own workspace", elapsed time, state. Actions: "查看改动 4 / Review changes" (switches the working tree and opens Changes), "合并到 main" with a caret (Push branch, Discard task, Keep), Stop.
+
+**Session tabs** (`.term-tabs`). One tab for the AI tool, then any shells opened in the same folder ("zsh"), then `+`. On the right, in dim mono: the terminal size.
+
+**Session bar** (`.term-note`, 30px, between the tabs and the terminal). The app cannot and must not draw inside the tool's own screen, so everything the app wants to say about a session sits here: "这个任务以你的身份运行，你能读写的它都能读写。 / This task runs as you. It can read and change whatever you can."; the tool's approval mode ("批准方式 每次询问 / Approvals: ask every time", read from the tool's own settings; Codex shows its sandbox mode); the author that commits will use ("提交作者 Alex <alex@acme.example.com>"); and the link "了解任务能做什么 / What a task can do". That link opens a short sheet in plain words: a task can read and change any file you can, use any AWS account you are signed in to, use the SSH keys on this computer, and run any command; Codepass never turns off the tool's own permission questions and has no switch to do so; choose "own workspace" so tasks cannot disturb each other, and read the changes before you merge. There is no "AWS_PROFILE" badge: it suggested a protection that does not exist.
+
+**Terminal** (`.term`). xterm.js on `--term-bg`, 12.5px mono, 19px lines, 16px padding. The tool draws its own interface; the app adds nothing inside it. Copy on select is off; Cmd/Ctrl+C copies when there is a selection, otherwise it is sent to the process. Paste of more than 5 lines asks once. Shift+Enter inserts a new line in tools that support multi-line input. Chinese and other wide characters keep their columns; typing with a Chinese input method shows the candidate window at the cursor. `https://` links are Cmd/Ctrl+clickable and open in the browser; `http://localhost` and `http://127.0.0.1` links (dev servers) also open, after a one-time confirm per port; other `http://` links are copied, not opened. File paths with a line number open in the Code tab. A program inside the terminal cannot write to the clipboard. Scrollback 10,000 lines, kept while the task exists; a terminal stays alive when you switch page, tab or folder, so coming back shows the exact screen you left. Search in scrollback: Cmd/Ctrl+F inside the terminal. Settings has "屏幕阅读器模式 / Screen reader mode" for the terminal (off by default; it exposes the output as text at some cost in speed).
+
+**Keep-awake line.** At the bottom of the task list while held: cup + "有任务在运行，这台 Mac 保持唤醒。合上盖子仍会睡眠。 / Tasks are running, so this Mac stays awake. Closing the lid still sleeps it." The same state shows in the status bar, the rail and the sidebar.
+
+**Other states.**
+
+- *No tasks*: `.empty` with the three tool marks: "让 AI 在这个仓库里干活 / Put an AI to work in this repository", text "每个任务有自己的文件夹和分支，可以同时开几个，互不影响。 / Each task gets its own folder and branch. Run several at once; they cannot disturb each other.", primary "新任务".
+- *Tool not installed*: the terminal area shows a card instead: tool mark, "还没有安装 OpenCode / OpenCode is not installed yet", the exact command that will run, primary "安装并开始 / Install and start", then the install log in the same terminal surface.
+- *Tool needs sign-in*: nothing special. The tool's own sign-in appears in the terminal; a one-line hint above it the first time: "登录由 Claude Code 自己处理，Codepass 不保存任何 AI 账号信息。 / Sign-in is handled by Claude Code itself. Codepass stores no AI account details."
+- *Process ended*: a bar under the terminal: done "任务结束了 / The task ended" + "查看改动", "再开一个会话 / Start another session"; failed shows the exit code and "重新开始 / Start again".
+- *App restarted*: tasks are listed as stopped with "继续 / Resume". Resume reopens **that task's own conversation** in its folder (the app remembers each session's identifier), so two tasks in one folder never resume into each other. If the tool no longer has that conversation: "找不到原来的会话，已开始一个新的 / The earlier session could not be found, so a new one was started".
+- *Fifth concurrent task*: a confirm, once: "已经有 4 个任务在运行。所有任务共用同一个账号的用量，开得越多用得越快。 / 4 tasks are already running. All tasks share one account's usage allowance; more tasks spend it faster." 继续 / 取消. The cap (default 6) is in Settings.
+- *Quit with running tasks*: the quit dialog (5.6b), every time. Closing the window does not ask: it hides the window and the tasks keep running (4.4).
+- *Stop task*: ends the tool and every program it started (a dev server, a test watcher). The confirm says so when such programs exist: "还会结束它启动的 2 个程序 / This also ends 2 programs it started".
+
+#### 5.6a Closed, but still running (`ai-leftover`)
+
+Shot: `ai-leftover-light-zh` (drawn on the AI tasks page; the same rows appear in the repository's task list).
+
+An AI tool starts other programs: dev servers, test watchers, helper agents, shells. When the session's tab is closed or the tool exits, some keep running. Codepass keeps track of everything a session started and shows what is left.
+
+- **In the repository's task list** (5.6): a group "已关闭，仍在运行 / Closed, still running" between the live tasks and "已结束 / Finished". Row: tool mark, title; second line: warn dot + "3 个进程 / 3 processes", "CPU 41%", and a small danger-ghost button "强制停止 / Force stop". Selecting the row shows, in place of the terminal, the process list and the session's last screen (read-only).
+- **On the AI tasks page** (5.7): a warn-outlined section (`.leftover`) above everything else, shown only while such sessions exist. Head: alert icon, "2 个会话已经关闭，但它们启动的程序还在运行 / 2 sessions are closed, but programs they started are still running", sub "这些程序还在占用 CPU 和内存，电脑也因此保持唤醒。 / They still use CPU and memory, and they keep this Mac awake.", button "全部强制停止 / Force stop all". Table columns: 会话 / Session (title; repository with both names; where it ran), 还在运行 / Still running (count), 占用 / Using (CPU and memory), 关闭时间 / Closed ("会话 12 分钟前关闭 / session closed 12 min ago"), actions: "查看进程 / Show processes" (toggles an inline list `.procs`: PID, command line, CPU, memory) and "强制停止 / Force stop".
+- **Force stop** confirms once, naming what ends: "强制停止这 3 个程序？vite、esbuild、sh。没保存的东西会丢失。 / Force stop these 3 programs? vite, esbuild, sh. Anything they have not saved is lost." Primary "强制停止 / Force stop", focus on Cancel. Then the row shows a spinner and "正在停止… 5 秒后强制结束 / Stopping... forced after 5 seconds". When nothing is left the row leaves with the remove motion and a toast says "已停止 3 个程序 / Stopped 3 programs". If something survives (it belongs to another user, or it was restarted by the system): danger "还有 1 个程序停不掉 / 1 program could not be stopped" with its PID and "复制 PID / Copy PID".
+- The count, CPU and memory refresh every few seconds; numbers do not animate.
+- Command lines are shown as plain text and never written to the log. A process the session did not start is never listed.
+- Keep-awake: these programs count. The sidebar chip reads "保持唤醒中 · 2 个后台程序 / Keeping awake · 2 background programs" when they are the only reason.
+- Accessibility: the section is a `region` with its heading; Force stop buttons carry the session's title in their label; the countdown is announced once.
+
+#### 5.6b Quit with live sessions (`quit-dialog`)
+
+Shot: `quit-dialog-light-zh`.
+
+Shown **every time** the app is asked to quit while any AI session is live or any closed session still has programs running. It has no "don't ask again" box and no setting; the footer says so. `role="alertdialog"`, 600px.
+
+- Header: "退出 Codepass？ / Quit Codepass?"; sub "还有 3 个 AI 会话在运行。 / 3 AI sessions are still running." (with leftovers: "还有 2 个 AI 会话在运行，另有 1 个已关闭的会话留下了程序。 / 2 AI sessions are running, and 1 closed session left programs behind.")
+- The list (`.affect`): tool mark, title, repository (both names when they differ) and "还启动了 2 个程序 / started 2 programs", state on the right. More than 5 rows scroll.
+- Unsaved files, when any, as one more row: "3 个文件还没保存，会留在恢复区 / 3 unsaved files are kept for recovery".
+- **Two choices** (`.choice`, two cards side by side; each is one button):
+  - "全部停止并退出 / Stop all and quit" (danger title, stop icon): "结束这 3 个会话和它们启动的 3 个程序。分支、改动和对话都保留，下次可以继续。 / Ends these 3 sessions and the 3 programs they started. Branches, changes and conversations are kept, so you can resume later."
+  - "留在后台继续运行 / Keep running in the background" (cup icon; **default focus**, ink outline): "只关闭窗口。Codepass 留在程序坞里，会话不中断，电脑继续保持唤醒。 / Only the window closes. Codepass stays in the Dock, the sessions carry on and this Mac stays awake." Windows: "留在系统托盘里 / stays in the system tray".
+- Footer: left, muted: "每次退出都会问，不会替你记住选择。 / Codepass asks every time and never remembers a choice for you."; right: "取消 / Cancel" (Esc), which closes the dialog and changes nothing.
+- Keys: Tab moves between the two cards and Cancel; Enter takes the focused card; Esc cancels. There is no single-letter shortcut for "Stop all".
+- After "Stop all": the dialog shows "正在停止 3 个会话… / Stopping 3 sessions..." with a small progress line, then the app exits. If a program survives the forced stop, the app still exits and the next launch says so once.
+- Logout, restart or shutdown of the computer: no dialog. Everything stops and the app quits at once; unsaved edits go to the recovery store. On Windows, cancelling at the system's "apps are preventing shutdown" screen keeps Codepass open with its sessions. (The earlier 20-second countdown was dropped at the group-B merge: Wails 3.1.0 cannot delay a logout.)
+- The update dialog's "Reopen now" (5.13) does not show this dialog a second time; its own banner already says what happens.
+
+**New task** (`new-task`, modal 580px, one screen, no wizard).
+
+1. **用哪个工具 / Tool** (`.tool-pick`): three cards with mark, name and status line ("已安装 2.4.11", "未安装，开始时安装 / Not installed. Installs on start"). Remembers the last choice per repository.
+2. **在哪里运行 / Where it runs** (`.opt`): "独立工作区 / Own workspace" (badge "推荐 / Recommended") or "主工作区 / Main workspace". If another task already runs in the main workspace, the second option shows a warn line: "已有一个任务在主工作区运行，两个任务会同时改同一份文件。 / Another task is already running in the main workspace. Both would edit the same files."
+3. **要 AI 做什么 / What should the AI do?** (`.textarea.task-desc`, 3 rows, grows to 8, then scrolls): the task description. It is sent to the chosen tool as the task's first message, and to nothing else. There is no task name field: the AI names the task at Start. On the right of the label, muted: `⌘ ⏎` "开始 / to start" (Ctrl on Windows).
+   - Hint, line 1 (the tool name follows the chosen card): "会作为第一条消息发给 Claude Code，任务名也由它根据这段话来起。 / Sent to Claude Code as its first message. Claude Code also names the task from it."
+   - Hint, line 2, own workspace only: "分支 `ai/<英文短名>` 和文件夹也在开始时命名。 / Branch `ai/<short-name>` and its folder are named when the task starts." Main workspace has no line 2.
+   - Empty is allowed and Start stays enabled. Placeholder: "写下要做的事，比如“修复结算金额的四舍五入”。也可以留空，进了终端再说。 / Describe the job, for example “fix the rounding in settlement totals”. Or leave it empty and say it in the terminal." While the box is empty the hint reads: "留空也可以：任务先叫“新任务 3”，你发出第一条消息后再改成合适的名字。 / Empty is fine: the task is called “New task 3” until your first message gives it a name." and, for an own workspace, "分支 `ai/new-task-3`，文件夹同名，之后不变。 / Branch `ai/new-task-3` and a folder of the same name. They keep that name." The tool then starts with no first message. The first message renames the label only.
+   - Naming at Start: a short title in the description's language becomes the list label; an English kebab-case slug becomes the branch `ai/<slug>` and the folder `~/.codepass/worktrees/<repo>/<slug>`. A taken branch name gets `-2`. If naming fails or takes more than 5 seconds, a name made from the description's first line is used. No error is shown.
+4. A muted note about clean copies and `.worktreeinclude`. If the repository has submodules or a setup command, a second line: "开始前会准备子模块并运行 npm ci / Submodules are prepared and npm ci runs before the task starts".
+5. Footer: "这个仓库已有 2 个任务在运行" on the left, 取消, primary "开始任务 / Start task".
+
+Focus starts in the description. Cmd/Ctrl+Enter starts the task. Start shows the button with a spinner and "正在起名… / Naming the task..." (about 1-3 seconds; skipped when the description is empty), then "正在准备工作区… / Preparing the workspace...". While either runs, the fields are dimmed and locked (state `naming`); 取消 / Cancel stays active. Failure to create the workspace stays in the modal with the git message, and the description is kept. Mockup states: default (filled), `empty`, `naming`.
+
+### 5.7 AI tasks across repositories (`ai-tasks`)
+
+Shots: `ai-tasks-light-zh`, `ai-tasks-light-en`, `ai-leftover-light-zh`.
+
+Header "AI 任务" with "5 个任务 · 2 个运行中 · 1 个等待你" (plus "· 2 个已关闭仍在运行" when true). Actions: "切换会话 ⌘J / Switch session" (ghost; opens 5.7a), "释放空间 6.4 GB / Free up space" (trash icon and the total that can be freed; opens 5.7b; hidden when nothing can be freed) and primary "新任务" (asks for the repository first). Then, in this order: the "closed, still running" section when it applies (5.6a); an ok banner while keep-awake is held (the reason, when it ends, the lid limit, a link to Settings); one table per repository (`.tasks-table`): tool, task (title + branch), where it runs, state, elapsed, one action ("去回答 / Answer" in primary for waiting tasks, "查看 n 个改动 / Review n files", or "打开 / Open"). The group label shows both names when they differ. Clicking a row opens that repository's AI tasks tab on that task. A finished task's row menu has "删除这个会话的数据… / Delete this session's data..." (opens 5.7b with that one row ticked). Empty: the same `.empty` as 5.6 with "选择仓库 / Choose a repository".
+
+The page and the switcher read the same list, so their order and counts always agree.
+
+#### 5.7a Session switcher (`session-switcher`)
+
+Shots: `session-switcher-light-zh`, `session-switcher-dark-en`.
+
+The owner runs several sessions in several repositories at once. Cmd+J (Ctrl+J on Windows; Ctrl+Shift+J there while a terminal has focus) opens one list of all of them, over whatever is on screen, in both layouts. It is a palette, not a page: it opens in under 100 ms from data the app already holds, and it closes on Esc or on a click outside, giving focus back to where it was.
+
+**Layout** (`.switcher`, 720px, top of the window, 92px from the top edge, backdrop as a modal).
+
+- **Head**: search icon, a field with the placeholder "搜索会话、仓库或分支 / Search sessions, repositories or branches" (focused on open), then the count "4 个在运行 · 1 个等待你 / 4 live · 1 waiting for you" and the shortcut keys.
+- **List** (`role="listbox"`), in groups with small labels and counts, in this fixed order:
+  1. **等待你 / Waiting for you**: needs an answer or a permission. One short reason in warn after the branch when the app knows it: "要你批准一条命令 / needs you to approve a command", "这一轮做完了 / finished its turn".
+  2. **运行中 / Running** (including "running, no signal"), newest activity first.
+  3. **已关闭，仍在运行 / Closed, still running**: instead of a state and a time, "3 个进程 / 3 processes" and "CPU 41%".
+  4. **刚结束 / Just ended**: done, failed or stopped in the last 10 minutes, so a session that finished while the owner looked elsewhere is still one keystroke away.
+- **Row** (`.sess`, 52px): tool mark; title; second line: provider mark, repository name (both names when they differ), branch in mono or "主工作区 / main workspace"; on the right the state (dot + word), elapsed time in mono, and a digit key (1 to 9).
+- The selected row has the ink bar on its left and a raised surface. On open, the selection is the first waiting session that is not the one already on screen; with none waiting, the most recently used other session. So Cmd+J, Enter flips between the two sessions in use.
+- **Foot**: key hints: "↑↓ 选择 / Select", "⏎ 跳到这个会话的终端 / Go to its terminal", "⌘J 下一个 / Next", "⌘⏎ 查看改动 / Review changes"; on the right a link "打开 AI 任务页 / Open AI tasks".
+
+**Interactions.**
+
+| Key or action | Result |
+|---|---|
+| Enter, or click a row | Opens that repository's workspace on the AI tasks tab with that session selected and **the cursor in its terminal**. For a closed session: its row in the task list with the process list. |
+| Cmd/Ctrl + Enter | Opens that session's changes (the working tree switched to its workspace). Disabled for a main-workspace session with no changes. |
+| Cmd + J again (Ctrl + J) | Moves the selection down one row, wrapping. Holding Cmd and tapping J walks the list. |
+| 1 to 9 | Jumps to that row at once (only while the search field is empty). |
+| Typing | Filters by title, repository (either name) or branch; groups stay; matches are bold. No match: "没有匹配的会话 / No matching sessions". |
+| Esc, click outside | Closes; focus returns. |
+
+**States.** No live session at all: the list is replaced by a quiet line "现在没有在运行的 AI 会话 / No AI session is running right now" and one button "新任务 / New task". A session that ends while the list is open changes its state in place; the selection does not jump. More than about 9 rows: the list scrolls inside the panel, groups stay in order.
+
+**Motion.** The panel fades in and drops 4px (160ms), like other popovers; rows do not animate when the list is filtered.
+
+**Accessibility.** `role="dialog"` labelled "切换会话 / Switch session"; the field controls the listbox with `aria-activedescendant`; each option's name is "title, repository, state, elapsed"; group labels are presentation. The shortcut is listed in the View menu and in the palette.
+
+#### 5.7b Free up space (`free-space`)
+
+Shot: `free-space-light-zh`.
+
+Ended sessions keep things on disk: a workspace (often with gigabytes of build output), Codepass's own terminal record, and the AI tool's own record of the conversation. This dialog shows how much, and deletes only what the owner ticks, only after showing every path. Modal, 880px, over the AI tasks page.
+
+**Layout, top to bottom.**
+
+1. Header: "释放空间 / Free up space"; sub "4 个已结束的会话占用 6.4 GB。正在运行的 3 个会话不在这里，也不会被动到。 / 4 ended sessions use 6.4 GB. The 3 sessions that are running are not listed and are never touched."
+2. **Table** (`.fs-table`), one row per ended session: checkbox; tool mark + title + "repository · how it ended · when"; then three sizes and the total:
+   - **工作区 / Workspace**: the size, and under it the part that is build output ("其中 node_modules 2.1 GB / 2.1 GB of it is node_modules"). "没有（主工作区）/ None (main workspace)" for a session that ran in the repository folder: that folder is never offered.
+   - **终端记录 / Terminal log**: Codepass's own saved screen and hook files for that session.
+   - **工具的对话记录 / Tool transcript**: the files Claude Code or Codex keep for exactly that session. For OpenCode: "由 OpenCode 保管 / kept by OpenCode" (it stores sessions in its own database; Codepass asks OpenCode to delete the session and cannot show a size).
+   - **合计 / Total**, bold.
+   Sessions that merged or were discarded are ticked by default; a session whose workspace holds commits that exist nowhere else is **not** ticked, its row is warn-tinted and its workspace cell says "有 2 个提交没有合并 / 2 commits not merged anywhere".
+3. **Extra confirmation** (`.fs-extra`, warn box) for each such session: a checkbox "也删除「重写对账报表的导出」（2 个提交还没合并）/ Also delete "Rewrite the reconcile report export" (2 commits not merged)" with "这 2 个提交 14 天内可以在「最近丢弃」里找回；没提交的文件不能找回。 / The 2 commits can be brought back from Recently discarded for 14 days. Files that were never committed cannot." Ticking it ticks the row.
+4. **The exact list** (`.paths`): label "将要删除的 9 项，一项不多 / Exactly these 9 items will be deleted". One line per path: the full path in mono (long paths wrap; nothing is shortened with an ellipsis), what it is, its size. An OpenCode session appears as the command that will run (`opencode session delete ses_...`), in info colour, with "由 OpenCode 自己删除这个会话 / OpenCode removes this session itself". The list follows the ticks at once and scrolls inside its box.
+5. Footer: left "已选 3 个会话 · 将释放 4.27 GB · 不经过废纸篓 / 3 sessions selected · frees 4.27 GB · does not go through the Trash"; 取消 / Cancel; danger primary "删除并释放 4.27 GB / Delete and free 4.27 GB". Focus starts on Cancel.
+
+**Rules the screen makes visible.**
+
+- A session that is starting, running, waiting, or closed with programs still running is not in the table. If the owner wants its space, he stops it first.
+- Only paths that carry that session's full ID are listed. Two sessions in one folder never share a line.
+- What is listed is exactly what is deleted. If a listed path changed in a way that makes it unsafe (it is now a link pointing elsewhere), that line is skipped and reported.
+- Nothing is deleted from a repository's main folder.
+
+**States.**
+
+| State | What shows |
+|---|---|
+| Measuring | sizes show a skeleton and "正在计算… / Measuring..."; rows can already be ticked; the primary button is disabled until every ticked row has its sizes |
+| Nothing to free | `.empty`: "没有可以释放的空间 / Nothing to free up" with "已结束的会话没有留下文件 / Ended sessions left no files behind" |
+| Deleting | the list becomes a progress list, one check per path; Cancel reads "停止 / Stop" and stops before the next path (what is already deleted stays deleted, and the report says which) |
+| Done | the dialog closes; toast "已释放 4.27 GB / Freed 4.27 GB"; the sessions leave the lists with the remove motion |
+| Partly failed | the dialog stays: "已释放 4.1 GB，有 1 项没删掉 / Freed 4.1 GB. 1 item was not deleted", the failed path with the system's reason, "重试 / Try again" and "复制路径 / Copy path" |
+| A session started running meanwhile | its row turns disabled with "已经在运行，不会删除 / Running again, so it will not be deleted" |
+
+**Accessibility.** The table is a grid with a header row; each checkbox is labelled with the session title; the path list is a real list whose items read "path, kind, size"; the footer total is `aria-live="polite"`; the primary button's name includes the amount.
+
+### 5.8 History, Branches, Stash
+
+**History** (`repo-history`; shots `repo-history-light-zh`, `repo-history-dark-en`).
+
+- Left: toolbar (search by message, author or hash; 全部分支 / current branch; filter by author, path, date), then the commit list (`.commit`, 44px rows): lane graph (two-colour limit: neutral for the current branch line, info for others; the checked-out commit is a ring), ref chips (`.ref--head` current branch, `.ref--remote`, `.ref--tag`, `.ref--ai` for task branches), message, author initial + name + relative time, short hash. Unpushed commits show `↑`. Virtualised; loads 200 at a time.
+- Right: commit details (`.cdetail`): title, body, author with email, date, hash with copy; actions: "从这里建分支 / Branch from here", "拣选到 main / Cherry-pick onto main", "还原这次提交 / Revert this commit", "打标签 / Tag", "重置 main 到这里 / Reset main to here". Then the changed files and the diff of the selected one. Selecting two commits (Cmd/Ctrl+click) shows the comparison between them.
+- **Reset** opens a confirm with three options (`.opt`): "保留改动，取消提交（soft）", "保留文件，取消暂存（mixed）", "全部丢弃（hard）". Hard is danger-styled and states "会丢掉 2 个提交之后的全部改动，以及现在还没提交的 3 个文件 / Discards everything after these 2 commits and the 3 files you have not committed". Focus on Cancel.
+- **File history and blame**: from any file's history button. History filters the list to that file with the file's diff per commit. Blame opens the file in the Code tab with a left margin of author initial + date + short hash per block; clicking a block selects that commit here.
+- States: empty repository "还没有提交 / No commits yet"; search with no result; loading skeleton rows; detached checkout shown as a ring with the chip "游离 / Detached".
+
+**Branches** (`repo-branches`; shots `repo-branches-light-zh`, `repo-branches-light-en`).
+
+- Left (`.refs`): filter; **本地 / Local** (current branch has a check and the "当前 / Current" badge; ahead / behind per branch; task branches use the bot icon), **远程 / Remote** per remote, **标签 / Tags**, **远程仓库 / Remotes**. "新建分支 / New branch" (name, from which branch or commit, "创建后切换 / Switch to it").
+- Right: the selected branch: name (mono, 18px), what it tracks, last commit; primary "切换到这个分支 / Switch to this branch"; More: Rename, Push, Set upstream, Delete. **Compare** (`.cmp`): two cards "这里有、main 还没有的提交 3" and "main 有、这里还没有的提交 1", "换一个比较对象 / Compare with another". Actions: "合并到 main / Merge into main", "变基到 main 之上 / Rebase onto main", "把 main 合并进来 / Merge main into this", and for GitHub / Bitbucket "创建拉取请求 / Create pull request". Then a card with Commits / Files changed. A warn banner predicts conflicts when both sides touched the same file ("合并时 1 个文件可能冲突 / 1 file may conflict when merging").
+- Switching with a dirty tree asks: "main 上有 3 个还没提交的改动 / You have 3 uncommitted changes on main" - 带过去 / 先贮藏 / 取消 (Bring them along / Stash them first / Cancel).
+- Delete warns about unmerged commits with the count; a pushed branch offers "同时删除远程分支 / Also delete the remote branch".
+- Rebase is plain (no interactive list in 1.0). It runs with the `.opbar`: "正在把 feat/payout-batch 变基到 main · 第 2 / 3 个提交" with 中止 / 跳过 / 继续. A rebased branch that was pushed offers "推送（覆盖远程，带保护）/ Push (replace remote, with lease)". The confirm lists the remote commits that will be replaced, counted from **the last remote commit you pulled or pushed**, not from whatever the app fetched in the background: "远程 origin/feat/payout-batch 上的这 2 个提交会被替换 / These 2 commits on origin/feat/payout-batch will be replaced" with author and subject per row. If someone pushed after that point, the list shows their commits in warn with "有别人的新提交，建议先拉取 / Someone else pushed. Pull first", and the primary button is "先拉取 / Pull first"; replacing other people's commits needs a second, explicit click. If git refuses at push time: "远程在你不知道的时候变了，没有推送 / The remote changed without you seeing it. Nothing was pushed".
+- Tags: create (name, message, at which commit), push, delete. Remotes: add, rename, set URL, remove, each with the backup-first rule.
+- **Clean folder first.** Merge, rebase, cherry-pick, revert and pull need a folder with no uncommitted changes, so that Abort can always put everything back. With changes present the action asks: "先把 3 个改动贮藏起来，结束后再取回 / Stash your 3 changes first and bring them back afterwards" - 贮藏并继续 / 取消. The stash is restored automatically after the operation finishes or is aborted; if restoring conflicts, the stash stays in the list and a toast says so.
+
+**Stash** (`repo-stash`; shot `repo-stash-light-zh`). Lives in the Changes tab: the Stashes group in the left pane expands into rows (archive icon, message, `stash@{0}`, branch, time, file count). Right: stash header with "取出并删除 / Apply and remove" (primary), "取出，保留贮藏 / Apply and keep", "建成分支 / Make a branch", "删除 / Delete" (confirm), then files and diff. "贮藏当前改动 / Stash changes" opens a small popover: message, "包含未跟踪的文件 / Include untracked files" (on), "只贮藏已暂存的 / Only what is staged". Applying with conflicts goes to the conflict screen. Empty: "没有贮藏 / No stashes".
+
+### 5.9 Merge conflicts (`repo-merge-conflict`)
+
+Shots: `repo-merge-conflict-light-zh`, `repo-merge-conflict-dark-en`.
+
+Used by merge, pull, rebase, cherry-pick, revert and stash apply. It takes over the Changes tab until the operation finishes or is aborted.
+
+- **Operation bar** (`.opbar`, warn tint, full width): icon, "正在把 feat/payout-batch 合并到 main / Merging feat/payout-batch into main", "3 个文件有冲突，已解决 1 个", a small progress bar, "放弃这次合并 / Abort merge" (danger ghost), primary "完成合并 / Finish merge" (disabled until every file is resolved; tooltip "先解决全部冲突"). The verb follows the operation ("继续变基 / Continue rebase").
+- **Left pane**: 还有冲突 / Still in conflict (count of conflicts per file in danger), 已解决 / Resolved (ok check), 自动合并，没有冲突 / Merged automatically (collapsed). A footer line: "合并开始前这里没有未提交的改动，所以放弃后 main 会回到合并前的样子。 / There were no uncommitted changes when this merge started, so aborting puts main back exactly as it was." This sentence is true because of the clean-folder rule in 5.8; if changes were stashed first, the line adds "你贮藏的 3 个改动会自动取回 / Your 3 stashed changes come back automatically".
+- **Conflict editor** (`.cf`): file header with "2 处冲突，已解决 1 处", 上一处 / 下一处 (F7), "在编辑器中打开". Top half: two read-only panes, **我的 / Mine** (current branch, info dot and tint) and **对方的 / Theirs** (incoming branch, iris dot and tint), each with "整个文件用我的 / Use mine for the whole file". Bottom half: **合并结果 / Result**, editable. Each conflict is a block bar (`.cf__block`): "冲突 2 · 两边都改了这 2 行" with **用我的 / Take mine**, **用对方的 / Take theirs**, **两边都要 / Take both**. A resolved block turns ok: "冲突 1 · 已采用对方的" with 撤销 / Undo. Editing the result by hand also resolves a block. When no block is open, "标记为已解决 / Mark as resolved" enables and the file moves to Resolved.
+- Mine and theirs are told apart by label, dot and position, not only by tint. For rebase the labels are "基底上的 / On the base" and "这次提交的 / This commit" because "mine / theirs" are reversed there; the UI never shows the raw git terms.
+- Binary or deleted-on-one-side conflicts get a choice card instead of the editor: "main 删除了这个文件，feat/payout-batch 修改了它 / main deleted this file, feat/payout-batch changed it" - 保留文件 / 删除文件.
+- Finishing a merge opens the composer with the default message filled in.
+- Abort confirms only when blocks were already resolved by hand ("已经解决的 1 处会丢失").
+
+### 5.10 Pull requests (`repo-prs`, `pr-detail`)
+
+Shots: `repo-prs-light-zh`, `repo-prs-light-en`, `pr-detail-light-zh`, `pr-detail-dark-en`.
+
+Available for GitHub and Bitbucket repositories whose account has an API token. For CodeCommit the tab shows a quiet card: "这个仓库在 CodeCommit，拉取请求请在 AWS 控制台里管理 / This repository is on CodeCommit. Manage pull requests in the AWS console" with "打开控制台 / Open the console".
+
+**List.** Toolbar: 我创建的 / 等我评审 / 全部 (Mine / To review / All); 打开和最近的 / 已合并 / 已关闭; search; primary "新建拉取请求 / New pull request". Rows (`.pr-row`): state icon (open ok, draft neutral, merged iris, closed danger; always with a text badge for draft, merged, closed), title + number, `from → base` chips, author ("我创建的 / by me"), "来自 AI 任务 / from an AI task" chip, "等你评审 / Needs your review" in warn; checks (`.checks`: 6 项通过 / 3 / 6 运行中 / 1 项失败); reviews (avatar stack + "1 / 2 批准"); updated; comments. A footer line says which account and token read the list and when. Refresh on focus, and every 2 minutes for the list on screen only. Repositories not on screen refresh every 15 minutes at most, and unchanged answers cost nothing against the provider's limit. The cross-repository page shows "5 分钟前更新 / updated 5 min ago" per repository.
+
+**Create** (sheet from the list, from Branches, or from a pushed AI task; not drawn). Fields: 从 / From (current branch, pushes it first if needed), 合并到 / Into (default branch), 标题 / Title (pre-filled from the branch's first commit), 说明 / Description (Markdown, pre-filled with the commit list), 评审人 / Reviewers (people picker from the repository's collaborators), "创建为草稿 / Create as draft" (GitHub). Below: commits and files that will be included. Primary "创建拉取请求".
+
+**Detail.** Back link; title + number; meta (state badge, branches, author, age, commit count); "在 GitHub 上打开 / Open on GitHub". Tabs: 概览 / 提交 / 改动的文件 (Overview / Commits / Files changed; Files uses the app's diff, read-only). Overview left: description card (Markdown shown safely: no raw HTML, no remote images, links open in the browser after the https check), then a timeline (`.tl`): pushes, reviews, comment summaries. **Line comments are not shown inline in 1.0**: the timeline row "aina-r 留下了 3 条逐行评论" links to the provider ("在 GitHub 上查看和回复 / View and reply on GitHub"). Avatars are always monogram tiles; no picture is loaded from the provider. Right column:
+
+- **Merge box** (`.mergebox`): "可以合并 / Ready to merge" with the facts ("检查全部通过 · 1 个批准 · 和 main 没有冲突"), merge method select (创建合并提交 / 压缩成一个提交再合并 / 变基后合并, limited to what the repository allows), "合并后删除 feat/phone-verify", primary "合并拉取请求 / Merge pull request", danger-ghost "关闭，不合并 / Close without merging" (Bitbucket: "拒绝 / Decline"). Not mergeable: the head line turns warn and lists what is missing ("还差 1 个批准", "2 项检查没通过", "和 main 有冲突" with "在本地解决 / Resolve locally" which checks out the branch and merges base into it). For a PR that waits for the user's review: "批准 / Approve" and "要求修改 / Request changes" replace the merge button when the user is not the author.
+- **Reviewers**: avatar, name, state (已批准 / 要求修改 / 还没评审), "添加 / Add".
+- **Checks**: one row per check with state and duration; a failed check links to its log on the provider.
+
+**States.** No token: `.empty` "要在这里管理拉取请求，需要给 alex-dev 添加 API 令牌 / To manage pull requests here, add an API token for alex-dev" + "添加令牌 / Add token". Token expired: warn banner "alex-dev 的令牌过期了 / The token for alex-dev has expired" with "更新令牌 / Update token". Token lacks a scope: the banner names it ("令牌缺少 read:org / The token is missing read:org"). The organisation needs single sign-on authorised: "acme 组织要求先为这个令牌授权单点登录 / The acme organisation needs single sign-on authorised for this token" + "去授权 / Authorise" (opens GitHub). The organisation blocks classic tokens: a quiet card "acme 组织不允许经典令牌，这里的拉取请求请在浏览器里处理 / The acme organisation does not allow classic tokens. Handle its pull requests in the browser" + "在 GitHub 上打开 / Open on GitHub". Loading: skeleton rows. Offline: the last list with "离线，显示的是 10 分钟前的内容 / Offline. Showing what was loaded 10 minutes ago". Rate limited: "GitHub 暂时限制了请求，3 分钟后自动重试". Merge failed: the provider's message in a danger banner inside the merge box.
+
+### 5.11 Accounts (`accounts`, `add-account`)
+
+Shots: `accounts-light-zh`, `accounts-dark-en`, `add-account-light-zh`, `add-account-light-en`.
+
+**Page.** Three provider groups, each introduced by a `.section-label` with the provider mark: **AWS · IAM Identity Center** (today's portal sections and passes, unchanged, including the legacy panel when static keys exist), **GitHub**, **Bitbucket**. "添加账号 / Add account" is a split button: the main part opens a chooser (AWS SSO portal, GitHub account, Bitbucket account); the caret lists the three directly.
+
+**GitHub / Bitbucket pass** (the same `.pass`): stripe and tile in the account's identity colour, provider glyph on the tile's corner, login, host or workspace; fact "2 个仓库" (links to Projects filtered by this account); two key lines (`.keyline`):
+
+- key: "SSH 密钥已验证 / SSH key verified" in ok + fingerprint; or warn "SSH 密钥还没验证 / SSH key not verified yet"; or danger "GitHub 不认识这把密钥了 / GitHub no longer recognises this key".
+- token: "API 令牌有效，可以管理拉取请求 / API token valid, pull requests enabled"; or warn "还没有 API 令牌，拉取请求暂不可用 / No API token yet, pull requests are off" + "添加 / Add"; or warn "API 令牌已过期 / API token expired" + "更新 / Update".
+
+Actions row: "验证 / Verify", "复制公钥 / Copy public key", More (Update token, Change colour, Suggested author identity, Show key file in Finder, Remove account). Remove confirms with the repositories that will lose their binding and offers "同时删除这台电脑上的密钥文件 / Also delete the key file on this computer" (off).
+
+**Add account** (modal 720px, horizontal stepper, 4 steps; the mockup shows step 3 after a successful verify).
+
+1. **账号 / Account**: provider (already chosen), "用户名 / Username" (GitHub login; Bitbucket username). A colour swatch row with the next free identity colour selected. (Bitbucket workspaces are confirmed in step 4, from the token.)
+2. **SSH 密钥 / SSH key** (`.opt` x2): "新建一把密钥（推荐）/ Create a new key (recommended)" - "每个账号一把，互不混用 / One key per account, never shared"; or "用我已有的密钥 / Use a key I already have" (file picker; a key already used by another account in the app is refused with the reason: one key cannot serve two accounts on the same host).
+3. **交给 GitHub / Give it to GitHub**: lead, the public key (`.pubkey`) with Copy, the private key's path, three numbered lines (`.howto`), the footer button "打开 GitHub 的 SSH 设置 / Open GitHub SSH settings", and the verify box (`.verify`): idle "添加好之后点验证 / Choose Verify when you have added it" + primary "验证 / Verify"; running spinner + "正在询问 GitHub... / Asking GitHub..."; ok "GitHub 认出了这把密钥 · 账号是 alex-dev"; failed in danger with the server's sentence and one hint ("公钥可能还没保存，或者加到了另一个账号 / The key may not be saved yet, or it was added to a different account"). If the server reports a different login than the one typed: warn "这把密钥属于 alex-work，不是 alex-dev / This key belongs to alex-work, not alex-dev" + "改用 alex-work / Use alex-work instead". Next is enabled only after a successful verify; "稍后验证 / Verify later" is a link that saves the account as unverified.
+4. **API 令牌 / API token**: why ("用来在 Codepass 里查看、创建和合并拉取请求，以及从列表里克隆仓库 / Used to view, create and merge pull requests in Codepass, and to clone from a list"), the kind of token and exactly what to tick, as a short list.
+   - **GitHub**: a **classic** personal access token ("Tokens (classic)") with two boxes ticked: `repo` and `read:org`. Nothing else is needed. One line under it: "细粒度令牌（fine-grained）在 1.0 里不支持 / Fine-grained tokens are not supported in 1.0." And a quiet note: "有的组织不允许经典令牌，或者要求先为它授权单点登录。那样的组织，拉取请求会在浏览器里打开。 / Some organisations do not allow classic tokens, or require single sign-on to be authorised for them first. For those organisations, pull requests open in the browser."
+   - **Bitbucket**: an Atlassian API token with five boxes ticked: read:user, read:workspace, read:repository, read:pullrequest, write:pullrequest. A note: "Atlassian 的令牌都有到期日。到期后在这里换一个新的。 / Atlassian tokens always have an expiry date. Paste a new one here when it expires."
+   - "打开创建令牌的页面 / Open the token page", a password-type field with paste, "检查 / Check". Check shows the login and compares what the token grants with what is needed: ok "令牌可用：alex-dev，权限齐全 / Token works: alex-dev, all permissions present"; warn "令牌缺少 read:org / The token is missing read:org" (one line per missing item); danger "令牌无效或已过期 / The token is invalid or has expired".
+   - **Bitbucket workspaces** are read from the token after a successful check and shown as chips to confirm ("这个令牌能访问 2 个工作区 / This token can reach 2 workspaces"); they are not typed in step 1 any more. Without a token, the workspaces found in existing remotes are used.
+   - macOS: "令牌保存在系统的钥匙串里，只有 Codepass 能读取，不会写进设置、备份或导出文件。 / The token is stored in the system keychain, readable only by Codepass. It is never written to settings, backups or exports." Windows: "令牌保存在 Windows 凭据管理器里。用你的账号运行的其他程序也能读到它。 / The token is stored in Windows Credential Manager. Other programs running under your account can read it too." Primary "完成 / Finish"; "先跳过 / Skip for now" keeps PR features off for this account.
+
+After finishing: the pass appears with the insert motion; a toast offers "为 3 个仓库绑定 alex-dev / Bind alex-dev to 3 repositories" when unbound repositories on that host can be read with the new key.
+
+**SSH details the UI must show.**
+
+- *A key with a passphrase* (import): "这把密钥有密码。Codepass 不保存密码，需要你先把它加进系统的密钥代理。 / This key has a passphrase. Codepass does not store it; add the key to the system's key agent first." with the exact command and "重新检查 / Check again".
+- *Host check*: the app ships the providers' published host keys and uses its own known-hosts file, so git started from the app never stops at a question nobody can answer. If a host presents a different key: danger "bitbucket.org 的身份和 Codepass 记录的不一样，已停止连接 / bitbucket.org identified itself differently from what Codepass has on record. The connection was stopped", with "了解原因 / Learn why".
+- *Key no longer accepted* (revoked or removed at the provider): the bound repository row turns danger "alex-dev 的密钥被拒绝 / The key for alex-dev was refused" with "验证 / Verify". The app never falls back to another key on the machine for a bound repository.
+- *Unbound GitHub / Bitbucket repository*: the dashed chip reads "未绑定 · 用这台电脑的默认密钥 / Not bound · uses this computer's default key" so it is clear which identity a push would use.
+- Backups keep configuration only. **Private keys and tokens are never copied into a backup, an export or a log.** Removing an account offers to delete its key file; nothing else ever deletes or copies one.
+
+**Accessibility.** The stepper is an ordered list with `aria-current="step"`. The public key is a read-only text field so it can be selected by keyboard. Verify results use `role="status"` (ok) or `role="alert"` (failed). The token field never echoes into logs or toasts.
+
+### 5.12 Author identity (`identity`)
+
+Shots: `identity-light-zh` (with the project sheet), `identity-page-light-zh`, `identity-dark-zh`.
+
+**Git settings page.** Title "Git 设置", subtitle "提交时用谁的名字和邮箱，以及 Git 全局保护". Top card "全局作者身份 / Global author identity": name, email, Save (enabled on change), the line "没有自己设置的项目和仓库都用它。现在有 6 个仓库在用。" and on the right the **ladder** (`.ladder`): 仓库 › 项目 › 全局 with "越具体的越优先 / The most specific one wins". Below, the existing Git global guard cards, unchanged.
+
+**Effective identity table** (`.ident-table`): project rows (layers icon, name, repository count) and their repositories indented, then Ungrouped. Columns: name; **生效的作者身份 / Effective author identity** (`Name <email>`, or "跟随全局 / Follows global" in muted text on a project without one); **来源 / Source** tag; action. Source tags: "项目设置 / Project setting", "来自项目 / From project", "来自全局 / From global", "仓库自己的 / Repository's own", and "仓库自己的 · 在应用外设置 / set outside the app" when the app did not write it.
+
+**Editors.**
+
+- *Project* (side sheet, drawn): two options, "跟随全局" (shows the global value) and "这个项目用自己的" (with the note that it is written into each repository's own config and works with Codepass closed), name and email fields, then **保存后会改动 3 个仓库 / Saving changes 3 repositories**: a list (`.affect`) with each repository and its old value struck through; repositories with their own setting are listed last on a sunken row with "保留自己的 / Keeps its own" and a link "改为跟随项目 / Make it follow the project". Footnote about the backup. Primary "保存并应用到 3 个仓库 / Save and apply to 3 repositories".
+- *Repository* (popover from the pencil, or in the repository settings sheet): three options, "跟随项目 acme" (value shown), "跟随全局" (value shown), "这个仓库用自己的" with two fields. Saving writes or removes the repository-local values and updates the tag.
+- *Suggestions*: when an account is added, a `.suggest` row appears here once: "要给绑定 alex-dev 的 2 个仓库使用 alex-dev 的 GitHub noreply 邮箱吗？ / Use alex-dev's GitHub noreply address for the 2 repositories bound to alex-dev?" with 应用 / 不用了.
+
+**Where else it shows.** The commit composer (5.4), the project header on Projects, the task merge footer (5.5), and the session bar above an AI terminal (5.6).
+
+**The effective identity is what git itself reports**, not what the app thinks it wrote. Extra source tags cover what the owner's machine may already do: "来自 ~/.gitconfig 的条件设置 / From a conditional rule in ~/.gitconfig" (an `includeIf` file) and "来自终端环境变量 / From a terminal environment variable" (warn; `GIT_AUTHOR_NAME` or `GIT_AUTHOR_EMAIL` exported in a shell profile). The second one wins inside terminals and AI tasks whatever the app sets, so the row says: "终端和 AI 任务里的提交会用这个，而不是上面的设置 / Commits made in terminals and AI tasks use this instead of the setting above", with "打开那个文件 / Open that file".
+
+**States.** No global identity: the card is warn-bordered with "还没有设置。没有它就不能提交。 / Not set yet. You cannot commit without it." Invalid email: inline field error. A repository whose config cannot be written shows danger "写不进这个仓库的设置 / Cannot write this repository's config" with the path and "重试".
+
+### 5.13 Updates (`update`)
+
+Shots: `update-light-zh` (dialog), `update-banner-light-zh` (banner only).
+
+- **Check**: at launch and once a day, against the latest release of `github.com/rudian/codepass`. Never a modal on launch. Behind a company proxy the system's proxy settings are used.
+- **Banner** (`.update-banner`, quiet, on the Projects page under the header; dismissible for this version): ink tile with the up arrow, "Codepass 1.1.0 可以更新 · 你现在用的是 1.0.0", "更新内容 / What's new" (opens the dialog on the notes), primary small "更新 / Update". The sidebar's Settings item shows a dot (`.nav__dot`); in the workspace layout the rail's Settings button gets a pip.
+- **Dialog** (modal 560px): versions side by side (`.ver`), release notes (plain text lines from the signed update file, shown in `.notes`, max 8 lines then scroll; never fetched separately and never rendered as HTML), then the progress block: label + bytes + time left, the bar, and four steps (`.usteps`): 下载 / 校验签名和版本 / 替换应用 / 重新打开 (Download / Verify signature and version / Replace app / Reopen).
+- **AI tasks running**: a warn banner inside the dialog, "2 个 AI 任务还在运行。重新打开应用会结束它们。分支和改动都会保留，之后可以从原来的会话继续。" The footer then offers "现在就重新打开 / Reopen now" and primary "等没有任务在运行时再重新打开 / Reopen when no task is running". An interactive AI session never exits by itself, so the condition is "no task in the running state" (every task is waiting for you, done or stopped) for 60 seconds; the banner then counts down 10 seconds with "取消 / Cancel" before reopening. With no tasks the single primary is "重新打开 / Reopen".
+- The app stays usable while downloading; closing the dialog keeps the download going and the banner shows "正在下载 64%".
+- **States.** Up to date (Settings): "已是最新版本 1.0.0". Checking: spinner in the button. Check failed: "检查不了更新：连不上 GitHub / Cannot check for updates: GitHub is unreachable" + "重试". Download failed: the bar stops, danger text, "重试" and the link "改为在浏览器中下载 / Download in the browser instead". Verification failed (checksum, the update file's signature, a version that is not newer than the one installed, or the macOS code signature): a danger banner "下载的更新没有通过校验，已经丢弃。应用没有任何改动。 / The download did not pass verification and was discarded. The app was not changed." with the failed step named, "重试" and "在浏览器中下载". Cannot replace (the app runs from a read-only place or a standard user cannot write to Applications): "先把 Codepass 移到「应用程序」文件夹，再更新 / Move Codepass to the Applications folder, then update". After reopening: a toast "已更新到 1.1.0" with "更新内容". Old app still running (first launch after replacing AWS SSO Hub): a small window before anything else, "旧版 AWS SSO Hub 还在运行。请先退出它，再打开 Codepass。 / The old AWS SSO Hub is still running. Quit it first, then open Codepass." with "退出旧版并继续 / Quit the old app and continue"; afterwards one prompt offers "把旧版移到废纸篓 / Move the old app to the Trash".
+
+### 5.14 Settings additions (`settings`)
+
+Shots: `settings-light-zh`, `settings-dark-en`.
+
+Two columns of cards (`.set-grid`); each row is `.set-row`: title, one line of help, the control on the right. Existing settings (scan folders, backups, sign-in in a private window, export / import) stay above these and are not redrawn.
+
+| Card | Rows |
+|---|---|
+| **AI 编码工具 / AI coding tools** | One row per tool: mark, name, command and how it is kept current, version badge, "更新 / Update" or "安装 / Install". Then "新任务在哪里运行 / Where a new task runs" (独立工作区 / 主工作区), "同时运行的任务上限 / Tasks running at once" (select, default 6), and under a disclosure: custom command and extra arguments per tool, "任务等你时发系统通知 / Notify me when a task waits" (on), "会话结束后保留最后的终端内容 / Keep the last terminal screen after a session ends" (on; help: "重启后还能回看。它可能包含屏幕上出现过的任何内容，「释放空间」会删掉它。 / Lets you read it after a restart. It may hold anything that was on screen; Free up space deletes it."). Each tool row also shows its approval mode as read from the tool ("每次询问 / Ask every time"), read-only, with "在工具里修改 / Change it in the tool". There is no Codepass switch that skips a tool's permission questions. |
+| **编辑器和代码智能 / Editor and code intelligence** | Go · gopls and TypeScript / JavaScript rows with what they provide, version badge, Update / Reinstall in a menu; "同时运行的语言服务 / Language servers running at once" (2 / 4; help: "每个要用几百 MB 到 1 GB 多的内存 / Each one uses from a few hundred MB to over 1 GB of memory"); 字号 / Font size; Tab width; 自动换行 / Wrap long lines; "保存时格式化 / Format on save" (off); terminal theme (深色 / 跟随应用). |
+| **保持唤醒 / Keep awake** | Header badge "现在生效 · 2 个任务 / Active now · 2 tasks" while held. "AI 任务运行时不让电脑睡眠" (on). "屏幕也保持常亮" (on): "关掉后屏幕可以熄灭并锁定，AI 照常工作。在办公室更安全。" "任务等你回答时，继续保持" 5 分钟 / 15 分钟 / 1 小时 / 一直. "最长保持 / Longest hold" 4 小时 / 8 小时 / 12 小时 (default 8): after that long without any answer from you or sign of progress, the hold is released even if a task still looks busy. Then the limits, always visible: closing a MacBook's lid still sleeps it unless it is on power with an external display; while the screen stays on, the computer does not lock by itself. On Windows the first limit reads "按下睡眠键或合上盖子仍然会睡眠 / Pressing sleep or closing the lid still sleeps it". |
+| **更新 / Updates** | Current version, when it was last checked and from where, "现在检查 / Check now"; "每天自动检查一次" (on) with "只读取版本号，不上传任何信息。下载的更新会先校验签名。" |
+| **外观 / Appearance** | Theme (跟随系统 / 浅色 / 深色), Language (中文 / English), **Motion** (跟随系统 / 完整 / 减少) with "「减少」会去掉滑动和淡入，只保留必要的进度提示。" This replaces the old "Reduce motion" switch. |
+
+**What "smart" keep-awake means in the UI.** The indicator is on exactly while the assertion is held: at least one task is running, or has been waiting for less than the grace time. It turns off the moment the last such task ends. A plain shell never turns it on. The indicator never claims more than the OS does: it says "保持唤醒", not "不会睡眠".
+
+---
+
+## 6. Global patterns
+
+- **Toasts**: unchanged rules. New ones follow the same shape: what happened + one action. Examples: "已把 3 个文件暂存 / Staged 3 files"; "已合并 ai/fix-settlement-rounding 到 main" + "撤销合并 / Undo merge" (until pushed); "推送被拒绝：远程有新的提交 / Push rejected: the remote has new commits" + "先拉取 / Pull first" (danger, stays).
+- **Auth failures inline**: a push that fails because the AWS session ended shows the existing sign-in button in the toast and on the sync button; an SSH failure names the account and offers "验证密钥 / Verify key".
+- **Confirms** keep the rule: primary repeats the verb, focus on Cancel, the sentence says exactly what is lost. Force push is only ever "带保护的强制推送 / force push with lease" and its confirm names the branch, the remote and the commits that will be replaced.
+- **Backups**: every write to a config file (repository config for bindings, identity, remotes; global git config; the app's known-hosts file) keeps the existing backup-first behaviour, and toasts offer Undo where one exists. Backups never contain private keys or tokens; creating a key is not a backed-up action.
+- **Text written by other people** (pull request titles, descriptions and timelines, release notes, hover documentation, commit messages, branch and file names) is shown as plain text, or as Markdown with raw HTML turned off. No remote images load anywhere in the app; avatars are monogram tiles. Links open in the browser only after the https check. This matters more than before: the window can now type into a terminal, so nothing from outside may ever become markup.
+- **What the app runs by itself.** Background refreshes only read; they never run a repository's own hooks or helper programs. Those run only for an action the user started (commit, push, pull, fetch by button).
+- **Proxy.** Network actions use the system proxy. Errors behind a proxy name it.
+- **Empty, loading, error**: `.empty` for empty, skeletons for loads over 150ms, inline danger text + "重试" for errors; a full-pane error only when the pane has nothing else to show.
+- **Windows**: system title bar; the workspace header drops the 84px reserve; shortcuts use Ctrl; the status bar and rail are identical; terminal default shell is PowerShell; "Reveal in Finder" reads "在资源管理器中显示 / Show in Explorer"; the keep-awake limits text changes as noted.
+- **Minimum window**: 980x660 still holds for the management layout. The workspace needs 1100x700; below that the left panes collapse to 44px icon strips and the second editor group closes.
+- **Dark theme checks**: diff tints use the existing `--diff-*` tokens; conflict tints are 11-13% mixes and keep code at 4.5:1; the terminal is darker than the dark surface, with a hairline `--term-line` so it never merges with the page.
+
+---
+
+## 7. Implementation notes for the frontend
+
+- Editor: CodeMirror 6. Map `--syn-*` to a `HighlightStyle`; the change bar is a gutter; hover, completion and peek are CodeMirror tooltips / widgets styled with `.hover-card`, `.ac`, `.peek`. Diff and conflict views use `@codemirror/merge` with the `.dl` look (line tints, no word-level strike-through).
+- Terminal: xterm.js with a theme object built from `--term-*`; the DOM renderer first.
+- Lists that can be long (commits, files, find results, tasks) are virtualised; motion is skipped above 200 rows (section 3).
+- All new strings go through i18n with the keys grouped by screen (`setup.*`, `projects.*`, `ws.*`, `code.*`, `changes.*`, `tasks.*`, `history.*`, `branches.*`, `stash.*`, `conflict.*`, `pr.*`, `accounts.git.*`, `identity.*`, `update.*`, `settings.ai.*`, `settings.awake.*`). The copy in this document is the source for both languages.
+- Mock scenarios for the demo backend match the mockup data, which is **generic by rule**: project `acme` (repositories `acme_api`, `acme_agent_portal`, `acme_cs_portal`, `acme_merchant_portal_v4`), projects `globex` and `umbrella`, AWS accounts `acme-prod`, `globex`, `initech` with account IDs `111122223333`, `444455556666`, `777788889999`, GitHub account `alex-dev`, Bitbucket account `alex_acme`, the person `Alex <alex@acme.example.com>`, and the five tasks. The same names are used in tests, fixtures, the tutorial, the guide and every screenshot. No real company, repository, account or person name may appear in the repository; the publish check blocks them.
+- Every new Go service gets a typed mock in `frontend/src/api/mock` (the mocks are typed against the generated bindings, so a missing one fails the type check). Two mocks are scripted: a terminal that replays a recorded Claude Code session, and a language server that answers hover, completion and definition for the mock files.
+- `dangerouslySetInnerHTML` stays at zero uses; a test enforces it.
+
+---
+
+## 8. Not drawn, and open points
+
+Not drawn in the mockup; specified above in words: quick open / palette, create pull request sheet, repository settings sheet, working-tree switcher menu (open), reset / discard confirms, blame margin, the cross-repository Pull requests page, the Windows window frame around the workspace, the updated clone modal (the local folder name field; later the source switch: AWS profile / GitHub account / Bitbucket account / paste a URL, and a Project field), the Force stop confirm, the "moved by hand" row, the running and failed states of Rename local folder and Free up space.
+
+Drawn at the milestone-0 gate (2026-11-16): the session switcher, Rename local folder, Free up space, the "closed, still running" rows, the quit dialog.
+
+Open points for the planner or the owner:
+
+1. **Tab order.** Code is first because the owner called the editor a first-class part. If daily use shows Changes is opened more, the default tab can follow "last used per repository" without moving the tabs.
+2. **Pull requests in the sidebar** adds a fourth primary item. It can fold into Projects (as a filter) if four feels heavy.
+3. **Line comments on pull requests** open in the browser in 1.0 (owner's allowance). The Files changed tab is read-only.
+4. **Interactive rebase** is left out of 1.0 (owner marked it optional).
+5. **Session switcher on Windows.** Ctrl+J inside a terminal is a line feed that tools use for a new line, so there the switcher is Ctrl+Shift+J. The owner asked for Ctrl+J; this is the one place the design departs from it.
+6. **Rename to another disk** is not offered in 1.0.
+7. **Keep-awake vs screen lock.** The owner asked for `caffeinate -d`, which also stops the screen from locking. The setting "屏幕也保持常亮" defaults to on as asked; the limits text says so plainly.
+8. Mock data in the mockup (versions, sizes, fingerprints, account IDs, email addresses, paths, session IDs) is illustrative, not checked against real releases.
+
+---
+
+## 9. Screenshots
+
+All 1440x900, in `docs/design/codepass-mockup/shots/` (55 files with generic data: 49 from revision 2, of which `ai-tasks-light-zh`, `ai-tasks-light-en` and `setup-noadmin-light-zh` were re-taken, plus 6 new). Light zh-CN for every screen; dark and English for a selection; extra states: `setup-idle`, `setup-failed`, `setup-noadmin`, `setup-done`, `setup-win`, `projects-drag`, `projects-found`, `workspace-code-find`, `identity-page`, `update-banner`.
+
+New in revision 3: `session-switcher-light-zh`, `session-switcher-dark-en`, `rename-folder-light-zh`, `free-space-light-zh`, `ai-leftover-light-zh`, `quit-dialog-light-zh`. `setup-noadmin-light-zh` was re-taken with the new sentence.
+
+To re-take one: `docs/plan/codepass/shoturl.sh docs/design/codepass-mockup/shots/<name>.png 1440 900 "file://<repo>/docs/design/codepass-mockup/index.html?screen=<id>&theme=light&lang=zh-CN&bar=0"` (add `&state=<state>` where needed).

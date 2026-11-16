@@ -29,10 +29,17 @@
 
 ## 2. 文件在哪里
 
-⚠️ 计划和设计文档**只在这台 Mac 上，不在 GitHub 上**。`.git/info/exclude` 排除了 `docs/plan/`、`docs/design/`、`docs/research/`、`docs/progress/`。
+计划、设计稿和调研笔记**都在仓库里**（2026-11-16 按用户要求加入）。
 
-- 不要 commit 这些文件夹，里面有真实的名字。
-- 建议用户自己备份这几个文件夹。
+⚠️ **仓库是公开的**：
+- 这些文档也在 scrub 检查的范围内，提交前必须跑 scrub。
+- 设计稿和文档里只能用假数据：假名字（acme、globex、initech、alex-dev 等）、`example.com` 邮箱、目录 ID `d-1234567890`、公司名写成 `<owner company>`。
+
+**只留在本机、不进 git 的**（`.git/info/exclude` 里列着，里面有真实账号数据，不要 commit）：
+- 旧版 0.0.1 的计划和设计：`docs/plan/implementation-plan.md`、`docs/design/ui-spec.md`、`docs/design/mockup.html`、`docs/design/copy.md`、`docs/design/shots/`；
+- 旧版的调研：`docs/research/aws-sso.md`、`docs/research/git-codecommit.md`；
+- workflow 的原始记录：`docs/plan/codepass/reviews/*.json`；
+- `docs/progress/`。
 
 | 路径 | 内容 |
 |---|---|
@@ -40,7 +47,7 @@
 | `docs/plan/codepass/product-plan.md` | 产品方案，文中引用为 "plan N.N" |
 | `docs/plan/codepass/ui-design.md` | 设计规范，文中引用为 "design N.N" |
 | `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A1–A18、B1–B18、C1–C18 |
-| `docs/plan/codepass/reviews/` | 每组 workflow 的完整结果 `group*-final.json`，以及接线笔记 `group*-wiring.md` |
+| `docs/plan/codepass/reviews/` | 每组的接线笔记 `group*-wiring.md`，以及当时传给 workflow 的说明 `group*-args.md`（完整的原始结果 `*.json` 只在本机） |
 | `docs/plan/codepass/orchestration/` | `codepass-group-v2.js`（每组任务用的 workflow 脚本）和 `gate.sh` |
 | `docs/plan/codepass/shoturl.sh` | 截图工具（用 headless Chrome，支持 `file://`） |
 | `docs/design/codepass-mockup/` | 静态设计稿，`shots/` 里是对照截图（1440×900） |
@@ -136,7 +143,7 @@ args 的格式：
 `groupNote` 和 `notes` 的写法，可以参考以前几组：`reviews/group*-args.md` 里有当时传进去的原文。
 
 **每组结束后，orchestrator 要做这几件事：**
-1. 把结果存到 `reviews/<组>-final.json`，接线笔记写到 `reviews/<组>-wiring.md`。
+1. 把结果存到 `reviews/<组>-final.json`（只在本机），接线笔记写到 `reviews/<组>-wiring.md`，传给 workflow 的说明写到 `reviews/<组>-args.md`。这两个 `.md` 要 commit，commit 前把里面的 home 路径换成 `~`，并跑 scrub。
 2. 自己跑 `bash docs/plan/codepass/orchestration/gate.sh`。全部通过才能继续。
 3. 把 follow-up 登记到 `tasks.md` 的「Follow-ups」，编号格式是 FU-<任务号><字母>，分给后面的任务或 F1-CL；需要时改相关任务的 Build 和 Owns；新的手动检查用中文写进 `manual-checks.md`。
 4. 用中文 ELI5 告诉用户结果。
