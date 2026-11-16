@@ -22,6 +22,11 @@ type fakePrivate struct {
 	isoErr   error
 	mu       sync.Mutex
 	windows  []*fakeWindow
+
+	openIso func(ctx context.Context) // runs inside OpenIsolated before it returns (tests that block)
+
+	staleRoot chan string // RemoveStale records its root and keep function here
+	staleKeep chan func(string) bool
 }
 
 func (f *fakePrivate) OpenPrivate(_ context.Context, u string) (bool, error) {
@@ -29,7 +34,10 @@ func (f *fakePrivate) OpenPrivate(_ context.Context, u string) (bool, error) {
 	return f.private, f.err
 }
 
-func (f *fakePrivate) OpenIsolated(_ context.Context, u, dir string) (signInWindow, error) {
+func (f *fakePrivate) OpenIsolated(ctx context.Context, u, dir string) (signInWindow, error) {
+	if f.openIso != nil {
+		f.openIso(ctx)
+	}
 	if f.isoErr != nil || !f.isolated {
 		return nil, f.isoErr
 	}
@@ -40,7 +48,12 @@ func (f *fakePrivate) OpenIsolated(_ context.Context, u, dir string) (signInWind
 	return w, nil
 }
 
-func (f *fakePrivate) RemoveStale(context.Context, string, func(string) bool) {}
+func (f *fakePrivate) RemoveStale(_ context.Context, root string, keep func(string) bool) {
+	if f.staleRoot != nil {
+		f.staleRoot <- root
+		f.staleKeep <- keep
+	}
+}
 
 // fakeWindow is an isolated browser that records being closed.
 type fakeWindow struct {

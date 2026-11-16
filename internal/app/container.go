@@ -94,11 +94,13 @@ type Container struct {
 	private signInBrowser
 	// signInWin holds the isolated browsers opened for sign-in pages, by page URL, until the sign-in ends;
 	// signInDone remembers the pages whose sign-in has ended, so a window that opens late is closed too.
-	signInMu    sync.Mutex
-	signInWin   map[string][]signInWindow
-	signInDone  map[string]time.Time
-	signInDelay time.Duration // how long a successful sign-in's window stays open (the success page)
-	startedAt   time.Time
+	signInMu      sync.Mutex
+	signInIdle    *sync.Cond // on signInMu: signalled when signInOpening drops (Shutdown waits for opens in progress)
+	signInWin     map[string][]signInWindow
+	signInDone    map[string]time.Time
+	signInOpening int           // isolated browsers being started right now
+	signInDelay   time.Duration // how long a successful sign-in's window stays open (the success page)
+	startedAt     time.Time
 
 	subMu sync.Mutex
 	subs  []func(name string, data any)
@@ -135,6 +137,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 
 	c := &Container{Paths: p, RT: rt, Log: o.Logger, opts: o, now: o.Now,
 		signInWin: map[string][]signInWindow{}, signInDone: map[string]time.Time{}, signInDelay: 3 * time.Second, startedAt: time.Now()}
+	c.signInIdle = sync.NewCond(&c.signInMu)
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	if !p.Sandbox {
 		c.private = browserOpener{&browser.Opener{Home: p.Home}}
@@ -490,11 +493,17 @@ func (c *Container) openSignIn(raw string) (api.SignInWindow, error) {
 	if err := checkOpenable(raw, c.Paths.Sandbox); err != nil {
 		return api.SignInWindow{}, err
 	}
+	if c.ctx.Err() != nil {
+		return api.SignInWindow{}, errQuitting
+	}
 	if c.private != nil && !c.Paths.Sandbox && c.Settings.PrivateSignIn() {
 		ctx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
 		defer cancel()
 		if c.openIsolated(ctx, raw) {
 			return api.SignInWindow{Private: true, Isolated: true}, nil
+		}
+		if c.ctx.Err() != nil { // the app began to quit while the isolated browser was starting
+			return api.SignInWindow{}, errQuitting
 		}
 		private, err := c.private.OpenPrivate(ctx, raw)
 		if err != nil {
@@ -506,9 +515,24 @@ func (c *Container) openSignIn(raw string) (api.SignInWindow, error) {
 	return api.SignInWindow{}, c.RT.OpenURL(raw)
 }
 
+var errQuitting = api.NewError(api.ErrCancelled, "the app is quitting")
+
 // openIsolated opens the page in an isolated browser and keeps it under the page URL for signInEnded.
 // Browsers already open for the same page (the user chose "Open again") are closed.
 func (c *Container) openIsolated(ctx context.Context, raw string) bool {
+	c.signInMu.Lock()
+	if c.ctx.Err() != nil {
+		c.signInMu.Unlock()
+		return false
+	}
+	c.signInOpening++
+	c.signInMu.Unlock()
+	defer func() {
+		c.signInMu.Lock()
+		c.signInOpening--
+		c.signInIdle.Broadcast()
+		c.signInMu.Unlock()
+	}()
 	root := c.signInRoot()
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		c.Log.Warn("cannot create the sign-in browser folder", "error", err.Error())
@@ -528,9 +552,18 @@ func (c *Container) openIsolated(ctx context.Context, raw string) bool {
 		return false
 	}
 	c.signInMu.Lock()
+	if c.ctx.Err() != nil {
+		// the app is quitting: Shutdown may have collected the windows already, so close this one here and
+		// now (the process ends right after the cleanup)
+		c.signInMu.Unlock()
+		cctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+		_ = w.Close(cctx)
+		return false
+	}
 	old := c.signInWin[raw]
-	if _, ended := c.signInDone[raw]; ended || c.ctx.Err() != nil {
-		// the sign-in ended while this window was opening, or the app is quitting
+	if _, ended := c.signInDone[raw]; ended {
+		// the sign-in ended while this window was opening
 		old = append(old, w)
 		delete(c.signInWin, raw)
 	} else {
@@ -596,7 +629,18 @@ func (c *Container) closeSignIn(ws []signInWindow) {
 
 // closeSignInWindows closes every isolated sign-in browser that is still open (app shutdown).
 func (c *Container) closeSignInWindows() {
+	// opens in progress finish first (within the budget): a window that arrives later closes itself
+	t := time.AfterFunc(8*time.Second, func() {
+		c.signInMu.Lock()
+		c.signInIdle.Broadcast()
+		c.signInMu.Unlock()
+	})
+	defer t.Stop()
+	deadline := time.Now().Add(8 * time.Second)
 	c.signInMu.Lock()
+	for c.signInOpening > 0 && time.Now().Before(deadline) {
+		c.signInIdle.Wait()
+	}
 	var ws []signInWindow
 	for p, list := range c.signInWin {
 		ws = append(ws, list...)
