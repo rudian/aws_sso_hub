@@ -1,6 +1,6 @@
 # Codepass 交接文档
 
-更新：2026-11-16（第二版）。状态：**已暂停，计划已更新，下一个 session 直接开工**。
+更新：2026-11-16（第三版，F1-21 合并后）。状态：**进行中**。F1-21 已合并；下一步是 F1-22。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 
@@ -10,10 +10,10 @@
 
 - **在做什么**：把 AWS SSO Hub 改版成 **Codepass 1.0.0**。用户的目的：用一个 app 代替 JetBrains IDE（WebStorm、PhpStorm、GoLand）、Warp、Bitbucket 网站、Claude Desktop（只用来看周用量）和 Sublime Text（记以后要做的想法），少开软件、省电脑资源。
 - **功能**：项目分组；多个 AWS SSO / GitHub / Bitbucket 账号；完整的 git 客户端；作者身份；OTA 更新；多会话的 AI 编码终端（Claude Code / Codex / OpenCode，每个任务一个 worktree）；带代码提示的编辑器（Go、TS/JS、PHP）；AI 运行时防止睡眠；系统通知；**票队列、多个 AI 账号、用量表（新）**。平台是 macOS arm64（15 及以上）和 Windows。所有功能做完后一次发布 v1.0.0。
-- **上一个 session 做了什么**：没写代码。把用户的第二批需求写进了计划（第 3 节），给 workflow 脚本加了 `keepHistory` 开关。
-- **进度**：约 **22%**（第 9 节）。里程碑 0 完成。里程碑 1 还剩 F1-21、F1-22、F1-CL 和关卡。
-- **代码**：在 `codepass` 分支，已经 push。`main` 是 0.0.2，有 13 个 commit 还没进 `codepass`，由 F1-21 合并进来。
-- **顺序**：F1-21 → F1-22 → F1-CL → 里程碑 1 关卡 → 里程碑 2 → 3 → **8** → 4 → 5 → 6 → 7。
+- **这个 session 做了什么**：F1-21 合并完成（`2c24815`，`main` 的 0.0.2 已经在 `codepass` 里）；删掉了多余的本地分支；workflow 以后合并、push 成功后自动删 task 分支。
+- **进度**：约 **23%**（第 9 节）。里程碑 0 完成。里程碑 1 还剩 F1-22、F1-CL 和关卡。
+- **代码**：在 `codepass` 分支，已经 push。`main`（0.0.2）已经用 `--no-ff` 合并进来，`git log codepass..main` 是空的。
+- **顺序**：F1-22 → F1-CL → 里程碑 1 关卡 → 里程碑 2 → 3 → **8** → 4 → 5 → 6 → 7。
 
 ## 1. 新 session 的第一步
 
@@ -22,13 +22,15 @@
    - `git status` 是干净的。
    - `git log --oneline -3`：最上面是这份文档的 commit。
    - `git worktree list` 只有主目录。
-   - `git log --oneline codepass..main` 列出 13 个 commit（F1-21 合并后应该一个都没有）。
+   - `git log --oneline codepass..main` 什么都不打印（F1-21 已合并）。
+   - `git branch` 只有 `codepass`、`main` 和 `spike/*`。
 3. **按顺序读**：
    - 本文件；
    - `docs/plan/codepass/tasks.md`：「How the work runs」、「Owner decisions (FINAL)」和它下面的两批 owner requirements、open questions、「Follow-ups」；
-   - 同一文件的 F1-21、F1-22、F1-CL 条目和里程碑 1 的「Gate」；里程碑 8 先略读（它排在里程碑 3 后面）。
-4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 56 个文件、749 个测试。
-5. **然后直接开工**，从 F1-21 开始（第 5 节有 args 的写法）。用户的新 prompt 就是开工的许可，不用再问。
+   - 同一文件的 F1-22、F1-CL 条目和里程碑 1 的「Gate」；里程碑 8 先略读（它排在里程碑 3 后面）；
+   - `reviews/groupF-wiring.md`（F1-21 留给 F1-22 和 F1-CL 的话）。
+4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 56 个文件、755 个测试。
+5. **然后直接开工**，从还没合并的第一个任务开始（看 tasks.md 里里程碑 1 的合并记录；写这一版时是 F1-22）。第 5 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
 
 ## 2. 用户定的工作方式（每个 session 都照做）
 
@@ -46,7 +48,7 @@
 
 | 需求 | 任务 | 在哪里写着 |
 |---|---|---|
-| `main` 上 0.0.2 的修复要带进 Codepass：多个 Identity Center 用户时的「控制台」、同一个门户两个用户先后登录、每个账号用自己的无痕窗口登录、会话时长由 AWS 管理员决定（app 不能改） | **F1-21** | tasks F1-21；plan 4.2；检查 C19–C21 |
+| `main` 上 0.0.2 的修复要带进 Codepass：多个 Identity Center 用户时的「控制台」、同一个门户两个用户先后登录、每个账号用自己的无痕窗口登录、会话时长由 AWS 管理员决定（app 不能改） | **F1-21** ✅ 已合并（`2c24815`） | tasks F1-21；plan 4.2；检查 C19–C21、C26 |
 | AWS 登录快过期、已过期时发系统通知，写明是哪个登录和哪些账户，通知上有「重新登录」按钮 | **F1-22** | plan 4.15；design 5.14、6；`docs/research/notifications.md`；检查 C22–C24、B19 |
 | 票（ticket）：编辑中 / 暂不执行 / 待执行。待执行的排队一个一个跑，跑完一个才开始下一个；开始前检查用量，到上限就暂停 | **里程碑 8** | plan 4.17；tasks 里程碑 8 |
 | 多个 Claude 账号：A 的周用量用完就换 B，A 上正在用的会话在 B 上接着用，上下文不丢 | **里程碑 8** | plan 4.16 |
@@ -103,7 +105,8 @@
 | `docs/plan/codepass/shoturl.sh` | 截图工具（headless Chrome，支持 `file://`） |
 | `docs/design/codepass-mockup/` | 静态设计稿，`shots/` 里是对照截图（1440×900） |
 | `docs/research/` | 调研笔记和 spike 笔记。新的：`notifications.md`（Wails 3.1.0 通知）、`claude-usage-accounts.md`（Claude Code 和 Codex 的用量、多账号、无人值守） |
-| 本地分支 `spike/*` | spike 的代码。**永远不要 push。** |
+| 本地分支 `spike/*` | spike 的代码，以后的任务要用。**永远不要 push。** |
+| 仓库外 `~/.codepass-dev/branch-backups/` | 2026-11-16 删掉的 21 个 task 分支（F1-01 到 F1-20、F1-W）的备份（git bundle），`README.txt` 写了怎么还原。以后的 task 分支合并后直接删，不备份（代码已经在 `codepass` 里）。 |
 | 仓库外 `~/.codepass-dev/scrub-list.txt` | scrub 屏蔽名单（权限 600）。**绝不打开、打印或引用它。** |
 | 仓库外 `~/Documents/code/.codepass-wt/` | 任务 worktree 的根目录（现在是空的） |
 
@@ -111,9 +114,7 @@
 
 ## 5. 接下来做什么
 
-1. **F1-21（G 组之前的 F 组，单独跑）**：把 `main` 合并进来。
-   - 2026-11-16 试合并过：8 个文件冲突（两个 bindings、`package-lock.json`、`version.go`、`app_test.go`、两个 tutorial 文件、`loops.go`）。`main` 新加的文件里有旧的 import 路径 `rudian/aws_sso_hub`，要改成 `rudian/codepass`。细节都在 F1-21 条目里。
-   - args 里**一定要有** `keepHistory: ["F1-21"]`。这样合并步骤用 `--no-ff`，不会 squash，`main` 的历史会留在 `codepass` 里。合并后 `git log codepass..main` 应该什么都没有。
+1. **F1-21（F 组）✅ 已完成**（2026-11-16，`2c24815`，`--no-ff` 合并；1 轮修复后通过）。留下 3 条 follow-up（FU-21a 到 FU-21c，都归 F1-CL）和给用户的手动检查 C26。传给 workflow 的说明在 `reviews/groupF-args.md`（`portBase` 用过 9700）。
 2. **F1-22（G 组，单独跑）**：系统通知服务 `internal/notify`，加上 AWS 登录快过期 / 已过期的通知和「重新登录」按钮。开发版和已安装的 app 用同一个 bundle ID，所以 sandbox 和测试**只用 fake**。
 3. **F1-CL（H 组）**：修所有标了「F1-CL」的 follow-up（大约 60 条，加上 F1-21、F1-22 留下的）。加上用户要的「在项目页打文件夹名找仓库、回车打开」（放在 F1-CLb）。挂上 `UpdatesCard`、`UpdateBanner`、`ToolRows`；删掉 `pages/repos/` 里没人用的文件；`RepoName` 覆盖所有显示仓库名的地方。建议拆成 F1-CLa（Go）和 F1-CLb（前端）并行跑，按文件分开。
 4. **里程碑 1 关卡**（`tasks.md` 里里程碑 1 的「Gate」）：
@@ -140,7 +141,7 @@
    - 平时是 squash-merge，commit 信息 `codepass(<id>): <title>`，后面加两行 trailer；
    - **`keepHistory` 里列的任务用 `--no-ff` 合并**，任务分支上每个 commit 都要带 trailer（脚本会告诉 Sonnet）；
    - 需要时重新生成 bindings；跑 gate；push；
-   - 删掉 worktree，保留 `task/*` 分支。
+   - push 成功后，删掉 worktree 和 `task/<id>` 分支（代码已经在 `codepass` 里；用户 2026-11-16 定的：不留 task 分支，也不备份）。没通过的任务，worktree 和分支都留着，下次接着做。
 
 args 的格式：
 
@@ -207,11 +208,12 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 - stage 时按文件名加，不用 `git add -A`。`.tools` 和 `node_modules` 这两个软链接不能进 commit。
 - scrub 只用 `--tracked` 模式。`--commits` 模式会把 commit 的 trailer 也当成问题。
 - 前端测试偶尔报「window is not defined」：已经由 `frontend/src/test-setup.ts` 修好了。
-- **F1-21**：`build/config.yml` 和 `Info*.plist` 会自动合并成 0.0.2，而 `version.go` 会冲突。Codepass 保留自己的版本号，所有版本字符串要一致。`main` 的 bindings 路径是 `rudian/aws_sso_hub`，Codepass 是 `rudian/codepass`：冲突的 bindings 直接重新生成。
+- **F1-21（已完成）**：Codepass 的版本号还是 0.0.1，发布时由 `release.sh` 改成 1.0.0-rc.N。有 4 个 GitHub 链接还用旧名 `rudian/aws_sso_hub`（`frontend/src/pages/settings/util.ts` 的 `REPO_URL`，`internal/app/menu.go` 的三个链接），等发布时仓库改名（R7-08）再改。A2-14 的「全部停止」要走 `app.Quit` 或 `Container.Shutdown`，这样登录用的独立浏览器才会关掉；新的登录页面一律用 `c.openSignIn` 打开。
 - **F1-22**：Wails 的通知服务在没有 bundle ID 时启动失败会让整个 app 起不来，所以必须包一层、自己启动。按钮文字属于 category，换语言时要重新注册。
 - 设置里「登录快过期时提醒」以前只发了一个没人接的事件（`session:reminder`），所以一直没效果。F1-22 修好它。
-- 硬盘：大约 18 GB 空闲。Go 的编译缓存会涨到 6 GB 左右，可以用 `go clean -cache` 清掉。
-- 本地多余的分支：`worktree-wf_*`（里程碑 0 留下的）可以删；`task/F1-*` 合并后保留，作为记录。
+- 硬盘：2026-11-16 清过（Go 编译缓存；用户同意后，删了其他 repo 的 Claude 临时文件和 2 天前的旧对话），之后大约 53 GB 空闲。Go 的编译缓存会涨到 6 GB 左右，可以用 `go clean -cache` 清掉。
+- 分支：本地只留 `codepass`、`main` 和 `spike/*`。`worktree-wf_*` 和 `task/F1-*` 在 2026-11-16 删掉了（task 分支的备份见第 4 节）。workflow 合并、push 成功后会自动删 task 分支。
+- 查别的 repo 时用 `git --no-optional-locks status`：普通的 `git status` 会顺手改写那个 repo 的 `.git/index`。
 - Wails 3.1.0 没法拖住系统注销，所以注销或重启时不弹框，直接全部停止并退出。这一点已经写进 plan 和 design。
 - 开发服务器（端口 9245）已经停了。没有正在跑的 workflow 或 subagent。
 
@@ -220,7 +222,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 里程碑 | 状态 |
 |---|---|
 | 0 Spikes | ✅ 完成 |
-| 1 基础（项目、安装、身份、更新） | 21/24 个任务；剩 F1-21、F1-22、F1-CL；关卡还没过 |
+| 1 基础（项目、安装、身份、更新） | 22/24 个任务；剩 F1-22、F1-CL；关卡还没过 |
 | 2 AI 终端和防睡眠 | 未开始 |
 | 3 Worktree 任务、改动和提交 | 未开始 |
 | 8 票队列、AI 账号、用量（排在 3 后面） | 未开始 |
@@ -229,9 +231,9 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 6 GitHub 和 Bitbucket | 未开始 |
 | 7 Windows、打磨、发布 | 未开始 |
 
-**整体约 22%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），现在一共 240 分，已经完成 53 分，约 22%。
-- 按计划的周数算：原来约 35 周，现在约 45 周（里程碑 8 约 8 周），完成约 18%。
+**整体约 23%。**
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），现在一共 240 分，已经完成 55 分（F1-21 之后），约 23%。
+- 按计划的周数算：原来约 35 周，现在约 45 周（里程碑 8 约 8 周），完成约 20%。
 
 ## 10. 建议用的技能（Skill）
 
