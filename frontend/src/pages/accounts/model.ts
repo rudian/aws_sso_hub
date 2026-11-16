@@ -41,12 +41,6 @@ export function endIso(s: SessionStatus): string | undefined {
   return s.sessionKnown && s.sessionEndsAt ? s.sessionEndsAt : s.expiresAt
 }
 
-/** "Session ended early": expired although the app knew the sign-in and the set length had more than 30 minutes left. */
-export function endedEarly(s: SessionStatus, now: number): boolean {
-  if (s.state !== SessionState.SessionExpired || !s.sessionKnown || !s.sessionEndsAt) return false
-  return Date.parse(s.sessionEndsAt) > now + 30 * MIN
-}
-
 /** Other profiles that share the portal's sign-in: 2 profiles name the other one, 3 or more count the others. */
 export function sharedLine(profile: Profile, portal: Portal, active: boolean, t: T): string | null {
   const others = (portal.profiles ?? []).filter((n) => n !== profile.name)
@@ -153,23 +147,6 @@ export function previewMonogram(name: string): string {
 export function validMonogram(m: string): boolean {
   if (m === '') return true
   return /^[A-Za-z0-9]{2}$/.test(m) || /^[一-鿿]$/.test(m)
-}
-
-// ------------------------------------------------------------------ session length
-
-export const SESSION_LENGTH_PRESETS = [60, 240, 480, 720, 1440, 10080, 43200, 129600] as const
-export const SESSION_MIN = 15
-export const SESSION_MAX = 129600
-
-/** Hours typed by the user -> whole minutes, or null when outside 15 min .. 90 days. */
-export function hoursToMinutes(hours: number): number | null {
-  if (!Number.isFinite(hours)) return null
-  const m = Math.round(hours * 60)
-  return m >= SESSION_MIN && m <= SESSION_MAX ? m : null
-}
-
-export function minutesToHours(minutes: number): string {
-  return String(Math.round((minutes / 60) * 100) / 100)
 }
 
 // ------------------------------------------------------------------ sign-in modal

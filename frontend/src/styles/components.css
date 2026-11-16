@@ -156,8 +156,6 @@ button.link { background: none; border: 0; padding: 0; font: inherit; }
 .countdown__label { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: default; }
 .countdown__label:hover { text-decoration: underline dotted; text-underline-offset: 3px; }
 .countdown__info { display: inline-grid; place-items: center; color: var(--text-3); border-radius: 50%; }
-.countdown__action-row { margin: 2px 0 0 calc(8px + var(--sp-2)); }
-.countdown__action { font-size: var(--fs-12); }
 .session-details { width: 304px; padding: var(--sp-4); }
 .session-details__title { font-size: var(--fs-14); font-weight: var(--fw-semibold); margin-bottom: var(--sp-3); }
 .session-details .kv__val { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-family: var(--font-sans); font-size: var(--fs-13); }

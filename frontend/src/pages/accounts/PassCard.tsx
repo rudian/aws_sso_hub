@@ -130,7 +130,7 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
           </div>
         )}
         {counting ? (
-          <Countdown session={session} slot={profile.colorSlot} label={activeLabel(session, now, t)} onChangeLength={() => onDialog({ kind: 'length', portal: portal.name })} />
+          <Countdown session={session} slot={profile.colorSlot} label={activeLabel(session, now, t)} />
         ) : (
           <div className="stack" style={{ ['--gap' as string]: '4px' }}>
             <div className="pass__state">

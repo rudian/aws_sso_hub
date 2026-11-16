@@ -103,6 +103,7 @@ export type {
     SessionStatus,
     Settings,
     SettingsPatch,
+    SignInWindow,
     StaticIdentity,
     TestResult,
     ToolInfo,

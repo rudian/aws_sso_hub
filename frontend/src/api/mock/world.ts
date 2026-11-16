@@ -110,7 +110,6 @@ export interface SessionModel {
   known: boolean
   loginAt?: number
   sessionMinutes: number
-  endedEarly: boolean
   error?: AppError
 }
 
@@ -223,7 +222,6 @@ export function newSessionModel(over: Partial<SessionModel> = {}): SessionModel 
     signingIn: false,
     known: false,
     sessionMinutes: 480,
-    endedEarly: false,
     ...over,
   }
 }
@@ -260,6 +258,7 @@ export function computeSession(portal: string, m: SessionModel, at: number = now
     portal,
     state,
     sessionKnown: known,
+    sessionEndExact: false, // the mock's end is always the estimate loginAt + sessionMinutes
     sessionMinutes: m.sessionMinutes,
     sessionOverrun: overrun,
     progressPct,

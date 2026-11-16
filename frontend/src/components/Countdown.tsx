@@ -7,7 +7,6 @@ import type { SessionStatus } from '../api/models'
 import { useI18n } from '../i18n'
 import { formatDateTime, formatRelative, formatSessionLength } from '../lib/time'
 import { useNow } from '../lib/useNow'
-import { Button } from './Button'
 import { Dot } from './Dot'
 import { Popover } from './Popover'
 import { Tooltip } from './Tooltip'
@@ -21,25 +20,25 @@ export interface CountdownProps {
   slot?: number
   /** The page passes the state-line text (e.g. "已登录，还剩 6 小时 12 分"). It is replaced by the overrun/unknown wording when those apply. */
   label: ReactNode
-  /** Opens the session-length dialog (owned by the accounts page). When omitted, the "Adjust length" / "Change" controls are hidden. */
-  onChangeLength?: () => void
   className?: string
 }
 
 /**
  * Session countdown. Remaining = sessionEndsAt - now, never the ~1 h access token.
  * - sessionKnown && !sessionOverrun: label + bar (width = remaining / sessionMinutes), colour steps normal >= 60 min, warn < 60, danger < 15.
- * - sessionOverrun: wording `session.overrunLong` + link button, no bar.
+ * - sessionOverrun: wording `session.overrunLong`, no bar.
  * - signed in but not sessionKnown: wording `session.unknown` + info icon with tooltip, no bar.
- * Click the label for the "Sign-in details" popover. Ticks every 30 s and every second in the last minute.
+ * Click the label for the "Sign-in details" popover; its end and length are estimates until AWS showed the end (sessionEndExact).
+ * Ticks every 30 s and every second in the last minute.
  */
-export function Countdown({ session, slot, label, onChangeLength, className }: CountdownProps) {
+export function Countdown({ session, slot, label, className }: CountdownProps) {
   const { t, lang } = useI18n()
   const anchor = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
 
   const endsMs = session.sessionEndsAt ? Date.parse(session.sessionEndsAt) : NaN
   const known = session.sessionKnown && !Number.isNaN(endsMs)
+  const exact = known && session.sessionEndExact // AWS showed the end; otherwise end and length are estimates
   const lastMinute = known && !session.sessionOverrun && endsMs - Date.now() <= MIN && endsMs - Date.now() > -MIN
   const now = useNow(lastMinute ? 1000 : 30_000)
 
@@ -73,13 +72,6 @@ export function Countdown({ session, slot, label, onChangeLength, className }: C
           </Tooltip>
         )}
       </div>
-      {overrun && onChangeLength && (
-        <div className="countdown__action-row">
-          <button type="button" className="link countdown__action" onClick={onChangeLength}>
-            {t('session.overrun.action')}
-          </button>
-        </div>
-      )}
       {showBar && (
         <div className="countdown__track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-hidden="false" aria-label={typeof label === 'string' ? label : undefined}>
           <div className="countdown__fill" style={{ '--pct': `${pct}%` } as CSSProperties} />
@@ -93,23 +85,12 @@ export function Countdown({ session, slot, label, onChangeLength, className }: C
         <dl className="kv">
           <dt className="kv__key">{t('session.details.loginAt')}</dt>
           <dd className="kv__val">{known ? fmt(session.loginAt) : dash}</dd>
-          <dt className="kv__key">{t('session.details.endsAt')}</dt>
+          <dt className="kv__key">{t(exact ? 'session.details.endsAt.exact' : 'session.details.endsAt')}</dt>
           <dd className="kv__val">{known ? fmt(session.sessionEndsAt) : dash}</dd>
           <dt className="kv__key">{t('session.details.length')}</dt>
           <dd className="kv__val">
             {formatSessionLength(session.sessionMinutes, lang)}
-            {onChangeLength && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setOpen(false)
-                  onChangeLength()
-                }}
-              >
-                {t('session.details.change')}
-              </Button>
-            )}
+            {!exact && <span className="muted"> · {t('session.details.estimate')}</span>}
           </dd>
           <dt className="kv__key">{t('session.details.tokenExpires')}</dt>
           <dd className="kv__val">
@@ -119,6 +100,7 @@ export function Countdown({ session, slot, label, onChangeLength, className }: C
           <dt className="kv__key">{t('session.details.lastRenewed')}</dt>
           <dd className="kv__val">{session.issuedAt ? formatRelative(session.issuedAt, now, t) : dash}</dd>
         </dl>
+        <p className="session-details__note">{t('session.details.admin')}</p>
         <p className="session-details__note">{t('session.details.note')}</p>
       </Popover>
     </div>

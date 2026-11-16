@@ -7,8 +7,6 @@ import { makeT } from '../../i18n'
 import {
   activeLabel,
   cardStateText,
-  endedEarly,
-  hoursToMinutes,
   impactLine,
   isSignedIn,
   loginErrorText,
@@ -43,7 +41,7 @@ describe('accounts model', () => {
   afterEach(() => vi.useRealTimers())
 
   it('pillState maps every session state', () => {
-    const base = { portal: 'x', sessionKnown: false, sessionMinutes: 480, sessionOverrun: false, progressPct: 0, canRefresh: false, refreshing: false }
+    const base = { portal: 'x', sessionKnown: false, sessionEndExact: false, sessionMinutes: 480, sessionOverrun: false, progressPct: 0, canRefresh: false, refreshing: false }
     const states: Array<[SessionState, string]> = [
       [SessionState.SessionActive, 'active'],
       [SessionState.SessionExpiring, 'expiring'],
@@ -108,7 +106,8 @@ describe('accounts model', () => {
     expect(activeLabel(s, NOW, en)).toBe('Signed in, 6 h 12 min left')
     expect(pillText(s, NOW, zh)).toBe('已登录，还剩 6 小时 12 分')
     expect(pillText({ ...s, sessionKnown: false }, NOW, en)).toBe('Signed in · start time unknown')
-    expect(pillText({ ...s, sessionOverrun: true }, NOW, en)).toBe('Signed in longer than the set session')
+    expect(pillText({ ...s, sessionOverrun: true }, NOW, en)).toBe('Past the expected end, still signed in')
+    expect(pillText({ ...s, sessionOverrun: true }, NOW, zh)).toBe('已过预计结束时间，仍可使用')
     const fresh = world('fresh').portal('initech').session
     expect(pillText(fresh, NOW, en)).toBe('Expired, can renew')
     expect(cardStateText({ ...fresh, state: SessionState.SessionExpired }, 'en', en)).toMatch(/^Expired /)
@@ -116,16 +115,7 @@ describe('accounts model', () => {
     expect(pillText({ ...s, state: SessionState.SessionExpiring, sessionEndsAt: new Date(NOW + 9 * 60_000).toISOString() }, NOW, en)).toBe('Expires in 9 min')
   })
 
-  it('endedEarly: expired, known session, more than 30 minutes of the set length left', () => {
-    const s = world('mid').portal('initech').session
-    const expired = { ...s, state: SessionState.SessionExpired }
-    expect(endedEarly(expired, NOW)).toBe(true)
-    expect(endedEarly({ ...expired, sessionEndsAt: new Date(NOW + 20 * 60_000).toISOString() }, NOW)).toBe(false)
-    expect(endedEarly({ ...expired, sessionKnown: false }, NOW)).toBe(false)
-    expect(endedEarly(s, NOW)).toBe(false)
-  })
-
-  it('name, monogram and session-length validation', () => {
+  it('name and monogram validation', () => {
     expect(profileNameProblem('acme-admin', new Set(['acme']))).toBeNull()
     expect(profileNameProblem('acme', new Set(['acme']))).toBe('taken')
     expect(profileNameProblem('bad name', new Set())).toBe('invalid')
@@ -137,12 +127,6 @@ describe('accounts model', () => {
     expect(validMonogram('a')).toBe(false)
     expect(validMonogram('账')).toBe(true)
     expect(validMonogram('账号')).toBe(false)
-    expect(hoursToMinutes(8)).toBe(480)
-    expect(hoursToMinutes(0.25)).toBe(15)
-    expect(hoursToMinutes(0.2)).toBeNull()
-    expect(hoursToMinutes(2160)).toBe(129600)
-    expect(hoursToMinutes(2161)).toBeNull()
-    expect(hoursToMinutes(Number.NaN)).toBeNull()
   })
 })
 

@@ -127,7 +127,6 @@ export function applyLoginSuccess(w: World, portal: string): void {
   m.refreshFailed = false
   m.refreshing = false
   m.signingIn = false
-  m.endedEarly = false
   m.error = undefined
 }
 
@@ -162,7 +161,7 @@ const login = (portal: string, mode: LoginMode): CancellablePromise<LoginResult>
         endSigningIn()
         reject(toRuntimeError(e))
       }
-      at(0, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseStarting, browserOpened: false, privateWindow: false }))
+      at(0, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseStarting, browserOpened: false, privateWindow: false, isolatedWindow: false }))
       if (outcome === 'port') {
         at(200, () => failWith(fail(ErrorCode.ErrLoginPort, 'cannot listen on a local port')))
         return
@@ -174,20 +173,22 @@ const login = (portal: string, mode: LoginMode): CancellablePromise<LoginResult>
             phase: LoginPhase.LoginPhaseDevice,
             browserOpened: false,
             privateWindow: false,
+            isolatedWindow: false,
             userCode: 'WDJB-MJHT',
             verificationUri: 'https://device.sso.us-east-1.amazonaws.com/',
             verificationUriComplete: 'https://device.sso.us-east-1.amazonaws.com/?user_code=WDJB-MJHT',
             expiresAt: fromNow(10 * MIN),
           })
         } else {
-          mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseWaiting, authorizeUrl: AUTHORIZE_URL, browserOpened: true, privateWindow: w.settings.privateSignIn, expiresAt: fromNow(10 * MIN) })
+          // the mock's private window is always an isolated browser
+          mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseWaiting, authorizeUrl: AUTHORIZE_URL, browserOpened: true, privateWindow: w.settings.privateSignIn, isolatedWindow: w.settings.privateSignIn, expiresAt: fromNow(10 * MIN) })
         }
       })
       if (outcome === 'denied') at(1500, () => failWith(fail(ErrorCode.ErrLoginDenied, 'access denied')))
       else if (outcome === 'timeout') at(1500, () => failWith(fail(ErrorCode.ErrLoginTimeout, 'login timed out')))
       else if (outcome === 'network') at(1500, () => failWith(fail(ErrorCode.ErrNetwork, 'cannot reach AWS', undefined, 'oidc.us-east-1.amazonaws.com')))
       else if (outcome === 'success') {
-        at(2200, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseExchanging, browserOpened: !device, privateWindow: !device && w.settings.privateSignIn }))
+        at(2200, () => mockEmit('login:progress', { portal, phase: LoginPhase.LoginPhaseExchanging, browserOpened: !device, privateWindow: !device && w.settings.privateSignIn, isolatedWindow: !device && w.settings.privateSignIn }))
         at(2500, () => {
           applyLoginSuccess(w, portal)
           emitSession(w, portal)
@@ -284,17 +285,6 @@ export const mockAccountService: typeof AccountReal = {
       m.refreshing = false
       emitSession(w, portal)
       return { portal, deletedRoleCaches: n, serverLogout: true }
-    }),
-
-  SetSessionLength: (portal, minutes) =>
-    run(WRITE, () => {
-      const w = getWorld()
-      if (!Number.isInteger(minutes) || minutes < 15 || minutes > 129600) throw fail(ErrorCode.ErrInvalidInput, 'session length out of range', { field: 'minutes' })
-      if (!findPortal(w, portal)) throw fail(ErrorCode.ErrInvalidInput, `unknown portal ${portal}`, { field: 'portal' })
-      const m = w.portalModels[portal] ?? (w.portalModels[portal] = newSessionModel())
-      m.sessionMinutes = minutes
-      emitSession(w, portal)
-      return findPortal(w, portal)!.session
     }),
 
   DiscoverAccounts: (portal) =>
@@ -415,7 +405,7 @@ export const mockAccountService: typeof AccountReal = {
       console.info('[mock] open portal', p.startUrl)
     }),
 
-  // Device-code flow's "open page" button: reports whether the page opened in a private window.
+  // "Open browser" (device code) and "Open again": reports how the page opened, like the first open.
   OpenSignInPage: (url) =>
     run(READ, () => {
       let u: URL | undefined
@@ -429,7 +419,8 @@ export const mockAccountService: typeof AccountReal = {
       if (!u || u.protocol !== 'https:' || u.username || u.password || !okHost)
         throw fail(ErrorCode.ErrInvalidInput, 'not a sign-in page URL', { field: 'url' })
       console.info('[mock] open sign-in page', url)
-      return getWorld().settings.privateSignIn
+      const { privateSignIn } = getWorld().settings
+      return { private: privateSignIn, isolated: privateSignIn }
     }),
 
   OpenConsole: (profile) =>

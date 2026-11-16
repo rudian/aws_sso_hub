@@ -26,7 +26,6 @@ import { MoveReposDialog } from './MoveReposDialog'
 import { PortalSection } from './PortalSection'
 import { RemovePortalDialog, RenamePortalDialog } from './PortalDialogs'
 import { RemoveProfileDialog } from './RemoveProfileDialog'
-import { SessionLengthDialog } from './SessionLengthDialog'
 import { staticProfiles } from './model'
 import './accounts.css'
 
@@ -78,7 +77,6 @@ export function AccountsPage() {
     else if ((v = takeOpen('color:')) !== null) setDialog({ kind: 'color', profile: v })
     else if ((v = takeOpen('removeProfile:')) !== null) setDialog({ kind: 'remove', profile: v })
     else if ((v = takeOpen('move:')) !== null) setDialog({ kind: 'move', profile: v })
-    else if ((v = takeOpen('length:')) !== null) setDialog({ kind: 'length', portal: v })
     else if ((v = takeOpen('signOut:')) !== null) {
       const p = (state.portals ?? []).find((x) => x.name === v)
       if (p) void signOut(p)
@@ -173,7 +171,6 @@ export function AccountsPage() {
         <RemoveProfileDialog profile={profileOf(dialog.profile)!} onMove={() => setDialog({ kind: 'move', profile: dialog.profile })} onClose={close} />
       )}
       {dialog?.kind === 'move' && profileOf(dialog.profile) && <MoveReposDialog from={profileOf(dialog.profile)!} onClose={close} />}
-      {dialog?.kind === 'length' && portalOf(dialog.portal) && <SessionLengthDialog portal={dialog.portal} minutes={portalOf(dialog.portal)!.session.sessionMinutes} onClose={close} />}
       {dialog?.kind === 'rename' && portalOf(dialog.portal) && <RenamePortalDialog portal={portalOf(dialog.portal)!} existing={portals.map((p) => p.name)} onClose={close} />}
       {dialog?.kind === 'removePortal' && portalOf(dialog.portal) && <RemovePortalDialog portal={portalOf(dialog.portal)!} onClose={close} />}
       {dialog?.kind === 'export' && <ExportDialog onClose={close} />}

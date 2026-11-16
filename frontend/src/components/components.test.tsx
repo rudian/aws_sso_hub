@@ -41,6 +41,7 @@ function session(over: Partial<SessionStatus> = {}): SessionStatus {
     sessionKnown: true,
     loginAt: iso(-108),
     sessionEndsAt: iso(372),
+    sessionEndExact: false,
     sessionMinutes: 480,
     sessionOverrun: false,
     progressPct: 78,
@@ -83,21 +84,12 @@ describe('Countdown', () => {
     expect(host.querySelector('.countdown__fill')).not.toBeNull()
   })
 
-  it('overrun: the overrun wording, an adjust link, and no bar', () => {
-    const onChange = vi.fn()
-    render(<Countdown session={session({ sessionOverrun: true, progressPct: 0, sessionEndsAt: iso(-5) })} label="ignored" onChangeLength={onChange} />)
-    expect(host.textContent).toContain('Signed in longer than the set session')
+  it('overrun: the overrun wording, nothing to adjust, and no bar', () => {
+    render(<Countdown session={session({ sessionOverrun: true, progressPct: 0, sessionEndsAt: iso(-5) })} label="ignored" />)
+    expect(host.textContent).toContain('Past the expected end, still signed in')
     expect(host.textContent).not.toContain('ignored')
     expect(host.querySelector('.countdown__fill')).toBeNull()
-    // the adjust link sits on its own line, outside the state line
-    expect(host.querySelector('.pass__state .countdown__action')).toBeNull()
-    act(() => (host.querySelector('.countdown__action') as HTMLButtonElement).click())
-    expect(onChange).toHaveBeenCalledOnce()
-  })
-
-  it('overrun without a handler hides the adjust link', () => {
-    render(<Countdown session={session({ sessionOverrun: true, progressPct: 0 })} label="x" />)
-    expect(host.querySelector('.countdown__action')).toBeNull()
+    expect(host.querySelectorAll('button')).toHaveLength(1) // only the label that opens the details
   })
 
   it('unknown session: the unknown wording, an info icon, no bar', () => {
@@ -107,17 +99,31 @@ describe('Countdown', () => {
     expect(host.querySelector('.countdown__fill')).toBeNull()
   })
 
-  it('clicking the label opens the sign-in details popover', () => {
-    render(<Countdown session={session()} label="Signed in" onChangeLength={() => undefined} />, 'en')
+  it('clicking the label opens the sign-in details popover: an estimated end, set by the administrator', () => {
+    render(<Countdown session={session()} label="Signed in" />, 'en')
     expect(document.body.textContent).not.toContain('Sign-in details')
     act(() => (host.querySelector('.countdown__label') as HTMLButtonElement).click())
     const pop = document.body.querySelector('.session-details')
     expect(pop?.textContent).toContain('Sign-in details')
     expect(pop?.textContent).toContain('Signed in at')
-    expect(pop?.textContent).toContain('8 hours')
+    expect(pop?.textContent).toContain('Expected end')
+    expect(pop?.textContent).toContain('8 hours · estimate')
     expect(pop?.textContent).toContain('renews automatically')
-    expect(pop?.textContent).toContain('Change')
+    expect(pop?.textContent).toContain('Your AWS administrator sets the session length in IAM Identity Center.')
     expect(pop?.textContent).toContain("Quitting the app doesn't sign you out".replace("'", '’'))
+    expect(pop?.querySelector('button')).toBeNull()
+  })
+
+  it('details: an end that AWS showed is the session end, not an estimate', () => {
+    render(<Countdown session={session({ sessionEndExact: true, sessionEndsAt: iso(12), sessionMinutes: 120 })} label="x" />, 'zh-CN')
+    act(() => (host.querySelector('.countdown__label') as HTMLButtonElement).click())
+    const pop = document.body.querySelector('.session-details')
+    const keys = Array.from(document.body.querySelectorAll('.session-details .kv__key')).map((e) => e.textContent)
+    expect(keys).toContain('会话结束')
+    expect(keys).not.toContain('预计结束')
+    expect(pop?.textContent).toContain('2小时')
+    expect(pop?.textContent).not.toContain('估计')
+    expect(pop?.textContent).toContain('会话时长由 AWS 管理员在 IAM Identity Center 中设定')
   })
 
   it('details show dashes when the session start is unknown', () => {
