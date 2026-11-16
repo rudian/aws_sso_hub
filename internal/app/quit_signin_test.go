@@ -114,3 +114,27 @@ func TestSignInWindowOpenedDuringShutdownIsClosed(t *testing.T) {
 		waitCond(t, fake.windows[0].isClosed)
 	}
 }
+
+// Only sign-in pages use the isolated window: the other callers (update page, install pages, a link in the
+// app, the portal, the console) open a normal window even when the private sign-in setting is on.
+func TestOnlySignInUsesTheIsolatedWindow(t *testing.T) {
+	w := newWorld(t)
+	w.c.Paths.Sandbox = false
+	fake := &fakePrivate{private: true, isolated: true}
+	w.c.private = fake
+	rt := w.c.RT.(*fakeRuntime)
+	if err := NewSystemService(w.c).OpenURL("https://example.com/docs"); err != nil {
+		t.Fatal(err)
+	}
+	if err := NewUpdateService(w.c).OpenDownloadPage(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	tools := NewToolService(w.c, nil)
+	_ = tools.OpenInstallPage("git") // a tool id the install pages know; the open goes through the runtime
+	if len(rt.urls) < 2 {
+		t.Fatalf("normal opens: %v", rt.urls)
+	}
+	if len(fake.urls) != 0 || len(fake.windows) != 0 {
+		t.Fatalf("a non-sign-in page used the private or isolated window: %v %d", fake.urls, len(fake.windows))
+	}
+}
