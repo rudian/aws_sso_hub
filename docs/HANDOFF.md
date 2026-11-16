@@ -1,6 +1,6 @@
 # Codepass 交接文档
 
-更新：2026-11-17（第四版，F1-22 合并后）。状态：**进行中**。F1-21、F1-22 已合并；下一步是 F1-CL（拆成 F1-CLa 和 F1-CLb 并行跑）。
+更新：2026-11-17（第五版，F1-CL 合并后）。状态：**进行中**。里程碑 1 的任务全部合并（最后三个是 F1-21、F1-22、F1-CL）；下一步是**里程碑 1 关卡**。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 
@@ -10,10 +10,14 @@
 
 - **在做什么**：把 AWS SSO Hub 改版成 **Codepass 1.0.0**。用户的目的：用一个 app 代替 JetBrains IDE（WebStorm、PhpStorm、GoLand）、Warp、Bitbucket 网站、Claude Desktop（只用来看周用量）和 Sublime Text（记以后要做的想法），少开软件、省电脑资源。
 - **功能**：项目分组；多个 AWS SSO / GitHub / Bitbucket 账号；完整的 git 客户端；作者身份；OTA 更新；多会话的 AI 编码终端（Claude Code / Codex / OpenCode，每个任务一个 worktree）；带代码提示的编辑器（Go、TS/JS、PHP）；AI 运行时防止睡眠；系统通知；**票队列、多个 AI 账号、用量表（新）**。平台是 macOS arm64（15 及以上）和 Windows。所有功能做完后一次发布 v1.0.0。
-- **这个 session 做了什么**：F1-21 合并完成（`2c24815`，`main` 的 0.0.2 已经在 `codepass` 里）；F1-22 合并完成（`f3fc3e2`，登录快过期、已过期的系统通知）；删掉了多余的本地分支；workflow 以后合并、push 成功后自动删 task 分支。
-- **进度**：约 **24%**（第 9 节）。里程碑 0 完成。里程碑 1 还剩 F1-CL 和关卡。
+- **这个 session 做了什么**：
+  - F1-21 合并完成（`2c24815`，`main` 的 0.0.2 已经在 `codepass` 里）；
+  - F1-22 合并完成（`f3fc3e2`，登录快过期、已过期的系统通知）；
+  - F1-CL 合并完成，按文件拆成两个并行任务：`0ab5df7` F1-CLa（Go、脚本、文档）、`86e82d4` F1-CLb（前端，包括用户要的项目页搜索）；
+  - 删掉了多余的本地分支；workflow 以后合并、push 成功后自动删 task 分支。
+- **进度**：约 **24%**（第 9 节）。里程碑 0 完成。里程碑 1 的任务全部合并，只剩关卡。
 - **代码**：在 `codepass` 分支，已经 push。`main`（0.0.2）已经用 `--no-ff` 合并进来，`git log codepass..main` 是空的。
-- **顺序**：F1-CL → 里程碑 1 关卡 → 里程碑 2 → 3 → **8** → 4 → 5 → 6 → 7。
+- **顺序**：里程碑 1 关卡 → 里程碑 2（最后一组是新加的 A2-CL，清掉 F1-CL 留下的 11 条小问题）→ 3 → **8** → 4 → 5 → 6 → 7。
 
 ## 1. 新 session 的第一步
 
@@ -27,10 +31,10 @@
 3. **按顺序读**：
    - 本文件；
    - `docs/plan/codepass/tasks.md`：「How the work runs」、「Owner decisions (FINAL)」和它下面的两批 owner requirements、open questions、「Follow-ups」；
-   - 同一文件的 F1-CL 条目、「Follow-ups」里所有标了 F1-CL 的条目（包括 FU-21a–c、FU-22a–g）和里程碑 1 的「Gate」；里程碑 8 先略读（它排在里程碑 3 后面）；
-   - `reviews/groupF-wiring.md` 和 `reviews/groupG-wiring.md`（F1-21、F1-22 留给 F1-CL 和关卡的话）。
-4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 60 个文件、782 个测试。
-5. **然后直接开工**，从还没合并的第一个任务开始（看 tasks.md 里里程碑 1 的合并记录；写这一版时是 F1-CL）。第 5 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
+   - 同一文件里程碑 1 的「Gate」、里程碑 2 最后的 A2-CL 条目、「Follow-ups」最后的 Group H（FU-CLa1–4、FU-CLb1–7）；里程碑 8 先略读（它排在里程碑 3 后面）；
+   - `reviews/groupH-wiring.md`（F1-CL 留给关卡和里程碑 2 的话）；`reviews/groupE-wiring.md` 和 `reviews/groupG-wiring.md` 的 deviations（关卡要请用户确认）。
+4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 63 个文件、841 个测试。
+5. **然后直接开工**：下一步是里程碑 1 关卡（第 5 节第 4 条写了谁做什么）。关卡做完以后，从还没合并的第一个任务开始（里程碑 2 的 A2-01）。第 6 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
 
 ## 2. 用户定的工作方式（每个 session 都照做）
 
@@ -49,13 +53,13 @@
 | 需求 | 任务 | 在哪里写着 |
 |---|---|---|
 | `main` 上 0.0.2 的修复要带进 Codepass：多个 Identity Center 用户时的「控制台」、同一个门户两个用户先后登录、每个账号用自己的无痕窗口登录、会话时长由 AWS 管理员决定（app 不能改） | **F1-21** ✅ 已合并（`2c24815`） | tasks F1-21；plan 4.2；检查 C19–C21、C26 |
-| AWS 登录快过期、已过期时发系统通知，写明是哪个登录和哪些账户，通知上有「重新登录」按钮 | **F1-22** | plan 4.15；design 5.14、6；`docs/research/notifications.md`；检查 C22–C24、B19 |
+| AWS 登录快过期、已过期时发系统通知，写明是哪个登录和哪些账户，通知上有「重新登录」按钮 | **F1-22** ✅ 已合并（`f3fc3e2`） | plan 4.15；design 5.14、6；`docs/research/notifications.md`；检查 C22–C24、B19 |
 | 票（ticket）：编辑中 / 暂不执行 / 待执行。待执行的排队一个一个跑，跑完一个才开始下一个；开始前检查用量，到上限就暂停 | **里程碑 8** | plan 4.17；tasks 里程碑 8 |
 | 多个 Claude 账号：A 的周用量用完就换 B，A 上正在用的会话在 B 上接着用，上下文不丢 | **里程碑 8** | plan 4.16 |
 | 在 Codepass 里看 Claude 的用量（代替 Claude Desktop） | **里程碑 8** | plan 4.16 |
 | 用量、多账号切换、票队列也要支持 GPT（Codex），因为有的用户不用 Claude | **里程碑 8** | plan 4.16、4.17；`docs/research/claude-usage-accounts.md` |
 | PHP 也要代码提示（悬停、补全、跳到定义、引用、诊断） | **E5-11** | plan 4.12；tasks E5-11 |
-| 在仓库列表里打文件夹名就能快速找到仓库、马上开始干活 | **F1-CL**（项目页搜索：按文件夹名排序、上下键选、回车打开）和 **A2-16**（任何页面按 Cmd/Ctrl+O 打开仓库） | plan 4.4；design 4.3、5.2、5.7c；检查 C25 |
+| 在仓库列表里打文件夹名就能快速找到仓库、马上开始干活 | **F1-CL** ✅ 已合并（`86e82d4`，项目页搜索：按文件夹名排序、上下键选、回车打开）和 **A2-16**（任何页面按 Cmd/Ctrl+O 打开仓库，复用同一个排序） | plan 4.4；design 4.3、5.2、5.7c；检查 C25 |
 | 多个 Claude / GPT 账号随时来回切换；仓库 A 默认用账号 A，仓库 B 的任务可以自由选 A 或 B | **T8-01、T8-05、T8-09、T8-10** | plan 4.16「Choosing the account」；design 4.2、5.2、5.6、5.16 |
 | A 的周用量用完 → 换 B 接着做，**上下文一点都不能丢** | **T8-05、T8-11**（三层：同一个会话、修好的副本、交接笔记；永远不会从零开始） | plan 4.16「Switching keeps the conversation」；调研 R8 |
 | 多账号要符合 Claude 和 OpenAI 的官方条款、别被封号；只给自己用，不转售 | **T8-01、T8-04、T8-05、T8-07** | plan 4.16「Several accounts within the terms」；调研 R3、R5d、R9 |
@@ -99,7 +103,7 @@
 | `docs/plan/codepass/tasks.md` | **唯一的任务清单**。每个任务有 Build / Owns / Deps / Accept / Tests / Review。还有用户决定、两批需求、open questions、Follow-ups（FU-xx）和每组的合并记录。 |
 | `docs/plan/codepass/product-plan.md` | 产品方案，文中引用为 "plan N.N"。新的：4.15 系统通知、4.16 AI 账号和用量、4.17 票队列。 |
 | `docs/plan/codepass/ui-design.md` | 设计规范，文中引用为 "design N.N"。新的：第 6 节「System notifications」表、5.14 的提醒设置、里程碑 8 的新页面。 |
-| `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A、B（含 B19）、C（C1–C25）、D（里程碑 8） |
+| `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A、B（含 B19）、C（C1–C27）、D（里程碑 8） |
 | `docs/plan/codepass/reviews/` | 每组的接线笔记 `group*-wiring.md`、传给 workflow 的说明 `group*-args.md`（原始结果 `*.json` 只在本机） |
 | `docs/plan/codepass/orchestration/` | `codepass-group-v2.js`（每组用的 workflow 脚本）和 `gate.sh` |
 | `docs/plan/codepass/shoturl.sh` | 截图工具（headless Chrome，支持 `file://`） |
@@ -116,12 +120,20 @@
 
 1. **F1-21（F 组）✅ 已完成**（2026-11-16，`2c24815`，`--no-ff` 合并；1 轮修复后通过）。留下 3 条 follow-up（FU-21a 到 FU-21c，都归 F1-CL）和给用户的手动检查 C26。传给 workflow 的说明在 `reviews/groupF-args.md`（`portBase` 用过 9700）。
 2. **F1-22（G 组）✅ 已完成**（2026-11-17，`f3fc3e2`，squash 合并；review 找到 3 个 major、4 个 minor，1 轮修复后通过）。系统通知服务 `internal/notify`，AWS 登录快过期 / 已过期的通知和「重新登录」按钮。留下 7 条 follow-up（FU-22a 到 FU-22g，都归 F1-CL）；手动检查 C22–C24、B19 按实际做法改写了。传给 workflow 的说明在 `reviews/groupG-args.md`（`portBase` 用过 9760）。
-3. **F1-CL（H 组）**：修所有标了「F1-CL」的 follow-up（大约 70 条，包括 F1-21、F1-22 留下的 10 条）。加上用户要的「在项目页打文件夹名找仓库、回车打开」（放在 F1-CLb）。挂上 `UpdatesCard`、`UpdateBanner`、`ToolRows`；删掉 `pages/repos/` 里没人用的文件；`RepoName` 覆盖所有显示仓库名的地方。建议拆成 F1-CLa（Go）和 F1-CLb（前端）并行跑，按文件分开。
+3. **F1-CL（H 组）✅ 已完成**（2026-11-17）。按文件拆成两个并行任务：`0ab5df7` F1-CLa（Go、脚本、文档）和 `86e82d4` F1-CLb（前端）。各 1 轮修复后通过，合并时没有冲突。
+   - 修了大约 80 条 follow-up，做了用户要的项目页搜索，挂上了 `UpdatesCard`、`UpdateBanner`、`ToolRows`。
+   - 留下 11 条小问题（FU-CLa1–4、FU-CLb1–7），都归新加的 **A2-CL**（里程碑 2 的最后一组）。
+   - 手动检查：C25 按实际做法改写；新加 C27（在 Health 页更新工具）；B11、B14–B16、B19、C17、C18、C23 加了步骤。
+   - 传给 workflow 的说明在 `reviews/groupH-args.md`（`portBase` 用过 9820）。
 4. **里程碑 1 关卡**（`tasks.md` 里里程碑 1 的「Gate」）：
-   - 跑标准 gate；重新截所有截图，和设计稿对比（E 组有几张修复后没重截）。
-   - 和用户一起确认设计偏差（清单在 Gate 里），加上 F1-22 的设置行和通知文字。
-   - 用户手动检查：C 组（含 C19–C26）、A9、B1–B3、B5、B9、B19 等。
-5. 然后按顺序：里程碑 2（AI 终端，A2-xx）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
+   - **orchestrator 自己做**：
+     - 标准 gate（2026-11-17 已过：63 个文件、841 个测试）。
+     - 用 mock 重新截 Gate 里列的所有截图，和 `docs/design/codepass-mockup/shots/` 并排对比。
+     - 整理一份偏差清单给用户确认：E 组的偏差（`reviews/groupE-wiring.md`）、FU-17e、F1-22 的设置行和通知文字、F1-CL 的搜索和 Health、启动弹窗的措辞。
+   - **要用户来**：
+     - 测试频道：私有仓库、测试签名钥匙、只读令牌、`gh auth login`（`docs/release.md`「The test channel」）。有了它，orchestrator 才能出签名、公证过的 rc 版本。
+     - 手动检查：C 组（C1–C27）、A9、A16、A17、B1–B3、B5、B9、B15–B19。
+5. 然后按顺序：里程碑 2（AI 终端，A2-xx；最后是 A2-CL）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
 
 **这些事必须由用户本人来做或在场，不要自己做：**
 - 更新签名钥匙（ed25519）的钥匙仪式：用户必须在场（见 `docs/release.md`）。
@@ -161,7 +173,7 @@ args 的格式：
 **每组结束后，orchestrator 要做这几件事：**
 1. 把结果存到 `reviews/<组>-final.json`（只在本机），接线笔记写到 `reviews/<组>-wiring.md`，传给 workflow 的说明写到 `reviews/<组>-args.md`。这两个 `.md` 要 commit：commit 前把里面的 home 路径换成 `~`，并跑 scrub。
 2. 自己跑 `bash docs/plan/codepass/orchestration/gate.sh`。全部通过才能继续。
-3. 把 follow-up 登记到 `tasks.md` 的「Follow-ups」，编号格式 FU-<任务号><字母>，分给后面的任务或 F1-CL；需要时改相关任务的 Build 和 Owns；新的手动检查用中文写进 `manual-checks.md`。
+3. 把 follow-up 登记到 `tasks.md` 的「Follow-ups」，编号格式 FU-<任务号><字母>（F1-CL 的是 FU-CLa1、FU-CLb1 这样），分给后面的任务或这个里程碑的清理任务（里程碑 2 是 A2-CL）；并行拆分的组合并后，自己查一遍两边的接缝（比如 Go 改了、mock 没跟上；新的错误码前端没处理）；需要时改相关任务的 Build 和 Owns；新的手动检查用中文写进 `manual-checks.md`。
 4. 用中文 ELI5 告诉用户结果。
 5. 关掉还在跑的 subagent。
 
@@ -211,6 +223,12 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 - 前端测试偶尔报「window is not defined」：已经由 `frontend/src/test-setup.ts` 修好了。
 - **F1-21（已完成）**：Codepass 的版本号还是 0.0.1，发布时由 `release.sh` 改成 1.0.0-rc.N。有 4 个 GitHub 链接还用旧名 `rudian/aws_sso_hub`（`frontend/src/pages/settings/util.ts` 的 `REPO_URL`，`internal/app/menu.go` 的三个链接），等发布时仓库改名（R7-08）再改。A2-14 的「全部停止」要走 `app.Quit` 或 `Container.Shutdown`，这样登录用的独立浏览器才会关掉；新的登录页面一律用 `c.openSignIn` 打开。
 - **F1-22（已完成）**：真的系统通知只在正式版（`-tags production`）里发；sandbox、测试和开发版都用 fake，fake 会在窗口里显示提示条。开发版设 `AWSSSOHUB_REAL_NOTIFICATIONS=1` 才发真的，但开发版不开 sandbox 会用真实数据，所以用户的手动检查用测试频道的版本。Wails 的通知服务由 `internal/notify` 包一层自己启动，失败时只用窗口里的提示条。权限只在「点登录时窗口在最前面」的那次登录结束后问一次。「重新登录」按钮发 `app:navigate` 的 `login`，在窗口里打开登录框，和通行证上的按钮走同一条路。里程碑 8 的新通知种类用 `Notify.RegisterKind` 注册，按钮最多一个，数据里只放 ID。细节见 `reviews/groupG-wiring.md`。
+- **F1-CL（已完成）**：
+  - 按文件拆成两个并行任务，合并时没有冲突。但两边互相看不到对方的改动，所以合并后要自己查接缝。这次就漏了两处：Go 的克隆命令改了，mock 没跟上（FU-CLb6）；Go 加了新错误码 `E_CONFIG_SHARED`，前端的弹出框没处理（FU-CLb7）。
+  - 测试里所有 AWS 客户端都经过 `internal/awsguard`：连本机以外的地址会直接报错，不会连出去（FU-22f）。以后新的 AWS 客户端也要用 `awsguard.Client()` 或 `awsguard.Transport()`。
+  - 窗口外发来的登录请求一律用 `useActions().requestLogin(portal)`：登录框开着时会排队。
+  - A2-16 用 `frontend/src/lib/repoSearch.ts` 的排序。mock 加了 `?search=<文字>`，方便截搜索的图。
+  - `update-prefs.json` 是 Codepass 自己在 F1-17 时加的文件，0.0.1 和 0.0.2 都没有；现在这个设置放在 `settings.json` 的 `updateCheckOff`。
 - 硬盘：2026-11-16 清过（Go 编译缓存；用户同意后，删了其他 repo 的 Claude 临时文件和 2 天前的旧对话），之后大约 53 GB 空闲。Go 的编译缓存会涨到 6 GB 左右，可以用 `go clean -cache` 清掉。
 - 分支：本地只留 `codepass`、`main` 和 `spike/*`。`worktree-wf_*` 和 `task/F1-*` 在 2026-11-16 删掉了（task 分支的备份见第 4 节）。workflow 合并、push 成功后会自动删 task 分支。
 - 查别的 repo 时用 `git --no-optional-locks status`：普通的 `git status` 会顺手改写那个 repo 的 `.git/index`。
@@ -222,7 +240,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 里程碑 | 状态 |
 |---|---|
 | 0 Spikes | ✅ 完成 |
-| 1 基础（项目、安装、身份、更新） | 23/24 个任务；剩 F1-CL；关卡还没过 |
+| 1 基础（项目、安装、身份、更新） | 24/24 个任务全部合并；关卡还没过 |
 | 2 AI 终端和防睡眠 | 未开始 |
 | 3 Worktree 任务、改动和提交 | 未开始 |
 | 8 票队列、AI 账号、用量（排在 3 后面） | 未开始 |
@@ -232,7 +250,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 7 Windows、打磨、发布 | 未开始 |
 
 **整体约 24%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），现在一共 240 分，已经完成 57 分（F1-22 之后），约 24%。
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1），现在一共 241 分，已经完成 58 分（F1-CL 之后），约 24%。
 - 按计划的周数算：原来约 35 周，现在约 45 周（里程碑 8 约 8 周），完成约 20%。
 
 ## 10. 建议用的技能（Skill）
