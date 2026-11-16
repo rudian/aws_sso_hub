@@ -170,21 +170,6 @@ describe('mock services', () => {
     expect(st.configPreview?.lines?.some((l) => l.text.startsWith('[sso-session acme]'))).toBe(true)
   })
 
-  it('SetSessionLength validates and recomputes', async () => {
-    resetWorld('mid')
-    expect(await code(mock.accounts.SetSessionLength('initech', 14))).toBe(ErrorCode.ErrInvalidInput)
-    expect(await code(mock.accounts.SetSessionLength('initech', 129601))).toBe(ErrorCode.ErrInvalidInput)
-    expect(await code(mock.accounts.SetSessionLength('nope', 480))).toBe(ErrorCode.ErrInvalidInput)
-    const s = await call(mock.accounts.SetSessionLength('initech', 60))
-    expect(s.sessionMinutes).toBe(60)
-    expect(s.state).toBe('active')
-    // the login was 1 h 48 min ago, so a 60 min session is already past its set length: overrun, no bar
-    expect(s.sessionOverrun).toBe(true)
-    expect(s.progressPct).toBe(0)
-    const s2 = await call(mock.accounts.SetSessionLength('initech', 480 * 2))
-    expect(s2).toMatchObject({ sessionOverrun: false, progressPct: 89 })
-  })
-
   it('session overrides: unknown, overrun, ending', async () => {
     for (const [o, check] of [
       ['unknown', (s: { sessionKnown: boolean; loginAt?: string; state: string }) => { expect(s).toMatchObject({ sessionKnown: false, state: 'active' }); expect(s.loginAt).toBeUndefined() }],
@@ -243,9 +228,9 @@ describe('mock services', () => {
     expect(await code(mock.accounts.CreateProfiles(req, prev.baseHash))).toBe(ErrorCode.ErrProfileExists)
   })
 
-  it('Logout clears the login but keeps the session length', async () => {
+  it('Logout clears the login but keeps the learned session length', async () => {
     resetWorld('mid')
-    await call(mock.accounts.SetSessionLength('initech', 240))
+    getWorld().portalModels['initech'].sessionMinutes = 240
     const r = await call(mock.accounts.Logout('initech'))
     expect(r).toMatchObject({ portal: 'initech', serverLogout: true, deletedRoleCaches: 2 })
     const s = (await call(mock.accounts.GetState())).portals!.find((p) => p.name === 'initech')!.session

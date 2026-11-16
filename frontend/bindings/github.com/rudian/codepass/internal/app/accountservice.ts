@@ -70,7 +70,10 @@ export function Logout(portal: string): $CancellablePromise<api$0.LogoutResult> 
 }
 
 /**
- * OpenConsole: P1
+ * OpenConsole opens the AWS console in the default browser as the role of an SSO profile. The app signs in
+ * with its own IAM Identity Center session (role credentials, then the AWS sign-in federation endpoint), so
+ * a portal session of another user in the browser cannot get in the way. The sign-in link is a secret and
+ * never reaches the frontend. Partitions without a known federation endpoint open the access portal link.
  */
 export function OpenConsole(profile: string): $CancellablePromise<void> {
     return $Call.ByID(2353117259, profile);
@@ -91,10 +94,10 @@ export function OpenPortal(portal: string): $CancellablePromise<void> {
 /**
  * OpenSignInPage opens a sign-in page again from the login window: the device-code verification page ("Open
  * browser") or the browser sign-in authorize URL ("Open again"). It follows the "private sign-in" setting
- * and returns whether the page opened in a private browser window. Only https pages on an AWS portal host
+ * and returns how the page opened (private window, isolated browser). Only https pages on an AWS portal host
  * (including dual-stack portals) or an Identity Center device host are accepted.
  */
-export function OpenSignInPage(url: string): $CancellablePromise<boolean> {
+export function OpenSignInPage(url: string): $CancellablePromise<api$0.SignInWindow> {
     return $Call.ByID(1407768191, url);
 }
 
@@ -163,12 +166,4 @@ export function SaveExport(req: api$0.ExportRequest): $CancellablePromise<api$0.
 
 export function SetProfileIdentity(u: api$0.IdentityUpdate): $CancellablePromise<api$0.AccountsState> {
     return $Call.ByID(716110969, u);
-}
-
-/**
- * SetSessionLength stores the per-portal session length in minutes (15..129600); other values fail with
- * E_INVALID_INPUT.
- */
-export function SetSessionLength(portal: string, minutes: number): $CancellablePromise<api$0.SessionStatus> {
-    return $Call.ByID(3990645098, portal, minutes);
 }

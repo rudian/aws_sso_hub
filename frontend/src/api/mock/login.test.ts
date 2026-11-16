@@ -51,6 +51,8 @@ describe('mock Accounts.Login', () => {
     expect(waiting?.authorizeUrl).toContain('client_id=MOCKCLIENTID')
     expect(waiting?.authorizeUrl).toContain('code_challenge=MOCKCHALLENGE')
     expect(waiting?.browserOpened).toBe(true)
+    // private sign-in is on by default; the mock's private window is an isolated browser
+    expect(waiting).toMatchObject({ privateWindow: true, isolatedWindow: true })
     expect(Date.parse(waiting?.expiresAt ?? '') - Date.now()).toBeGreaterThan(9 * 60_000)
     p.cancel()
     off()
@@ -61,7 +63,7 @@ describe('mock Accounts.Login', () => {
     await vi.advanceTimersByTimeAsync(500)
     off2()
     p2.cancel()
-    expect(dev.find((x) => x.phase === 'device')).toMatchObject({ userCode: 'WDJB-MJHT', verificationUri: 'https://device.sso.us-east-1.amazonaws.com/' })
+    expect(dev.find((x) => x.phase === 'device')).toMatchObject({ userCode: 'WDJB-MJHT', verificationUri: 'https://device.sso.us-east-1.amazonaws.com/', isolatedWindow: false })
   })
 
   it('denied rejects with E_LOGIN_DENIED after 1.5 s and clears signing-in', async () => {

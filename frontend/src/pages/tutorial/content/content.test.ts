@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { makeT } from '../../../i18n'
 import { parseInline } from '../Inline'
 import { SECTION_ORDER, tutorialFor } from './index'
 import type { TutorialSection } from './types'
@@ -69,6 +70,16 @@ describe('tutorial content', () => {
           .join('')
         expect(rest, `${s.id}: stray markup in "${str.slice(0, 40)}"`).not.toMatch(/\*\*|`/)
       }
+    }
+  })
+
+  it('ties the two-minute check of a short session to the auto-renew switch, by its exact settings label', () => {
+    // the check renewal only runs while that switch is on (it is on by default)
+    for (const [lang, sections, claim] of [['en', en, 'within about two minutes'], ['zh-CN', zh, '大约 2 分钟内']] as const) {
+      const label = makeT(lang)('settings.reminders.autoRenew')
+      const texts = sections.flatMap(strings).filter((str) => str.includes(claim))
+      expect(texts.length, lang).toBeGreaterThan(0)
+      for (const str of texts) expect(str, lang).toContain(`**${label}**`)
     }
   })
 

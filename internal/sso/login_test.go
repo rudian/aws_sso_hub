@@ -430,28 +430,38 @@ func TestCallbackPageEscapes(t *testing.T) {
 
 func TestLoginPKCEReportsPrivateWindow(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		private     bool
-		err         error
-		wantOpened  bool
-		wantPrivate bool
+		name         string
+		win          api.SignInWindow
+		err          error
+		wantOpened   bool
+		wantPrivate  bool
+		wantIsolated bool
 	}{
-		{"private", true, nil, true, true},
-		{"normal", false, nil, true, false},
-		{"failed", true, errors.New("no browser"), false, false},
+		{"isolated", api.SignInWindow{Private: true, Isolated: true}, nil, true, true, true},
+		{"private", api.SignInWindow{Private: true}, nil, true, true, false},
+		{"normal", api.SignInWindow{}, nil, true, false, false},
+		{"failed", api.SignInWindow{Private: true, Isolated: true}, errors.New("no browser"), false, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := newEnv(t)
 			plain := false
 			e.m.cfg.OpenBrowser = func(string) error { plain = true; return nil }
 			approve := e.browser(okCallback)
-			e.m.cfg.OpenSignIn = func(u string) (bool, error) {
+			var opened []string
+			e.m.cfg.OpenSignIn = func(u string) (api.SignInWindow, error) {
+				opened = append(opened, u)
 				if tc.err != nil {
 					// the user opens the printed URL by hand
 					approve(u)
-					return false, tc.err
+					return api.SignInWindow{}, tc.err
 				}
-				return tc.private, approve(u)
+				return tc.win, approve(u)
+			}
+			var ended [][]string
+			var endedOK []bool
+			e.m.cfg.SignInEnded = func(pages []string, ok bool) {
+				ended = append(ended, pages)
+				endedOK = append(endedOK, ok)
 			}
 			if _, err := e.m.Login(context.Background(), e.sess, api.LoginModeBrowser, e.progress); err != nil {
 				t.Fatal(err)
@@ -460,9 +470,28 @@ func TestLoginPKCEReportsPrivateWindow(t *testing.T) {
 				t.Fatal("OpenBrowser must not be used when OpenSignIn is set")
 			}
 			w := e.prog[1]
-			if w.Phase != api.LoginPhaseWaiting || w.BrowserOpened != tc.wantOpened || w.PrivateWindow != tc.wantPrivate {
+			if w.Phase != api.LoginPhaseWaiting || w.BrowserOpened != tc.wantOpened || w.PrivateWindow != tc.wantPrivate || w.IsolatedWindow != tc.wantIsolated {
 				t.Fatalf("waiting progress %+v", w)
 			}
+			// the windows opened for the sign-in page are reported once, when the sign-in has ended
+			if len(ended) != 1 || !endedOK[0] || len(ended[0]) != 1 || ended[0][0] != opened[0] || ended[0][0] != w.AuthorizeURL {
+				t.Fatalf("ended %v %v opened %v", ended, endedOK, opened)
+			}
 		})
+	}
+}
+
+func TestSignInEndedOnFailure(t *testing.T) {
+	e := newEnv(t)
+	e.m.cfg.CallbackTimeout = 50 * time.Millisecond
+	e.m.cfg.OpenSignIn = func(string) (api.SignInWindow, error) { return api.SignInWindow{Private: true, Isolated: true}, nil }
+	var ok []bool
+	var pages [][]string
+	e.m.cfg.SignInEnded = func(p []string, o bool) { pages, ok = append(pages, p), append(ok, o) }
+	if _, err := e.m.Login(context.Background(), e.sess, api.LoginModeBrowser, e.progress); !errors.Is(err, ErrTimeout) {
+		t.Fatal(err)
+	}
+	if len(ok) != 1 || ok[0] || len(pages[0]) != 1 || !strings.Contains(pages[0][0], "/authorize?") {
+		t.Fatalf("%v %v", pages, ok)
 	}
 }

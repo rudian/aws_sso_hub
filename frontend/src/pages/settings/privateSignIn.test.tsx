@@ -46,6 +46,7 @@ afterEach(() => {
 })
 
 const text = () => document.body.textContent ?? ''
+const ISOLATED = 'separate, fresh browser window'
 const PRIVATE = 'private browser window'
 const FALLBACK = 'a normal window was used'
 
@@ -68,21 +69,34 @@ describe('Settings: private sign-in switch', () => {
 describe('LoginModal: private window hints', () => {
   const open = (mode: LoginMode = LoginMode.LoginModeBrowser) => mount(createElement(LoginModal, { portal: 'initech', initialMode: mode, onClose: () => undefined }))
 
-  it('private window: private body, no fallback line', async () => {
+  it('isolated window (the default): a fresh browser that closes by itself, no fallback line', async () => {
     open()
     await flush(700)
-    expect(text()).toContain('We opened the sign-in page in a private browser window')
+    expect(text()).toContain('We opened the sign-in page in a separate, fresh browser window')
+    expect(text()).toContain('The window closes by itself when you’re done.')
+    expect(text()).not.toContain(PRIVATE)
     expect(text()).not.toContain('your default browser')
+    expect(text()).not.toContain(FALLBACK)
+  })
+
+  it('private but not isolated: private body that says to close all private windows to switch users', async () => {
+    open()
+    await flush(700)
+    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: true, privateWindow: true, isolatedWindow: false }))
+    expect(text()).toContain('We opened the sign-in page in a private browser window')
+    expect(text()).toContain('To sign in as a different user, close all private windows first.')
+    expect(text()).not.toContain(ISOLATED)
     expect(text()).not.toContain(FALLBACK)
   })
 
   it('fell back to a normal window: usual body plus the fallback line', async () => {
     open()
     await flush(700)
-    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: true, privateWindow: false }))
+    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: true, privateWindow: false, isolatedWindow: false }))
     expect(text()).toContain('default browser')
     expect(text()).toContain(FALLBACK)
     expect(text()).not.toContain(PRIVATE)
+    expect(text()).not.toContain(ISOLATED)
   })
 
   it('setting off: nothing about private windows', async () => {
@@ -91,27 +105,42 @@ describe('LoginModal: private window hints', () => {
     await flush(700)
     expect(text()).toContain('default browser')
     expect(text()).not.toContain(PRIVATE)
+    expect(text()).not.toContain(ISOLATED)
     expect(text()).not.toContain(FALLBACK)
   })
 
   it('browser did not open: only the manual-open line, no private hint', async () => {
     open()
     await flush(700)
-    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: false, privateWindow: false }))
+    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: false, privateWindow: false, isolatedWindow: false }))
     expect(text()).not.toContain(FALLBACK)
     expect(text()).not.toContain(PRIVATE)
   })
 
   it('device code: hint when on, "Open browser" calls OpenSignInPage and shows the fallback if it was not private', async () => {
-    const spy = vi.spyOn(Accounts, 'OpenSignInPage').mockResolvedValue(false)
+    const spy = vi.spyOn(Accounts, 'OpenSignInPage').mockResolvedValue({ private: false, isolated: false })
     open(LoginMode.LoginModeDevice)
     await flush(700)
     expect(text()).toContain('uses a private window where it can')
+    // the same switch-user warning as the browser flow's private body
+    expect(text()).toContain('Close that window after you allow access. To sign in as a different user, close all private windows first.')
     const btn = [...document.querySelectorAll<HTMLButtonElement>('.login-modal .modal__footer button')].find((b) => b.textContent === 'Open browser')
     act(() => btn?.click())
     await flush(50)
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('device.sso'))
     expect(text()).toContain(FALLBACK)
+  })
+
+  it('device code: an isolated window replaces the hint with "closes by itself"', async () => {
+    open(LoginMode.LoginModeDevice)
+    await flush(700)
+    const btn = [...document.querySelectorAll<HTMLButtonElement>('.login-modal .modal__footer button')].find((b) => b.textContent === 'Open browser')
+    act(() => btn?.click())
+    await flush(200)
+    expect(text()).toContain('Opened in a separate, fresh browser window. It closes by itself when you’re done.')
+    expect(text()).not.toContain('uses a private window where it can')
+    expect(text()).not.toContain('To sign in as a different user')
+    expect(text()).not.toContain(FALLBACK)
   })
 
   it('device code, setting off: no hint', async () => {
@@ -123,13 +152,14 @@ describe('LoginModal: private window hints', () => {
 })
 
 describe('LoginModal: Open again', () => {
-  it('goes through the backend open, not the plain browser open, and shows the private text', async () => {
-    const spy = vi.spyOn(Accounts, 'OpenSignInPage').mockResolvedValue(false)
+  it('goes through the backend open, not the plain browser open, and its result decides the text', async () => {
+    const spy = vi.spyOn(Accounts, 'OpenSignInPage').mockResolvedValue({ private: false, isolated: false })
     const plain = vi.spyOn(System, 'OpenURL')
     mount(createElement(LoginModal, { portal: 'initech', initialMode: LoginMode.LoginModeBrowser, onClose: () => undefined }))
     await flush(700)
     const url = 'https://oidc.us-east-1.amazonaws.com/authorize?client_id=x'
-    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: true, privateWindow: true, authorizeUrl: url }))
+    act(() => mockEmit('login:progress', { portal: 'initech', phase: LoginPhase.LoginPhaseWaiting, browserOpened: true, privateWindow: true, isolatedWindow: true, authorizeUrl: url }))
+    expect(text()).toContain(ISOLATED)
     const btn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('Open again'))
     expect(btn).toBeDefined()
     await act(async () => {
@@ -138,6 +168,7 @@ describe('LoginModal: Open again', () => {
     expect(spy).toHaveBeenCalledWith(url)
     expect(plain).not.toHaveBeenCalled()
     expect(text()).toContain(FALLBACK)
+    expect(text()).not.toContain(ISOLATED)
   })
 })
 

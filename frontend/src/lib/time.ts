@@ -86,7 +86,10 @@ export function formatRelative(iso: string, now: number, t: T): string {
 export function formatSessionLength(minutes: number, lang: Lang): string {
   const nf = (unit: string, v: number) =>
     new Intl.NumberFormat(lang === 'zh-CN' ? 'zh-CN' : 'en-US', { style: 'unit', unit, unitDisplay: 'long', maximumFractionDigits: 2 }).format(v)
-  if (minutes < 60) return nf('minute', minutes)
-  if (minutes % 1440 === 0 && minutes >= 2880) return nf('day', minutes / 1440)
-  return nf('hour', minutes / 60)
+  const m = Math.max(0, Math.round(minutes))
+  if (m < 60) return nf('minute', m)
+  if (m % 1440 === 0 && m >= 2880) return nf('day', m / 1440)
+  if (m % 60 === 0) return nf('hour', m / 60)
+  // a length measured from AWS is rarely a whole hour: "8 hours 20 minutes", "8小时20分钟"
+  return nf('hour', Math.floor(m / 60)) + (lang === 'zh-CN' ? '' : ' ') + nf('minute', m % 60)
 }

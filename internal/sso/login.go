@@ -168,8 +168,27 @@ func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, prog
 	if progress == nil {
 		progress = func(api.LoginProgress) {}
 	}
+	var pages []string // sign-in pages this login offered, for SignInEnded
+	report := progress
+	progress = func(p api.LoginProgress) {
+		page := p.VerificationURIComplete
+		if page == "" {
+			page = p.VerificationURI // the bare device page is shared by all device sign-ins of a region
+		}
+		for _, u := range []string{p.AuthorizeURL, page} {
+			if u != "" {
+				pages = append(pages, u)
+			}
+		}
+		report(p)
+	}
 	var tok *CachedToken
 	var err error
+	defer func() {
+		if m.cfg.SignInEnded != nil && len(pages) > 0 {
+			m.cfg.SignInEnded(pages, err == nil && tok != nil)
+		}
+	}()
 	if mode == api.LoginModeDevice {
 		tok, err = m.loginDevice(ctx, s, progress)
 	} else {
@@ -185,7 +204,8 @@ func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, prog
 		return nil, err
 	}
 	if werr := WriteToken(m.tokenDir(), key, tok); werr != nil {
-		return nil, api.NewError(api.ErrFileIO, "cannot write the SSO token cache").WithParam("file", key+".json")
+		err = api.NewError(api.ErrFileIO, "cannot write the SSO token cache").WithParam("file", key+".json")
+		return nil, err
 	}
 	m.mu.Lock()
 	delete(m.failed, key)
@@ -286,12 +306,12 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 		ln.Close()
 	}()
 
-	opened, private := false, false
+	opened, private, isolated := false, false, false
 	switch {
 	case m.cfg.OpenSignIn != nil:
-		p, err := m.cfg.OpenSignIn(authURL)
+		w, err := m.cfg.OpenSignIn(authURL)
 		opened = err == nil
-		private = opened && p
+		private, isolated = opened && w.Private, opened && w.Isolated
 	case m.cfg.OpenBrowser != nil:
 		opened = m.cfg.OpenBrowser(authURL) == nil
 	}
@@ -300,7 +320,7 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 		timeout = 10 * time.Minute
 	}
 	progress(api.LoginProgress{Portal: s.Name, Phase: api.LoginPhaseWaiting, AuthorizeURL: authURL, BrowserOpened: opened, PrivateWindow: private,
-		ExpiresAt: m.now().UTC().Add(timeout).Format(time.RFC3339)})
+		IsolatedWindow: isolated, ExpiresAt: m.now().UTC().Add(timeout).Format(time.RFC3339)})
 
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
@@ -356,6 +376,7 @@ func (m *Manager) buildToken(s Session, reg *registration, out *ssooidc.CreateTo
 		ClientSecret:          reg.ClientSecret,
 		RegistrationExpiresAt: regExp.UTC(),
 		RefreshToken:          aws.ToString(out.RefreshToken),
+		Granted:               time.Duration(out.ExpiresIn) * time.Second,
 	}
 }
 

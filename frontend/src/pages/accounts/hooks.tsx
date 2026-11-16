@@ -15,7 +15,6 @@ export type DialogState =
   | { kind: 'color'; profile: string }
   | { kind: 'remove'; profile: string }
   | { kind: 'move'; profile: string }
-  | { kind: 'length'; portal: string }
   | { kind: 'rename'; portal: string }
   | { kind: 'removePortal'; portal: string }
   | { kind: 'export' }

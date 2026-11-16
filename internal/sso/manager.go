@@ -39,9 +39,13 @@ type Config struct {
 	RegistrationsDir string
 	Endpoints        Endpoints
 	OpenBrowser      func(url string) error
-	// OpenSignIn, when set, opens the sign-in page instead of OpenBrowser and reports whether it did so in a
-	// private browser window.
-	OpenSignIn      func(url string) (private bool, err error)
+	// OpenSignIn, when set, opens the sign-in page instead of OpenBrowser and reports how (private window,
+	// isolated browser).
+	OpenSignIn func(url string) (api.SignInWindow, error)
+	// SignInEnded, when set, is called when an interactive sign-in ends, with every sign-in page URL it
+	// offered (authorize URL, device pages) and whether it succeeded, so that windows opened for them can be
+	// closed.
+	SignInEnded     func(pages []string, ok bool)
 	Lang            func() string // "zh-CN" | "en"
 	Now             func() time.Time
 	Sleep           func(ctx context.Context, d time.Duration) error // nil = real
@@ -327,7 +331,8 @@ func (m *Manager) refresh(ctx context.Context, s Session, seen *CachedToken) (*C
 	n := *cur
 	n.StartURL, n.Region = firstNonEmpty(s.StartURL, cur.StartURL), firstNonEmpty(s.Region, cur.Region)
 	n.AccessToken = aws.ToString(out.AccessToken)
-	n.ExpiresAt = m.now().UTC().Add(time.Duration(out.ExpiresIn) * time.Second).Truncate(time.Second)
+	n.Granted = time.Duration(out.ExpiresIn) * time.Second
+	n.ExpiresAt = m.now().UTC().Add(n.Granted).Truncate(time.Second)
 	n.RefreshToken = aws.ToString(out.RefreshToken)
 	if err := WriteToken(m.tokenDir(), key, &n); err != nil {
 		return nil, api.NewError(api.ErrFileIO, "cannot write the SSO token cache").WithParam("file", key+".json")
@@ -460,9 +465,20 @@ func (m *Manager) ListAccountRoles(ctx context.Context, s Session, accountID str
 
 // RoleCredentials returns temporary role credentials, cached in memory until Expires-5m. Never written to disk.
 func (m *Manager) RoleCredentials(ctx context.Context, s Session, accountID, role string) (aws.Credentials, error) {
+	return m.roleCredentials(ctx, s, accountID, role, false)
+}
+
+// FreshRoleCredentials always gets new role credentials from the portal (and caches them). A console sign-in
+// lasts as long as its credentials, so cached ones close to their end would give a console session of a few
+// minutes.
+func (m *Manager) FreshRoleCredentials(ctx context.Context, s Session, accountID, role string) (aws.Credentials, error) {
+	return m.roleCredentials(ctx, s, accountID, role, true)
+}
+
+func (m *Manager) roleCredentials(ctx context.Context, s Session, accountID, role string, fresh bool) (aws.Credentials, error) {
 	ck := keyOf(s) + "|" + accountID + "|" + role
 	m.mu.Lock()
-	if c, ok := m.roleCreds[ck]; ok && c.Expires.Sub(m.now()) > 5*time.Minute {
+	if c, ok := m.roleCreds[ck]; ok && !fresh && c.Expires.Sub(m.now()) > 5*time.Minute {
 		m.mu.Unlock()
 		return c, nil
 	}

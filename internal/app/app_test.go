@@ -13,6 +13,7 @@ import (
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/paths"
 	"github.com/rudian/codepass/internal/sso"
+	"github.com/rudian/codepass/internal/version"
 )
 
 // TestShutdownKeepsLogin: quitting never signs out. Token file, role cache and the settings
@@ -267,11 +268,12 @@ func TestRestoreBackup(t *testing.T) {
 func TestEndpointsFromEnvOnlyInSandbox(t *testing.T) {
 	t.Setenv("AWSSSOHUB_OIDC_ENDPOINT", "http://127.0.0.1:1")
 	t.Setenv("AWSSSOHUB_CODECOMMIT_ENDPOINT", "http://127.0.0.1:2")
+	t.Setenv("AWSSSOHUB_SIGNIN_ENDPOINT", "http://127.0.0.1:3")
 	if ep := EndpointsFromEnv(paths.Paths{Sandbox: false}); ep != (Endpoints{}) {
 		t.Fatalf("overrides must be ignored outside sandbox mode: %+v", ep)
 	}
 	ep := EndpointsFromEnv(paths.ForRoot(t.TempDir()))
-	if ep.OIDC != "http://127.0.0.1:1" || ep.CodeCommit != "http://127.0.0.1:2" || ep.STS != "" {
+	if ep.OIDC != "http://127.0.0.1:1" || ep.CodeCommit != "http://127.0.0.1:2" || ep.SignIn != "http://127.0.0.1:3" || ep.STS != "" {
 		t.Fatalf("%+v", ep)
 	}
 }
@@ -306,7 +308,7 @@ func TestSelfTestReport(t *testing.T) {
 	if err := json.Unmarshal([]byte(w.read(out)), &rep); err != nil {
 		t.Fatal(err)
 	}
-	if !rep.OK || !rep.Sandbox || rep.Version != "0.0.1" || rep.Profiles != 3 || rep.Portals != 2 || rep.Repos != 1 ||
+	if !rep.OK || !rep.Sandbox || rep.Version != version.Version || rep.Profiles != 3 || rep.Portals != 2 || rep.Repos != 1 ||
 		rep.AWSCLI.Status != "ok" || rep.AWSCLI.Path != awsPath || rep.Git.Status != "ok" || rep.Errors == nil || len(rep.Errors) != 0 {
 		t.Fatalf("%+v", rep)
 	}

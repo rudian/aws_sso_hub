@@ -147,6 +147,7 @@ export type {
     SettingsPatch,
     SetupState,
     SetupTool,
+    SignInWindow,
     StaticIdentity,
     TerminalEnvOverride,
     TestResult,

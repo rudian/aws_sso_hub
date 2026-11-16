@@ -83,7 +83,7 @@ export const en: TutorialSection[] = [
       {
         title: 'Decide how long a sign-in lasts',
         crumbs: ['Settings', 'Authentication', 'Session duration'],
-        text: 'The setting for **user interactive sessions** is how often people have to sign in again. The default is 8 hours; longer means fewer sign-ins, shorter is safer. Codepass shows a countdown based on this value. If you change it, set the same length in the app (Accounts, the sign-in details on a portal).',
+        text: 'The setting for **user interactive sessions** is how often people have to sign in again. The default is 8 hours; longer means fewer sign-ins, shorter is safer. Codepass cannot read this value, so it works out when each session ends from what AWS returns. The first sign-in may show 8 hours until AWS reveals the end; a session of an hour or less is detected within about two minutes, as long as **Renew sign-in automatically** in Codepass\'s settings is on (it is by default).',
       },
     ],
     callouts: [

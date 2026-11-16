@@ -67,6 +67,7 @@ func (c *Container) StartLoops() {
 		}
 	})
 	c.spawn(func() { c.fetchLoop(ctx, fetchEvery) }) // background fetch of bound or opened repositories (the engine picks the targets)
+	c.spawn(func() { c.removeStaleSignIn(ctx) })     // sign-in browsers left behind by a crash
 	c.spawn(func() {                                 // environment check, then scan and owner detection
 		c.CheckEnvironment(ctx)
 		select {

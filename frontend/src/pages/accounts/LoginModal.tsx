@@ -6,7 +6,7 @@ import type { UiError } from '../../api/errors'
 import { onEvent } from '../../api/events'
 import { Accounts } from '../../api/services'
 import { ErrorCode, LoginMode, LoginPhase } from '../../api/models'
-import type { LoginProgress, LoginResult } from '../../api/models'
+import type { LoginProgress, LoginResult, SignInWindow } from '../../api/models'
 import appicon from '../../assets/appicon.svg'
 import { AcctChip } from '../../components/AcctChip'
 import { Banner } from '../../components/Banner'
@@ -47,10 +47,10 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
   const { toast, confirm } = useActions()
   const { state } = useAccounts()
   const { settings } = useSettings()
-  // device flow: whether the last "Open browser" press ended up in a private window (null until pressed)
-  const [devicePrivate, setDevicePrivate] = useState<boolean | null>(null)
-  // browser flow: whether the last "Open again" press ended up in a private window (null until pressed)
-  const [reopenPrivate, setReopenPrivate] = useState<boolean | null>(null)
+  // device flow: how the last "Open browser" press opened the page (null until pressed)
+  const [deviceWindow, setDeviceWindow] = useState<SignInWindow | null>(null)
+  // browser flow: how the last "Open again" press opened the page (null until pressed)
+  const [reopenWindow, setReopenWindow] = useState<SignInWindow | null>(null)
 
   const [mode, setMode] = useState<LoginMode>(initialMode ?? LoginMode.LoginModeBrowser)
   const [attempt, setAttempt] = useState(0)
@@ -73,8 +73,8 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
     let timer: ReturnType<typeof setTimeout> | undefined
     setPhase('starting')
     setProgress(null)
-    setDevicePrivate(null)
-    setReopenPrivate(null)
+    setDeviceWindow(null)
+    setReopenWindow(null)
     setError(null)
     const off = onEvent('login:progress', (p) => {
       if (!alive || p.portal !== portal) return
@@ -183,9 +183,9 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
 
   const openDevicePage = async (url: string) => {
     try {
-      setDevicePrivate(await Accounts.OpenSignInPage(url))
+      setDeviceWindow(await Accounts.OpenSignInPage(url))
     } catch {
-      setDevicePrivate(false)
+      setDeviceWindow({ private: false, isolated: false })
       try {
         await openExternal(url)
       } catch {
@@ -198,9 +198,9 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
   // setting is on.
   const reopenPage = async (url: string) => {
     try {
-      setReopenPrivate(await Accounts.OpenSignInPage(url))
+      setReopenWindow(await Accounts.OpenSignInPage(url))
     } catch {
-      setReopenPrivate(false)
+      setReopenWindow({ private: false, isolated: false })
       try {
         await openExternal(url)
       } catch {
@@ -214,7 +214,9 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
     setAttempt((a) => a + 1)
   }
 
-  const isPrivate = reopenPrivate ?? !!progress?.privateWindow
+  // the last "Open again" decides, otherwise the first open
+  const isPrivate = reopenWindow?.private ?? !!progress?.privateWindow
+  const isolated = reopenWindow?.isolated ?? !!progress?.isolatedWindow
   const privateMissed = !!settings?.privateSignIn && !!progress?.browserOpened && !isPrivate
 
   const subtitle = info ? <span className="mono">{info.startUrlHost}</span> : undefined
@@ -283,7 +285,7 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
         <div className="login-modal__body login-modal__body--tall">
           <Handoff />
           <p className="login-lead">{t('login.waiting.title')}</p>
-          {splitFirstSentence(t(isPrivate ? 'login.waiting.body.private' : 'login.waiting.body')).map((line, i) => line && (
+          {splitFirstSentence(t(isolated ? 'login.waiting.body.isolated' : isPrivate ? 'login.waiting.body.private' : 'login.waiting.body')).map((line, i) => line && (
             <p key={i} className="login-text">
               {line}
             </p>
@@ -334,8 +336,8 @@ export function LoginModal({ portal, initialMode, onClose }: LoginModalProps) {
         <div className="login-modal__body login-modal__body--tall">
           <p className="login-lead login-lead--device">{t('login.device.title')}</p>
           <p className="login-text">{t('login.device.body')}</p>
-          {settings?.privateSignIn && devicePrivate !== false && <p className="login-text">{t('login.device.private')}</p>}
-          {settings?.privateSignIn && devicePrivate === false && (
+          {settings?.privateSignIn && deviceWindow?.private !== false && <p className="login-text">{t(deviceWindow?.isolated ? 'login.device.isolated' : 'login.device.private')}</p>}
+          {settings?.privateSignIn && deviceWindow?.private === false && (
             <p className="login-text" role="status">
               {t('login.private.unavailable')}
             </p>
