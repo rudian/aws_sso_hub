@@ -1,6 +1,6 @@
 # Codepass 交接文档
 
-更新：2026-11-16（第三版，F1-21 合并后）。状态：**进行中**。F1-21 已合并；下一步是 F1-22。
+更新：2026-11-17（第四版，F1-22 合并后）。状态：**进行中**。F1-21、F1-22 已合并；下一步是 F1-CL（拆成 F1-CLa 和 F1-CLb 并行跑）。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 
@@ -10,10 +10,10 @@
 
 - **在做什么**：把 AWS SSO Hub 改版成 **Codepass 1.0.0**。用户的目的：用一个 app 代替 JetBrains IDE（WebStorm、PhpStorm、GoLand）、Warp、Bitbucket 网站、Claude Desktop（只用来看周用量）和 Sublime Text（记以后要做的想法），少开软件、省电脑资源。
 - **功能**：项目分组；多个 AWS SSO / GitHub / Bitbucket 账号；完整的 git 客户端；作者身份；OTA 更新；多会话的 AI 编码终端（Claude Code / Codex / OpenCode，每个任务一个 worktree）；带代码提示的编辑器（Go、TS/JS、PHP）；AI 运行时防止睡眠；系统通知；**票队列、多个 AI 账号、用量表（新）**。平台是 macOS arm64（15 及以上）和 Windows。所有功能做完后一次发布 v1.0.0。
-- **这个 session 做了什么**：F1-21 合并完成（`2c24815`，`main` 的 0.0.2 已经在 `codepass` 里）；删掉了多余的本地分支；workflow 以后合并、push 成功后自动删 task 分支。
-- **进度**：约 **23%**（第 9 节）。里程碑 0 完成。里程碑 1 还剩 F1-22、F1-CL 和关卡。
+- **这个 session 做了什么**：F1-21 合并完成（`2c24815`，`main` 的 0.0.2 已经在 `codepass` 里）；F1-22 合并完成（`f3fc3e2`，登录快过期、已过期的系统通知）；删掉了多余的本地分支；workflow 以后合并、push 成功后自动删 task 分支。
+- **进度**：约 **24%**（第 9 节）。里程碑 0 完成。里程碑 1 还剩 F1-CL 和关卡。
 - **代码**：在 `codepass` 分支，已经 push。`main`（0.0.2）已经用 `--no-ff` 合并进来，`git log codepass..main` 是空的。
-- **顺序**：F1-22 → F1-CL → 里程碑 1 关卡 → 里程碑 2 → 3 → **8** → 4 → 5 → 6 → 7。
+- **顺序**：F1-CL → 里程碑 1 关卡 → 里程碑 2 → 3 → **8** → 4 → 5 → 6 → 7。
 
 ## 1. 新 session 的第一步
 
@@ -27,10 +27,10 @@
 3. **按顺序读**：
    - 本文件；
    - `docs/plan/codepass/tasks.md`：「How the work runs」、「Owner decisions (FINAL)」和它下面的两批 owner requirements、open questions、「Follow-ups」；
-   - 同一文件的 F1-22、F1-CL 条目和里程碑 1 的「Gate」；里程碑 8 先略读（它排在里程碑 3 后面）；
-   - `reviews/groupF-wiring.md`（F1-21 留给 F1-22 和 F1-CL 的话）。
-4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 56 个文件、755 个测试。
-5. **然后直接开工**，从还没合并的第一个任务开始（看 tasks.md 里里程碑 1 的合并记录；写这一版时是 F1-22）。第 5 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
+   - 同一文件的 F1-CL 条目、「Follow-ups」里所有标了 F1-CL 的条目（包括 FU-21a–c、FU-22a–g）和里程碑 1 的「Gate」；里程碑 8 先略读（它排在里程碑 3 后面）；
+   - `reviews/groupF-wiring.md` 和 `reviews/groupG-wiring.md`（F1-21、F1-22 留给 F1-CL 和关卡的话）。
+4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 60 个文件、782 个测试。
+5. **然后直接开工**，从还没合并的第一个任务开始（看 tasks.md 里里程碑 1 的合并记录；写这一版时是 F1-CL）。第 5 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
 
 ## 2. 用户定的工作方式（每个 session 都照做）
 
@@ -115,12 +115,12 @@
 ## 5. 接下来做什么
 
 1. **F1-21（F 组）✅ 已完成**（2026-11-16，`2c24815`，`--no-ff` 合并；1 轮修复后通过）。留下 3 条 follow-up（FU-21a 到 FU-21c，都归 F1-CL）和给用户的手动检查 C26。传给 workflow 的说明在 `reviews/groupF-args.md`（`portBase` 用过 9700）。
-2. **F1-22（G 组，单独跑）**：系统通知服务 `internal/notify`，加上 AWS 登录快过期 / 已过期的通知和「重新登录」按钮。开发版和已安装的 app 用同一个 bundle ID，所以 sandbox 和测试**只用 fake**。
-3. **F1-CL（H 组）**：修所有标了「F1-CL」的 follow-up（大约 60 条，加上 F1-21、F1-22 留下的）。加上用户要的「在项目页打文件夹名找仓库、回车打开」（放在 F1-CLb）。挂上 `UpdatesCard`、`UpdateBanner`、`ToolRows`；删掉 `pages/repos/` 里没人用的文件；`RepoName` 覆盖所有显示仓库名的地方。建议拆成 F1-CLa（Go）和 F1-CLb（前端）并行跑，按文件分开。
+2. **F1-22（G 组）✅ 已完成**（2026-11-17，`f3fc3e2`，squash 合并；review 找到 3 个 major、4 个 minor，1 轮修复后通过）。系统通知服务 `internal/notify`，AWS 登录快过期 / 已过期的通知和「重新登录」按钮。留下 7 条 follow-up（FU-22a 到 FU-22g，都归 F1-CL）；手动检查 C22–C24、B19 按实际做法改写了。传给 workflow 的说明在 `reviews/groupG-args.md`（`portBase` 用过 9760）。
+3. **F1-CL（H 组）**：修所有标了「F1-CL」的 follow-up（大约 70 条，包括 F1-21、F1-22 留下的 10 条）。加上用户要的「在项目页打文件夹名找仓库、回车打开」（放在 F1-CLb）。挂上 `UpdatesCard`、`UpdateBanner`、`ToolRows`；删掉 `pages/repos/` 里没人用的文件；`RepoName` 覆盖所有显示仓库名的地方。建议拆成 F1-CLa（Go）和 F1-CLb（前端）并行跑，按文件分开。
 4. **里程碑 1 关卡**（`tasks.md` 里里程碑 1 的「Gate」）：
    - 跑标准 gate；重新截所有截图，和设计稿对比（E 组有几张修复后没重截）。
    - 和用户一起确认设计偏差（清单在 Gate 里），加上 F1-22 的设置行和通知文字。
-   - 用户手动检查：C 组（含 C19–C25）、A9、B1–B3、B5、B9、B19 等。
+   - 用户手动检查：C 组（含 C19–C26）、A9、B1–B3、B5、B9、B19 等。
 5. 然后按顺序：里程碑 2（AI 终端，A2-xx）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
 
 **这些事必须由用户本人来做或在场，不要自己做：**
@@ -193,6 +193,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
   - spike 分支不 push。
   - 不做需要管理员权限的安装，不改全局配置。F1-12 的安装测试只用假的程序。
   - 开发版和已安装的 app 共用 bundle ID：开发时不发真的系统通知（F1-22 的 fake），除非是用户在做手动检查。
+  - 测试不能连 AWS：测试里建 `Container` 一定要传假的 `Endpoints`（`awsapitest` 和 `internal/app` 的 fake）。F1-22 的一个草稿测试忘了传，碰到了一次真的 AWS 登录服务（假数据，被拒绝）；FU-22f 会让测试碰到真地址时直接报错。
 - **隐私**：
   - 密码和令牌不能出现在对话或文件里。用剪贴板传，用完清空。
   - 用户的邮箱等个人信息不发给外部服务，也不放进搜索词。
@@ -209,8 +210,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 - scrub 只用 `--tracked` 模式。`--commits` 模式会把 commit 的 trailer 也当成问题。
 - 前端测试偶尔报「window is not defined」：已经由 `frontend/src/test-setup.ts` 修好了。
 - **F1-21（已完成）**：Codepass 的版本号还是 0.0.1，发布时由 `release.sh` 改成 1.0.0-rc.N。有 4 个 GitHub 链接还用旧名 `rudian/aws_sso_hub`（`frontend/src/pages/settings/util.ts` 的 `REPO_URL`，`internal/app/menu.go` 的三个链接），等发布时仓库改名（R7-08）再改。A2-14 的「全部停止」要走 `app.Quit` 或 `Container.Shutdown`，这样登录用的独立浏览器才会关掉；新的登录页面一律用 `c.openSignIn` 打开。
-- **F1-22**：Wails 的通知服务在没有 bundle ID 时启动失败会让整个 app 起不来，所以必须包一层、自己启动。按钮文字属于 category，换语言时要重新注册。
-- 设置里「登录快过期时提醒」以前只发了一个没人接的事件（`session:reminder`），所以一直没效果。F1-22 修好它。
+- **F1-22（已完成）**：真的系统通知只在正式版（`-tags production`）里发；sandbox、测试和开发版都用 fake，fake 会在窗口里显示提示条。开发版设 `AWSSSOHUB_REAL_NOTIFICATIONS=1` 才发真的，但开发版不开 sandbox 会用真实数据，所以用户的手动检查用测试频道的版本。Wails 的通知服务由 `internal/notify` 包一层自己启动，失败时只用窗口里的提示条。权限只在「点登录时窗口在最前面」的那次登录结束后问一次。「重新登录」按钮发 `app:navigate` 的 `login`，在窗口里打开登录框，和通行证上的按钮走同一条路。里程碑 8 的新通知种类用 `Notify.RegisterKind` 注册，按钮最多一个，数据里只放 ID。细节见 `reviews/groupG-wiring.md`。
 - 硬盘：2026-11-16 清过（Go 编译缓存；用户同意后，删了其他 repo 的 Claude 临时文件和 2 天前的旧对话），之后大约 53 GB 空闲。Go 的编译缓存会涨到 6 GB 左右，可以用 `go clean -cache` 清掉。
 - 分支：本地只留 `codepass`、`main` 和 `spike/*`。`worktree-wf_*` 和 `task/F1-*` 在 2026-11-16 删掉了（task 分支的备份见第 4 节）。workflow 合并、push 成功后会自动删 task 分支。
 - 查别的 repo 时用 `git --no-optional-locks status`：普通的 `git status` 会顺手改写那个 repo 的 `.git/index`。
@@ -222,7 +222,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 里程碑 | 状态 |
 |---|---|
 | 0 Spikes | ✅ 完成 |
-| 1 基础（项目、安装、身份、更新） | 22/24 个任务；剩 F1-22、F1-CL；关卡还没过 |
+| 1 基础（项目、安装、身份、更新） | 23/24 个任务；剩 F1-CL；关卡还没过 |
 | 2 AI 终端和防睡眠 | 未开始 |
 | 3 Worktree 任务、改动和提交 | 未开始 |
 | 8 票队列、AI 账号、用量（排在 3 后面） | 未开始 |
@@ -231,8 +231,8 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 6 GitHub 和 Bitbucket | 未开始 |
 | 7 Windows、打磨、发布 | 未开始 |
 
-**整体约 23%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），现在一共 240 分，已经完成 55 分（F1-21 之后），约 23%。
+**整体约 24%。**
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），现在一共 240 分，已经完成 57 分（F1-22 之后），约 24%。
 - 按计划的周数算：原来约 35 周，现在约 45 周（里程碑 8 约 8 周），完成约 20%。
 
 ## 10. 建议用的技能（Skill）
