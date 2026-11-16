@@ -30,8 +30,9 @@ import (
 	"github.com/rudian/aws_sso_hub/internal/transfer"
 )
 
-// Endpoints override the AWS service endpoints (sandbox mode and tests). "" = AWS default.
-type Endpoints struct{ OIDC, Portal, STS, IAM, CodeCommit string }
+// Endpoints override the AWS service endpoints (sandbox mode and tests). "" = AWS default. SignIn is the
+// base URL of the console sign-in federation endpoint (SignIn + "/federation").
+type Endpoints struct{ OIDC, Portal, STS, IAM, CodeCommit, SignIn string }
 
 // ContainerOptions configures NewContainer.
 type ContainerOptions struct {
@@ -57,6 +58,7 @@ func EndpointsFromEnv(p paths.Paths) Endpoints {
 		STS:        os.Getenv("AWSSSOHUB_STS_ENDPOINT"),
 		IAM:        os.Getenv("AWSSSOHUB_IAM_ENDPOINT"),
 		CodeCommit: os.Getenv("AWSSSOHUB_CODECOMMIT_ENDPOINT"),
+		SignIn:     os.Getenv("AWSSSOHUB_SIGNIN_ENDPOINT"),
 	}
 }
 
@@ -158,7 +160,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		Lang:             st.UILanguage,
 		Now:              o.Now,
 	})
-	awsEP := awsapi.Endpoints{STS: o.Endpoints.STS, IAM: o.Endpoints.IAM}
+	awsEP := awsapi.Endpoints{STS: o.Endpoints.STS, IAM: o.Endpoints.IAM, SignIn: o.Endpoints.SignIn}
 
 	c.Accounts = accounts.New(accounts.Deps{
 		Paths: p, Sessions: c.SSO, Backup: bk, Store: st, Endpoints: awsEP,

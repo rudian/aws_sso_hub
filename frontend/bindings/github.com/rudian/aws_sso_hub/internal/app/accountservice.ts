@@ -70,7 +70,10 @@ export function Logout(portal: string): $CancellablePromise<api$0.LogoutResult> 
 }
 
 /**
- * OpenConsole: P1
+ * OpenConsole opens the AWS console in the default browser as the role of an SSO profile. The app signs in
+ * with its own IAM Identity Center session (role credentials, then the AWS sign-in federation endpoint), so
+ * a portal session of another user in the browser cannot get in the way. The sign-in link is a secret and
+ * never reaches the frontend. Partitions without a known federation endpoint open the access portal link.
  */
 export function OpenConsole(profile: string): $CancellablePromise<void> {
     return $Call.ByID(3962406718, profile);

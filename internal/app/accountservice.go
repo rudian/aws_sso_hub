@@ -166,13 +166,19 @@ func (s *AccountService) OpenSignInPage(url string) (api.SignInWindow, error) {
 	return w, fail(err)
 }
 
-// OpenConsole: P1
+// OpenConsole opens the AWS console in the default browser as the role of an SSO profile. The app signs in
+// with its own IAM Identity Center session (role credentials, then the AWS sign-in federation endpoint), so
+// a portal session of another user in the browser cannot get in the way. The sign-in link is a secret and
+// never reaches the frontend. Partitions without a known federation endpoint open the access portal link.
 func (s *AccountService) OpenConsole(ctx context.Context, profile string) error {
-	u, err := s.c.Accounts.ConsoleURL(profile, "")
+	u, err := s.c.Accounts.ConsoleSignInURL(ctx, profile)
 	if err != nil {
 		return fail(err)
 	}
-	return fail(s.c.RT.OpenURL(u))
+	if err := s.c.RT.OpenURL(u); err != nil {
+		return api.NewError(api.ErrInternal, "cannot open the browser") // err could quote the secret link
+	}
+	return nil
 }
 
 // PreviewRenamePortal: P1

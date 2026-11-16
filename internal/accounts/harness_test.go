@@ -210,7 +210,7 @@ func newHarness(t *testing.T, withFixtures bool) *harness {
 	}
 	h.bk = bk
 	h.eng = New(Deps{
-		Paths: p, Sessions: h.sso, Backup: bk, Store: h.store, Endpoints: awsapi.Endpoints{STS: h.aws.URL, IAM: h.aws.URL},
+		Paths: p, Sessions: h.sso, Backup: bk, Store: h.store, Endpoints: awsapi.Endpoints{STS: h.aws.URL, IAM: h.aws.URL, SignIn: h.aws.URL},
 		Emit: func(name string, data any) {
 			h.mu.Lock()
 			h.events = append(h.events, event{name, data})

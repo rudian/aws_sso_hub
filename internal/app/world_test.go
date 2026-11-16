@@ -158,7 +158,7 @@ func newWorld(t *testing.T, opts ...func(*ContainerOptions)) *world {
 	t.Cleanup(func() { logCloser.Close() })
 	o := ContainerOptions{
 		Logger:            logger,
-		Endpoints:         Endpoints{OIDC: w.oidc.URL, Portal: w.por.URL, STS: w.aws.URL, IAM: w.aws.URL, CodeCommit: w.cc.URL},
+		Endpoints:         Endpoints{OIDC: w.oidc.URL, Portal: w.por.URL, STS: w.aws.URL, IAM: w.aws.URL, CodeCommit: w.cc.URL, SignIn: w.aws.URL},
 		DisableLoginShell: true,
 		WatchInterval:     50 * time.Millisecond,
 		TickInterval:      time.Hour,

@@ -268,11 +268,12 @@ func TestRestoreBackup(t *testing.T) {
 func TestEndpointsFromEnvOnlyInSandbox(t *testing.T) {
 	t.Setenv("AWSSSOHUB_OIDC_ENDPOINT", "http://127.0.0.1:1")
 	t.Setenv("AWSSSOHUB_CODECOMMIT_ENDPOINT", "http://127.0.0.1:2")
+	t.Setenv("AWSSSOHUB_SIGNIN_ENDPOINT", "http://127.0.0.1:3")
 	if ep := EndpointsFromEnv(paths.Paths{Sandbox: false}); ep != (Endpoints{}) {
 		t.Fatalf("overrides must be ignored outside sandbox mode: %+v", ep)
 	}
 	ep := EndpointsFromEnv(paths.ForRoot(t.TempDir()))
-	if ep.OIDC != "http://127.0.0.1:1" || ep.CodeCommit != "http://127.0.0.1:2" || ep.STS != "" {
+	if ep.OIDC != "http://127.0.0.1:1" || ep.CodeCommit != "http://127.0.0.1:2" || ep.SignIn != "http://127.0.0.1:3" || ep.STS != "" {
 		t.Fatalf("%+v", ep)
 	}
 }

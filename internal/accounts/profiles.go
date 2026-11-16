@@ -2,6 +2,8 @@ package accounts
 
 import (
 	"context"
+	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -114,30 +116,75 @@ func (e *Engine) PortalURL(portal string) (string, error) {
 	return norm, nil
 }
 
+// consoleProfile returns an SSO profile that can open the console, with its normalized start URL.
+func consoleProfile(snap *awsconfig.Snapshot, profile string) (awsconfig.Profile, string, error) {
+	p, ok := snap.Profile(profile)
+	if !ok {
+		return p, "", api.NewError(api.ErrProfileNotFound, "profile not found").WithParam("name", profile)
+	}
+	if (p.Kind != api.ProfileKindSSO && p.Kind != api.ProfileKindLegacySSO) || p.AccountID == "" {
+		return p, "", invalid("profile")
+	}
+	start, _, nerr := awsconfig.NormalizeStartURL(p.SSOStartURL)
+	if nerr != nil {
+		return p, "", nerr
+	}
+	if !awsconfig.AccountIDRE.MatchString(p.AccountID) {
+		return p, "", invalid("accountId")
+	}
+	if !awsconfig.RoleNameRE.MatchString(p.Role) {
+		return p, "", invalid("role")
+	}
+	return p, start, nil
+}
+
 // ConsoleURL builds the portal shortcut link for an SSO profile.
 func (e *Engine) ConsoleURL(profile, destination string) (string, error) {
 	snap, err := e.Snapshot()
 	if err != nil {
 		return "", err
 	}
-	p, ok := snap.Profile(profile)
-	if !ok {
-		return "", api.NewError(api.ErrProfileNotFound, "profile not found").WithParam("name", profile)
-	}
-	if (p.Kind != api.ProfileKindSSO && p.Kind != api.ProfileKindLegacySSO) || p.AccountID == "" {
-		return "", invalid("profile")
-	}
-	start, _, nerr := awsconfig.NormalizeStartURL(p.SSOStartURL)
-	if nerr != nil {
-		return "", nerr
-	}
-	if !awsconfig.AccountIDRE.MatchString(p.AccountID) {
-		return "", invalid("accountId")
-	}
-	if !awsconfig.RoleNameRE.MatchString(p.Role) {
-		return "", invalid("role")
+	p, start, err := consoleProfile(snap, profile)
+	if err != nil {
+		return "", err
 	}
 	return sso.ShortcutURL(start, p.AccountID, p.Role, destination), nil
+}
+
+// ConsoleSignInURL returns a link that signs the browser in to the AWS console as the role of an SSO profile,
+// made from this app's own Identity Center session (role credentials, then a federation sign-in token), so the
+// browser's access-portal session, which may belong to another user, plays no part. The link is a secret:
+// open it, never log it or return it to the frontend. Partitions without a known federation endpoint get the
+// portal shortcut link (ConsoleURL) instead.
+func (e *Engine) ConsoleSignInURL(ctx context.Context, profile string) (string, error) {
+	snap, err := e.Snapshot()
+	if err != nil {
+		return "", err
+	}
+	p, start, err := consoleProfile(snap, profile)
+	if err != nil {
+		return "", err
+	}
+	var pd portalDef
+	for _, d := range e.portals(snap) {
+		if slices.Contains(d.profiles, p.Name) {
+			pd = d
+			break
+		}
+	}
+	if pd.name == "" {
+		return "", api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", p.SSOSession)
+	}
+	creds, cerr := e.d.Sessions.RoleCredentials(ctx, pd.sess, p.AccountID, p.Role)
+	if cerr != nil {
+		return "", sso.ToAppError(cerr, pd.name)
+	}
+	in := awsapi.ConsoleSignIn{Credentials: creds, SSORegion: pd.sess.Region, Region: p.Region, Issuer: start}
+	u, err := awsapi.ConsoleSignInURL(ctx, in, e.d.Endpoints)
+	if errors.Is(err, awsapi.ErrConsoleUnsupported) {
+		return sso.ShortcutURL(start, p.AccountID, p.Role, ""), nil
+	}
+	return u, err
 }
 
 // IdentifyStatic asks STS who owns a static key. A rejected key is a result, not an error.
