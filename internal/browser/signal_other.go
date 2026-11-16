@@ -28,3 +28,8 @@ func startProcess(name string, args []string) (int, error) {
 	go func() { _ = cmd.Wait() }()
 	return pid, nil
 }
+
+// processRunning and releaseProcess keep track of started processes on Windows only.
+func processRunning(int) bool { return false }
+
+func releaseProcess(int) {}

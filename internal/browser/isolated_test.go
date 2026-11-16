@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestOpenIsolatedDarwin(t *testing.T) {
@@ -112,6 +113,7 @@ func TestParsePS(t *testing.T) {
 func TestIsolatedCloseDarwin(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "s-1")
 	os.MkdirAll(filepath.Join(dir, "Default"), 0o700)
+	os.WriteFile(filepath.Join(dir, "Local State"), []byte("{}"), 0o600) // the browser runs on this profile
 	uid := strconv.Itoa(os.Getuid())
 	alive := map[int]bool{301: true, 302: true}
 	var sent []string
@@ -150,11 +152,13 @@ func TestIsolatedCloseDarwin(t *testing.T) {
 func TestIsolatedCloseWindows(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "s-1")
 	os.MkdirAll(dir, 0o700)
+	os.WriteFile(filepath.Join(dir, "Local State"), []byte("{}"), 0o600)
 	var got []string
-	o := &Opener{GOOS: "windows", Output: func(_ context.Context, name string, args ...string) ([]byte, error) {
-		got = append([]string{name}, args...)
-		return nil, nil
-	}}
+	o := &Opener{GOOS: "windows", Running: func(pid int) bool { return pid == 77 },
+		Output: func(_ context.Context, name string, args ...string) ([]byte, error) {
+			got = append([]string{name}, args...)
+			return nil, nil
+		}}
 	w := &Isolated{o: o, goos: "windows", dir: dir, pid: 77}
 	if err := w.Close(context.Background()); err != nil {
 		t.Fatal(err)
@@ -183,5 +187,75 @@ func TestRemoveStale(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "note.txt")); err != nil {
 		t.Fatal("only directories are removed")
+	}
+}
+
+func TestCloseNeverEndsABrowserThatIsNotOnTheProfile(t *testing.T) {
+	old := profileWait
+	profileWait = 50 * time.Millisecond
+	defer func() { profileWait = old }()
+	uid := strconv.Itoa(os.Getuid())
+
+	// macOS: a UserDataDir policy put the browser on the user's real profile; its argv still names our folder
+	dir := filepath.Join(t.TempDir(), "s-1")
+	os.MkdirAll(dir, 0o700)
+	var sent []int
+	o := &Opener{GOOS: "darwin",
+		Output: func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("501 " + uid + " /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --user-data-dir=" + dir + "\n"), nil
+		},
+		Signal: func(pid int, _ bool) error { sent = append(sent, pid); return nil }}
+	if err := (&Isolated{o: o, goos: "darwin", dir: dir}).Close(context.Background()); err != nil || len(sent) != 0 {
+		t.Fatalf("signalled %v (%v)", sent, err)
+	}
+
+	// Windows: the started browser has exited (the user closed it): its id may belong to another program now
+	dir2 := filepath.Join(t.TempDir(), "s-2")
+	os.MkdirAll(dir2, 0o700)
+	os.WriteFile(filepath.Join(dir2, "Local State"), []byte("{}"), 0o600)
+	var ran []string
+	w := &Opener{GOOS: "windows", Running: func(int) bool { return false },
+		Output: func(_ context.Context, name string, _ ...string) ([]byte, error) {
+			ran = append(ran, name)
+			return nil, nil
+		}}
+	if err := (&Isolated{o: w, goos: "windows", dir: dir2, pid: 99}).Close(context.Background()); err != nil || len(ran) != 0 {
+		t.Fatalf("ran %v (%v)", ran, err)
+	}
+	if _, err := os.Stat(dir2); !os.IsNotExist(err) {
+		t.Fatal("the profile is still deleted")
+	}
+}
+
+func TestUserDataDirPolicyPreventsIsolation(t *testing.T) {
+	dir := t.TempDir()
+	f := &fake{outputs: map[string]string{
+		"-convert":    plist(`{"LSHandlerURLScheme":"https","LSHandlerRoleAll":"com.google.Chrome"}`),
+		"UserDataDir": "/Users/me/Roaming/Chrome",
+	}}
+	if w, err := f.opener("darwin").OpenIsolated(context.Background(), testURL, dir); w != nil || err != nil || len(f.started) != 0 {
+		t.Fatalf("%v %v %v", w, err, f.started)
+	}
+	o := winOpener(`"C:\Program Files\Google\Chrome\Application\chrome.exe" %1`, nil, nil)
+	o.WinPolicyString = func(sub, name string) (string, bool) {
+		return `H:\Chrome`, sub == `SOFTWARE\Policies\Google\Chrome` && name == "UserDataDir"
+	}
+	o.StartPID = func(context.Context, string, ...string) (int, error) { t.Fatal("launched"); return 0, nil }
+	if w, err := o.OpenIsolated(context.Background(), testURL, `C:\x\s-1`); w != nil || err != nil {
+		t.Fatal(w, err)
+	}
+}
+
+func TestRemoveStaleWindowsKeepsProfilesInUse(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "s-old", "Default"), 0o700)
+	o := &Opener{GOOS: "windows", Output: func(context.Context, string, ...string) ([]byte, error) {
+		t.Fatal("no process is ended on Windows")
+		return nil, nil
+	}}
+	o.RemoveStale(context.Background(), root, nil)
+	entries, _ := os.ReadDir(root)
+	if len(entries) != 0 {
+		t.Fatalf("a profile that is not in use is deleted: %v", entries)
 	}
 }

@@ -39,10 +39,13 @@ func normMinutes(m int) int {
 
 // sessionEnd returns when the session of the current sign-in ends and whether that is exact: the end AWS
 // showed (record SessionEndsAt), else LoginAt plus the learned (or default) length, but never before the
-// access token expires. A token that expires after the recorded end (renewed elsewhere after a refusal)
-// proves that end wrong.
+// access token expires. A token that expires clearly after the recorded end (renewed elsewhere after a
+// refusal) proves that end wrong; a second or so is clock rounding (the AWS CLI times tokens itself).
 func sessionEnd(rec api.SessionRecord, loginAt time.Time, minutes int, tokenExpires time.Time) (time.Time, bool) {
-	if t, err := time.Parse(time.RFC3339, rec.SessionEndsAt); err == nil && t.After(loginAt) && !tokenExpires.After(t) {
+	if t, err := time.Parse(time.RFC3339, rec.SessionEndsAt); err == nil && t.After(loginAt) && !tokenExpires.After(t.Add(grantSlack)) {
+		if tokenExpires.After(t) {
+			t = tokenExpires
+		}
 		return t, true
 	}
 	ends := loginAt.Add(time.Duration(minutes) * time.Minute)
@@ -95,6 +98,11 @@ func (e *Engine) sessionStatusFor(pd portalDef, now time.Time) api.SessionStatus
 			out.SessionMinutes = max(1, int(math.Round(total.Minutes())))
 			left = ends.Sub(now)
 		}
+	}
+	if out.SessionEndExact && left <= 0 {
+		// AWS showed that the session ended: a renewal can only be refused now
+		out.State, out.CanRefresh = api.SessionExpired, false
+		return out
 	}
 	if raw.State == api.SessionExpired {
 		out.State = api.SessionExpired
@@ -205,8 +213,10 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 	if !ok {
 		return api.LoginResult{}, api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", portal)
 	}
+	isolated := false // the sign-in page opened in a fresh browser of its own
 	progress := func(p api.LoginProgress) {
 		p.Portal = portal
+		isolated = isolated || p.IsolatedWindow
 		e.emit(api.EventLoginProgress, p)
 		if p.Phase == api.LoginPhaseStarting {
 			e.publishSession(pd)
@@ -220,22 +230,25 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 		return api.LoginResult{}, sso.ToAppError(lerr, portal)
 	}
 	now := e.d.Now()
-	// A token this app cannot renew ends the session for it when the token expires.
+	// The session ends when the first token does if this app cannot renew it, or if AWS already cut it short.
 	renewable := e.d.Sessions.Status(pd.sess).CanRefresh
+	endsNow := !renewable || cutShort(tok.Granted)
 	e.updateRecord(portal, func(r *api.SessionRecord) {
 		r.LoginAt = fmtTime(now)
 		r.ClientIDHash = sso.ClientIDHash(tok.ClientID)
 		r.TokenIssuedAt = fmtTime(now)
 		r.SessionEndsAt = ""
-		// A sign-in that reused a session already running in the browser gets a shorter first token.
-		r.NewSession = !cutShort(tok.Granted)
-		if !renewable {
+		// Only a sign-in in a fresh browser of its own surely started a new session (a browser that was still
+		// signed in hands out its running session, and a full first token does not tell that apart while the
+		// session has more than an hour left). Only then is the length learned.
+		r.NewSession = isolated && !cutShort(tok.Granted)
+		if endsNow {
 			setSessionEnd(r, tok.ExpiresAt)
 		}
 	})
 	e.mu.Lock()
 	delete(e.reminded, portal)
-	if renewable {
+	if !endsNow {
 		e.probes[portal] = fmtTime(now)
 	} else {
 		delete(e.probes, portal)
@@ -324,7 +337,8 @@ func (e *Engine) noteRefusal(pd portalDef, now time.Time) {
 		return
 	}
 	e.updateRecord(pd.name, func(r *api.SessionRecord) {
-		if r.LoginAt != "" && r.ClientIDHash == raw.ClientIDHash && r.SessionEndsAt == "" {
+		// no more renewals: the session ends with this token, whatever was recorded before
+		if r.LoginAt != "" && r.ClientIDHash == raw.ClientIDHash {
 			r.SessionEndsAt = fmtTime(raw.ExpiresAt)
 		}
 	})
@@ -363,6 +377,9 @@ func (e *Engine) Tick(ctx context.Context) {
 		last := e.lastRenewal[pd.name]
 		e.mu.Unlock()
 		renew := raw.ExpiresAt.Sub(now) < expiringWindow
+		if end, err := time.Parse(time.RFC3339, st.SessionEndsAt); err == nil && st.SessionEndExact && !raw.ExpiresAt.Before(end.Add(-grantSlack)) {
+			renew = false // the token already lasts until the session ends: a renewal cannot extend it
+		}
 		probe := !renew && e.probeDue(pd.name, st, now)
 		if !pd.legacy && e.d.Store.AutoRenew() && raw.CanRefresh && (renew || probe) &&
 			now.Sub(last) > 60*time.Second && ctx.Err() == nil {

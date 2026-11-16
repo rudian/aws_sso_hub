@@ -53,3 +53,19 @@ func winPolicy(subkey, name string) (uint32, bool) {
 	}
 	return 0, false
 }
+
+// winPolicyString reads a policy string, machine policy first, then user policy.
+func winPolicyString(subkey, name string) (string, bool) {
+	for _, root := range []registry.Key{registry.LOCAL_MACHINE, registry.CURRENT_USER} {
+		k, err := registry.OpenKey(root, subkey, registry.QUERY_VALUE)
+		if err != nil {
+			continue
+		}
+		v, _, err := k.GetStringValue(name)
+		k.Close()
+		if err == nil {
+			return v, true
+		}
+	}
+	return "", false
+}

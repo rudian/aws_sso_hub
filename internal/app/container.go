@@ -84,9 +84,11 @@ type Container struct {
 	// private opens sign-in pages in an isolated browser or a private window. nil in sandbox mode: a
 	// sandboxed app never launches a real browser. Tests may set it to a fake.
 	private signInBrowser
-	// signInWin holds the isolated browsers opened for sign-in pages, by page URL, until the sign-in ends.
+	// signInWin holds the isolated browsers opened for sign-in pages, by page URL, until the sign-in ends;
+	// signInDone remembers the pages whose sign-in has ended, so a window that opens late is closed too.
 	signInMu    sync.Mutex
 	signInWin   map[string][]signInWindow
+	signInDone  map[string]time.Time
 	signInDelay time.Duration // how long a successful sign-in's window stays open (the success page)
 	startedAt   time.Time
 
@@ -124,7 +126,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 	execx.Configure(execx.Options{ExtraEnv: p.ChildEnv(), DisableLoginShell: o.DisableLoginShell})
 
 	c := &Container{Paths: p, RT: rt, Log: o.Logger, opts: o, now: o.Now,
-		signInWin: map[string][]signInWindow{}, signInDelay: 3 * time.Second, startedAt: time.Now()}
+		signInWin: map[string][]signInWindow{}, signInDone: map[string]time.Time{}, signInDelay: 3 * time.Second, startedAt: time.Now()}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	if !p.Sandbox {
 		c.private = browserOpener{&browser.Opener{Home: p.Home}}
@@ -501,7 +503,13 @@ func (c *Container) openIsolated(ctx context.Context, raw string) bool {
 	}
 	c.signInMu.Lock()
 	old := c.signInWin[raw]
-	c.signInWin[raw] = []signInWindow{w}
+	if _, ended := c.signInDone[raw]; ended {
+		// the sign-in ended while this window was opening
+		old = append(old, w)
+		delete(c.signInWin, raw)
+	} else {
+		c.signInWin[raw] = []signInWindow{w}
+	}
 	c.signInMu.Unlock()
 	c.closeSignIn(old)
 	return true
@@ -514,11 +522,23 @@ func (c *Container) signInEnded(pages []string, ok bool) {
 	if ok {
 		delay = c.signInDelay
 	}
+	now := time.Now()
+	c.signInMu.Lock()
+	for p, at := range c.signInDone {
+		if now.Sub(at) > time.Hour {
+			delete(c.signInDone, p)
+		}
+	}
+	for _, p := range pages {
+		c.signInDone[p] = now
+	}
+	c.signInMu.Unlock()
 	go func() {
 		if delay > 0 {
 			select {
 			case <-time.After(delay):
 			case <-c.ctx.Done():
+				return // quitting: closeSignInWindows ends them before the app exits
 			}
 		}
 		c.signInMu.Lock()

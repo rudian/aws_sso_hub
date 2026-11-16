@@ -193,11 +193,19 @@ func TestIsolatedSignInWindows(t *testing.T) {
 	if _, err := os.Stat(second.dir); !os.IsNotExist(err) {
 		t.Fatal("profile kept")
 	}
-	// quitting the app closes what is still open
+	// a window that opens after its sign-in ended is closed at once
+	w.c.signInEnded([]string{signInURL}, false)
 	if _, err := svc.OpenSignInPage(signInURL); err != nil {
 		t.Fatal(err)
 	}
-	third := fake.windows[2]
+	late := fake.windows[len(fake.windows)-1]
+	waitFor(t, late.isClosed)
+	// quitting the app closes what is still open
+	const next = "https://device.sso.us-east-1.amazonaws.com/?user_code=NEXT"
+	if _, err := svc.OpenSignInPage(next); err != nil {
+		t.Fatal(err)
+	}
+	third := fake.windows[len(fake.windows)-1]
 	w.c.closeSignInWindows()
 	if !third.isClosed() {
 		t.Fatal("shutdown must close sign-in windows")

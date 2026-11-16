@@ -58,6 +58,13 @@ func partitionOf(region string) (partition, bool) {
 	return partition{signIn: "signin.aws.amazon.com", console: "console.aws.amazon.com", global: "us-east-1"}, true
 }
 
+// ConsoleSupported reports whether ConsoleSignInURL knows the console sign-in endpoint for an Identity Center
+// region. Callers check it before they fetch role credentials.
+func ConsoleSupported(ssoRegion string) bool {
+	_, ok := partitionOf(ssoRegion)
+	return ok
+}
+
 // consoleEndpoints returns the federation endpoint for the Identity Center region and the console home page,
 // in region when that is a valid region of the same partition.
 func consoleEndpoints(ssoRegion, region string, ep Endpoints) (federation, destination string, err error) {

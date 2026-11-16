@@ -3,6 +3,7 @@ package accounts
 import (
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -84,5 +85,13 @@ func TestConsoleSignInURLFallsBackToThePortalLink(t *testing.T) {
 	}
 	if n := len(h.aws.SignIns()); n != 0 {
 		t.Fatalf("%d federation calls", n)
+	}
+	if n := h.por.CredCalls(); n != 0 {
+		t.Fatalf("no role credentials are fetched for a portal link: %d", n)
+	}
+	// it needs no AWS call, so it works signed out too
+	os.Remove(filepath.Join(sso.TokenCacheDir(h.p.Home), sso.TokenCacheKey("initech", "")+".json"))
+	if got, err := h.eng.ConsoleSignInURL(bg, "initech-admin"); err != nil || !strings.Contains(got, "/#/console?") {
+		t.Fatalf("%q %v", got, err)
 	}
 }

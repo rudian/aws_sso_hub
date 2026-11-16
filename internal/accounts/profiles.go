@@ -175,6 +175,10 @@ func (e *Engine) ConsoleSignInURL(ctx context.Context, profile string) (string, 
 	if pd.name == "" {
 		return "", api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", p.SSOSession)
 	}
+	if !awsapi.ConsoleSupported(pd.sess.Region) {
+		// no console sign-in endpoint known for the partition: the access portal link, as before
+		return sso.ShortcutURL(start, p.AccountID, p.Role, ""), nil
+	}
 	creds, cerr := e.d.Sessions.FreshRoleCredentials(ctx, pd.sess, p.AccountID, p.Role)
 	if cerr != nil {
 		return "", sso.ToAppError(cerr, pd.name)

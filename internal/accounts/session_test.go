@@ -643,3 +643,94 @@ func TestShutdownIsNotAThing(t *testing.T) {
 		t.Fatal("State/Tick must not rewrite a healthy token")
 	}
 }
+
+func TestCutShortFirstTokenEndsTheSession(t *testing.T) {
+	h := newHarness(t, true)
+	h.store.autoRenew = false // no check renewal: the first token alone must show it
+	h.oidc.SetExpiresIn(30 * 60)
+	h.login()
+	st := h.status("initech")
+	if !st.SessionEndExact || st.SessionEndsAt != h.clock().Add(30*time.Minute).Format(time.RFC3339) || st.SessionMinutes != 30 {
+		t.Fatalf("%+v", st)
+	}
+	if rec, _ := h.store.SessionRecord("initech"); rec.NewSession || rec.SessionMinutes != 0 {
+		t.Fatalf("nothing learned from a session that was already running: %+v", rec)
+	}
+	h.advance(16 * time.Minute)
+	if st := h.status("initech"); st.State != api.SessionExpiring {
+		t.Fatalf("%+v", st)
+	}
+	// once AWS's end has passed the session is over, even with a renewable token
+	h.advance(15 * time.Minute)
+	if st := h.status("initech"); st.State != api.SessionExpired || st.CanRefresh || st.SessionOverrun {
+		t.Fatalf("%+v", st)
+	}
+}
+
+func TestSignInOutsideAFreshBrowserIsNotLearned(t *testing.T) {
+	h := newHarness(t, true)
+	h.isolated = false // Firefox, Safari, private sign-in off: the browser may hand out a running session
+	h.login()
+	if rec, _ := h.store.SessionRecord("initech"); rec.NewSession {
+		t.Fatalf("%+v", rec)
+	}
+	h.advance(probeDelay)
+	h.oidc.SetExpiresIn(int((time.Hour - probeDelay) / time.Second))
+	h.eng.Tick(bg)
+	if st := h.status("initech"); !st.SessionEndExact || st.SessionMinutes != 60 {
+		t.Fatalf("the end is still shown: %+v", st)
+	}
+	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 0 {
+		t.Fatalf("but not learned: %+v", rec)
+	}
+}
+
+func TestRefusalReplacesAnEndALaterTokenDisproved(t *testing.T) {
+	h := newHarness(t, true)
+	h.store.autoRenew = false
+	h.writeToken(10*time.Minute, "CID-a")
+	h.setRecord(time.Hour, "CID-a", 0)
+	h.oidc.QueueToken(ssotest.TokenResp{Status: 400, ErrType: "InvalidGrantException"})
+	h.eng.Refresh(bg, "initech")
+	// the CLI renews after all, so that end was wrong
+	h.writeTokenKeepClient(t, time.Hour)
+	if st := h.status("initech"); st.SessionEndExact {
+		t.Fatalf("%+v", st)
+	}
+	// later the session is revoked: the next refusal must show the end again
+	h.advance(50 * time.Minute)
+	h.oidc.QueueToken(ssotest.TokenResp{Status: 400, ErrType: "InvalidGrantException"})
+	h.eng.Refresh(bg, "initech")
+	st := h.status("initech")
+	if !st.SessionEndExact || st.SessionEndsAt != h.clock().Add(10*time.Minute).Format(time.RFC3339) || st.State != api.SessionExpiring {
+		t.Fatalf("%+v", st)
+	}
+}
+
+func TestNoRenewalsOnceTheTokenLastsToTheEnd(t *testing.T) {
+	h := newHarness(t, true)
+	h.writeToken(10*time.Minute, "CID-a")
+	h.setRecord(time.Hour, "CID-a", 0)
+	h.setEnd(10 * time.Minute)
+	for i := 0; i < 8; i++ {
+		h.eng.Tick(bg)
+		h.advance(time.Minute)
+	}
+	if n := len(h.oidc.TokenCalls()); n != 0 {
+		t.Fatalf("%d renewals that cannot extend the session", n)
+	}
+	if len(h.emitted(api.EventSessionRenewed)) != 0 {
+		t.Fatal("no 'renewed' toasts")
+	}
+}
+
+func TestRecordedEndToleratesClockRounding(t *testing.T) {
+	h := newHarness(t, true)
+	h.writeToken(10*time.Minute+time.Second, "CID-a") // the AWS CLI rounded its own clock
+	h.setRecord(time.Hour, "CID-a", 0)
+	h.setEnd(10 * time.Minute)
+	st := h.status("initech")
+	if !st.SessionEndExact || st.SessionEndsAt != h.clock().Add(10*time.Minute+time.Second).Format(time.RFC3339) {
+		t.Fatalf("%+v", st)
+	}
+}

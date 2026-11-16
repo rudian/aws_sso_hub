@@ -132,15 +132,18 @@ type event struct {
 }
 
 type harness struct {
-	t     *testing.T
-	p     paths.Paths
-	store *fakeStore
-	oidc  *ssotest.OIDC
-	por   *ssotest.Portal
-	aws   *awsapitest.Fake
-	sso   *sso.Manager
-	eng   *Engine
-	bk    *backup.Store
+	t *testing.T
+	// isolated: sign-in pages open in a fresh browser of their own (the app's default with Chrome), so a
+	// sign-in surely starts a new session. Tests of other browsers set it to false.
+	isolated bool
+	p        paths.Paths
+	store    *fakeStore
+	oidc     *ssotest.OIDC
+	por      *ssotest.Portal
+	aws      *awsapitest.Fake
+	sso      *sso.Manager
+	eng      *Engine
+	bk       *backup.Store
 
 	mu     sync.Mutex
 	now    time.Time
@@ -198,11 +201,14 @@ func newHarness(t *testing.T, withFixtures bool) *harness {
 		os.WriteFile(p.AWSConfigFile, readTestdata(t, "config.fixture"), 0o600)
 		os.WriteFile(p.AWSCredentialsFile, readTestdata(t, "credentials.fixture"), 0o600)
 	}
-	h := &harness{t: t, p: p, store: newFakeStore(), oidc: ssotest.NewOIDC(t), por: ssotest.NewPortal(t), aws: awsapitest.New(t),
+	h := &harness{t: t, p: p, store: newFakeStore(), isolated: true, oidc: ssotest.NewOIDC(t), por: ssotest.NewPortal(t), aws: awsapitest.New(t),
 		now: time.Now().UTC().Truncate(time.Second)}
 	h.sso = sso.NewManager(sso.Config{
 		Home: p.Home, RegistrationsDir: p.RegistrationsDir, Endpoints: sso.Endpoints{OIDC: h.oidc.URL, Portal: h.por.URL},
 		OpenBrowser: ssotest.Browser(), Lang: func() string { return "en" }, Now: h.clock,
+		OpenSignIn: func(u string) (api.SignInWindow, error) {
+			return api.SignInWindow{Private: h.isolated, Isolated: h.isolated}, ssotest.Browser()(u)
+		},
 	})
 	bk, err := backup.Open(p.BackupDir, func() int { return 20 }, h.clock)
 	if err != nil {

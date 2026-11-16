@@ -171,7 +171,11 @@ func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, prog
 	var pages []string // sign-in pages this login offered, for SignInEnded
 	report := progress
 	progress = func(p api.LoginProgress) {
-		for _, u := range []string{p.AuthorizeURL, p.VerificationURI, p.VerificationURIComplete} {
+		page := p.VerificationURIComplete
+		if page == "" {
+			page = p.VerificationURI // the bare device page is shared by all device sign-ins of a region
+		}
+		for _, u := range []string{p.AuthorizeURL, page} {
 			if u != "" {
 				pages = append(pages, u)
 			}

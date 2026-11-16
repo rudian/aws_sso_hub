@@ -38,9 +38,15 @@ type Opener struct {
 	// WinPolicy reads a DWORD of a browser policy key (HKLM first, then HKCU). nil = the Windows registry.
 	WinPolicy func(subkey, name string) (uint32, bool)
 
+	// WinPolicyString reads a string value of a browser policy key (HKLM first, then HKCU). nil = the
+	// Windows registry.
+	WinPolicyString func(subkey, name string) (string, bool)
+
 	// StartPID launches a program without waiting for it and returns its process id (isolated browser on
-	// Windows). nil = os/exec.
+	// Windows). nil = os/exec, keeping a handle to the process (see Running).
 	StartPID func(ctx context.Context, name string, args ...string) (int, error)
+	// Running reports whether a process started by StartPID still runs (Windows). nil = the kept handle.
+	Running func(pid int) bool
 	// Signal asks a process to quit, or forces it (macOS). nil = the operating system.
 	Signal func(pid int, force bool) error
 }
@@ -79,7 +85,7 @@ var (
 	chrome   = browserKind{name: "chrome", flag: "--incognito", newInstance: true, isolate: true, macDomain: "com.google.Chrome", winPolicy: `SOFTWARE\Policies\Google\Chrome`, policyKey: "IncognitoModeAvailability"}
 	edge     = browserKind{name: "edge", flag: "--inprivate", newInstance: true, isolate: true, macDomain: "com.microsoft.Edge", winPolicy: `SOFTWARE\Policies\Microsoft\Edge`, policyKey: "InPrivateModeAvailability"}
 	brave    = browserKind{name: "brave", flag: "--incognito", newInstance: true, isolate: true, macDomain: "com.brave.Browser", winPolicy: `SOFTWARE\Policies\BraveSoftware\Brave`, policyKey: "IncognitoModeAvailability"}
-	chromium = browserKind{name: "chromium", flag: "--incognito", newInstance: true, isolate: true}
+	chromium = browserKind{name: "chromium", flag: "--incognito", newInstance: true, isolate: true, macDomain: "org.chromium.Chromium", winPolicy: `SOFTWARE\Policies\Chromium`, policyKey: "IncognitoModeAvailability"}
 	vivaldi  = browserKind{name: "vivaldi", flag: "--incognito", newInstance: true}
 	firefox  = browserKind{name: "firefox", flag: "--private-window", noMac: true, macDomain: "org.mozilla.firefox", winPolicy: `SOFTWARE\Policies\Mozilla\Firefox`, policyKey: "DisablePrivateBrowsing"}
 	opera    = browserKind{name: "opera", flag: "--private", newInstance: true}
@@ -257,20 +263,26 @@ func (o *Opener) openDarwin(ctx context.Context, rawURL string) (bool, error) {
 
 // macPolicyDisabled reports whether a managed preference turns private browsing off for the browser.
 func (o *Opener) macPolicyDisabled(ctx context.Context, kind browserKind) bool {
-	if kind.policyKey == "" || kind.macDomain == "" {
-		return false
+	v, ok := o.macPolicy(ctx, kind, kind.policyKey)
+	return ok && v == "1"
+}
+
+// macPolicy reads a managed preference of the browser (machine-wide, then for this user).
+func (o *Opener) macPolicy(ctx context.Context, kind browserKind, key string) (string, bool) {
+	if key == "" || kind.macDomain == "" {
+		return "", false
 	}
 	dirs := []string{managedPrefsDir}
 	if u := filepath.Base(o.homeDir()); u != "" && u != "." && u != string(filepath.Separator) {
 		dirs = append(dirs, filepath.Join(managedPrefsDir, u))
 	}
 	for _, d := range dirs {
-		out, err := o.output(ctx, plutilPath, "-extract", kind.policyKey, "raw", "-o", "-", filepath.Join(d, kind.macDomain+".plist"))
-		if err == nil && strings.TrimSpace(string(out)) == "1" {
-			return true
+		out, err := o.output(ctx, plutilPath, "-extract", key, "raw", "-o", "-", filepath.Join(d, kind.macDomain+".plist"))
+		if err == nil {
+			return strings.TrimSpace(string(out)), true
 		}
 	}
-	return false
+	return "", false
 }
 
 func (o *Opener) homeDir() string {
