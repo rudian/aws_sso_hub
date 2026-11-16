@@ -2,7 +2,8 @@ import { act, createElement } from 'react'
 import type { ReactElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { Accounts } from '../../api/services'
 import type { Portal, Profile } from '../../api/models'
 import { buildScenario } from '../../api/mock/scenarios'
 import { accountsState, resetWorld } from '../../api/mock/world'
@@ -88,5 +89,81 @@ describe('PassCard repos fact', () => {
     expect(host.querySelector('.pass__repos')?.textContent).toBe('No repos bound')
     expect(host.querySelector('.pass__repos button')).toBeNull()
     expect(dtTexts()).toContain('Repos')
+  })
+})
+
+describe('PassCard Console button', () => {
+  const noop = () => undefined
+  const consoleButton = () => [...host.querySelectorAll<HTMLButtonElement>('.pass__actions button')].find((b) => b.textContent === 'Console') as HTMLButtonElement
+  const flush = async (ms: number) => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ms)
+    })
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('shows the loading state while OpenConsole runs and ignores repeat clicks', async () => {
+    const spy = vi.spyOn(Accounts, 'OpenConsole')
+    const { portal, profile } = initech()
+    mount(<PassCard profile={profile} portal={portal} readOnly={false} onDialog={noop} />)
+    const btn = consoleButton()
+    act(() => {
+      btn.click()
+      btn.click()
+    })
+    expect(spy).toHaveBeenCalledOnce()
+    expect(spy).toHaveBeenCalledWith(profile.name)
+    expect(btn.getAttribute('aria-busy')).toBe('true')
+    expect(btn.classList.contains('is-loading')).toBe(true)
+    await flush(1000)
+    expect(btn.getAttribute('aria-busy')).toBeNull()
+    expect(btn.classList.contains('is-loading')).toBe(false)
+    act(() => btn.click())
+    expect(spy).toHaveBeenCalledTimes(2)
+  })
+
+  it('stays enabled while loading, so keyboard focus stays on it; a second click meanwhile is ignored', async () => {
+    const spy = vi.spyOn(Accounts, 'OpenConsole')
+    const { portal, profile } = initech()
+    mount(<PassCard profile={profile} portal={portal} readOnly={false} onDialog={noop} />)
+    const btn = consoleButton()
+    act(() => btn.focus())
+    act(() => btn.click())
+    // a browser moves focus off a control that becomes disabled (to <body>); this one must not get the attribute
+    expect(btn.getAttribute('aria-busy')).toBe('true')
+    expect(btn.hasAttribute('disabled')).toBe(false)
+    expect(document.activeElement).toBe(btn)
+    // jsdom leaves focus on a disabled control, so also check that the busy button can still take focus
+    act(() => btn.blur())
+    act(() => btn.focus())
+    expect(document.activeElement).toBe(btn)
+    // the button is enabled now, so this click (Enter or Space again) reaches the handler, which ignores it
+    act(() => btn.click())
+    expect(spy).toHaveBeenCalledOnce()
+    await flush(1000)
+    expect(btn.getAttribute('aria-busy')).toBeNull()
+    expect(document.activeElement).toBe(btn)
+    act(() => btn.click())
+    expect(spy).toHaveBeenCalledTimes(2)
+  })
+
+  it('a failure goes to a toast and ends the loading state', async () => {
+    const { portal, profile } = initech()
+    // the mock only opens the console for an SSO profile it knows
+    mount(<PassCard profile={{ ...profile, name: 'not-in-config' }} portal={portal} readOnly={false} onDialog={noop} />)
+    const btn = consoleButton()
+    act(() => btn.click())
+    expect(btn.getAttribute('aria-busy')).toBe('true')
+    await flush(1000)
+    expect(btn.getAttribute('aria-busy')).toBeNull()
+    expect(btn.disabled).toBe(false)
+    expect(document.querySelector('.toast--danger')?.textContent).toContain('Check this field')
   })
 })

@@ -11,7 +11,6 @@ import { I18nProvider } from '../../i18n'
 import { ActionsProvider, useActions } from '../../shell/AppActions'
 import { AccountsProvider } from '../../state/accounts'
 import { PortalSection } from './PortalSection'
-import { SessionLengthDialog } from './SessionLengthDialog'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -73,14 +72,11 @@ describe('PortalSection session states', () => {
     expect(host.querySelector('.countdown__info')).not.toBeNull()
   })
 
-  it('overrun: wording and an adjust button that opens the length dialog', () => {
+  it('overrun: past-the-expected-end wording, no bar', () => {
     const { portal, profiles } = midInitech({ sessionOverrun: true, sessionEndsAt: iso(-10), progressPct: 0 })
-    const onDialog = vi.fn()
-    mount(<PortalSection portal={portal} profiles={profiles} readOnly={false} onDialog={onDialog} />)
-    expect(host.querySelector('.session-pill')?.textContent).toContain('Signed in longer than the set session')
+    mount(<PortalSection portal={portal} profiles={profiles} readOnly={false} onDialog={noop} />)
+    expect(host.querySelector('.session-pill')?.textContent).toContain('Past the expected end, still signed in')
     expect(host.querySelector('.countdown__fill')).toBeNull()
-    act(() => (host.querySelector('.countdown__action') as HTMLButtonElement).click())
-    expect(onDialog).toHaveBeenCalledWith({ kind: 'length', portal: 'initech' })
   })
 
   it('ending soon: warn pill and the danger colour step', () => {
@@ -91,21 +87,15 @@ describe('PortalSection session states', () => {
     expect(host.querySelector('.countdown--danger')).not.toBeNull()
   })
 
-  it('ended early: expired with a known session that had time left offers to shorten the length', () => {
+  it('the session length is not set here: no menu item, no banner when a session ended before the estimate', () => {
     const { portal, profiles } = midInitech({ state: SessionState.SessionExpired, expiresAt: iso(-5), sessionEndsAt: iso(300), canRefresh: false })
-    const onDialog = vi.fn()
-    mount(<PortalSection portal={portal} profiles={profiles} readOnly={false} onDialog={onDialog} />)
-    expect(host.textContent).toContain('The session ended earlier than the set length. Shorten it?')
-    expect(host.textContent).toContain('SSO sign-in')
-    const adjust = [...host.querySelectorAll('.banner button')].find((b) => b.textContent === 'Adjust length') as HTMLButtonElement
-    act(() => adjust.click())
-    expect(onDialog).toHaveBeenCalledWith({ kind: 'length', portal: 'initech' })
-  })
-
-  it('expired normally: no ended-early banner', () => {
-    const { portal, profiles } = midInitech({ state: SessionState.SessionExpired, expiresAt: iso(-5), sessionEndsAt: iso(10), canRefresh: false })
     mount(<PortalSection portal={portal} profiles={profiles} readOnly={false} onDialog={noop} />)
-    expect(host.textContent).not.toContain('ended earlier')
+    expect(host.textContent).toContain('SSO sign-in')
+    expect(host.querySelector('.banner')).toBeNull()
+    act(() => (host.querySelector('.portal__tools button[aria-haspopup="menu"]') as HTMLButtonElement).click())
+    const labels = [...document.querySelectorAll('[role="menuitem"]')].map((el) => el.textContent)
+    expect(labels).toContain('Rename portal')
+    expect(labels).not.toContain('Session length')
   })
 
   it('read-only config disables the writes that touch ~/.aws/config', () => {
@@ -113,34 +103,6 @@ describe('PortalSection session states', () => {
     mount(<PortalSection portal={portal} profiles={profiles} readOnly onDialog={noop} />)
     const add = host.querySelector('.pass-add') as HTMLButtonElement
     expect(add.disabled).toBe(true)
-  })
-})
-
-describe('SessionLengthDialog', () => {
-  it('saves a preset through SetSessionLength and shows the toast', async () => {
-    const onClose = vi.fn()
-    mount(<SessionLengthDialog portal="initech" minutes={480} onClose={onClose} />)
-    const preset = [...document.body.querySelectorAll('.segmented button')].find((b) => b.textContent === '12 h') as HTMLButtonElement
-    act(() => preset.click())
-    const save = [...document.body.querySelectorAll('.modal__footer button')].find((b) => b.textContent === 'Save') as HTMLButtonElement
-    expect(save.disabled).toBe(false)
-    act(() => save.click())
-    await flush(500)
-    expect(onClose).toHaveBeenCalledOnce()
-    expect(document.body.textContent).toContain('Session length updated')
-  })
-
-  it('rejects a custom value outside 15 minutes to 90 days', () => {
-    mount(<SessionLengthDialog portal="initech" minutes={480} onClose={() => undefined} />)
-    const input = document.body.querySelector('input[type="number"]') as HTMLInputElement
-    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set as (v: string) => void
-    act(() => {
-      set.call(input, '3000')
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    expect(document.body.textContent).toContain('Enter a number of hours between 0.25 and 2160')
-    const save = [...document.body.querySelectorAll('.modal__footer button')].find((b) => b.textContent === 'Save') as HTMLButtonElement
-    expect(save.disabled).toBe(true)
   })
 })
 

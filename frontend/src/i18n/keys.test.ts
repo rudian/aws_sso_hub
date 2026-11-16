@@ -28,6 +28,21 @@ describe('locale files', () => {
     }
   })
 
+  it('the Chinese UI calls the app 应用, never "app"', () => {
+    for (const [name, ns] of Object.entries(namespaces)) {
+      for (const [k, v] of Object.entries(ns.zh)) expect(v, `${name}: ${k}`).not.toMatch(/\bapp\b/i)
+    }
+  })
+
+  it('the device-code private hint ends with the browser flow’s warning to close all private windows before switching users', () => {
+    const zh = makeT('zh-CN')
+    const en = makeT('en')
+    expect(zh('login.waiting.body.private')).toContain('要换另一个用户登录，请先关掉所有无痕窗口。')
+    expect(zh('login.device.private')).toMatch(/授权后请关掉那个窗口。要换另一个用户登录，请先关掉所有无痕窗口。$/)
+    expect(en('login.waiting.body.private')).toContain('To sign in as a different user, close all private windows first.')
+    expect(en('login.device.private')).toMatch(/Close that window after you allow access\. To sign in as a different user, close all private windows first\.$/)
+  })
+
   it('every errorKeys value exists', () => {
     for (const [code, keys] of Object.entries(errorKeys)) {
       expect(zhAll[keys.title as keyof typeof zhAll], `${code} title`).toBeDefined()

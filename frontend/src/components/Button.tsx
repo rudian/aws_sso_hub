@@ -7,19 +7,24 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   size?: 'sm' | 'lg'
   block?: boolean
   loading?: boolean
+  /** With `loading`: stay enabled, so keyboard focus stays on the button. The click handler must ignore clicks while it loads. */
+  keepEnabled?: boolean
   icon?: LucideIcon
   children?: ReactNode
   ref?: Ref<HTMLButtonElement>
 }
 
-/** `.btn` with one of the design variants. `loading` hides the label, shows a spinner and disables the button (width preserved). */
-export function Button({ variant = 'secondary', size, block, loading, icon: Icon, className, children, disabled, type = 'button', ref, ...rest }: ButtonProps) {
+/**
+ * `.btn` with one of the design variants. `loading` hides the label, shows a spinner and disables the button
+ * (width preserved); with `keepEnabled` it only shows the spinner and aria-busy.
+ */
+export function Button({ variant = 'secondary', size, block, loading, keepEnabled, icon: Icon, className, children, disabled, type = 'button', ref, ...rest }: ButtonProps) {
   return (
     <button
       ref={ref}
       type={type}
       className={clsx('btn', `btn--${variant}`, size && `btn--${size}`, block && 'btn--block', loading && 'is-loading', className)}
-      disabled={disabled || loading}
+      disabled={disabled || (loading && !keepEnabled)}
       aria-busy={loading || undefined}
       {...rest}
     >

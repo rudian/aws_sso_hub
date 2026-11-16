@@ -41,12 +41,6 @@ export function endIso(s: SessionStatus): string | undefined {
   return s.sessionKnown && s.sessionEndsAt ? s.sessionEndsAt : s.expiresAt
 }
 
-/** "Session ended early": expired although the app knew the sign-in and the set length had more than 30 minutes left. */
-export function endedEarly(s: SessionStatus, now: number): boolean {
-  if (s.state !== SessionState.SessionExpired || !s.sessionKnown || !s.sessionEndsAt) return false
-  return Date.parse(s.sessionEndsAt) > now + 30 * MIN
-}
-
 /** Other profiles that share the portal's sign-in: 2 profiles name the other one, 3 or more count the others. */
 export function sharedLine(profile: Profile, portal: Portal, active: boolean, t: T): string | null {
   const others = (portal.profiles ?? []).filter((n) => n !== profile.name)
@@ -112,10 +106,13 @@ export function pillText(s: SessionStatus, now: number, t: T): string {
 }
 
 /** The state line of a card that is not signed in (a signed-in card uses the Countdown). */
-export function cardStateText(s: SessionStatus, lang: Lang, t: T): string {
+export function cardStateText(s: SessionStatus, now: number, lang: Lang, t: T): string {
   switch (pillState(s)) {
     case 'expired': {
-      const at = s.sessionKnown && s.sessionEndsAt ? s.sessionEndsAt : s.expiresAt
+      // The session end only when it has passed: an estimated end still ahead was wrong (the session ended
+      // earlier), so the access token expiry is the better time. Unparsable counts as not passed.
+      const sessionEnd = s.sessionKnown && s.sessionEndsAt ? Date.parse(s.sessionEndsAt) : NaN
+      const at = sessionEnd <= now ? s.sessionEndsAt : s.expiresAt
       return at ? t('session.expiredAt', { time: formatDateTime(at, lang) }) : t('session.expired')
     }
     case 'signing-in':
@@ -153,23 +150,6 @@ export function previewMonogram(name: string): string {
 export function validMonogram(m: string): boolean {
   if (m === '') return true
   return /^[A-Za-z0-9]{2}$/.test(m) || /^[一-鿿]$/.test(m)
-}
-
-// ------------------------------------------------------------------ session length
-
-export const SESSION_LENGTH_PRESETS = [60, 240, 480, 720, 1440, 10080, 43200, 129600] as const
-export const SESSION_MIN = 15
-export const SESSION_MAX = 129600
-
-/** Hours typed by the user -> whole minutes, or null when outside 15 min .. 90 days. */
-export function hoursToMinutes(hours: number): number | null {
-  if (!Number.isFinite(hours)) return null
-  const m = Math.round(hours * 60)
-  return m >= SESSION_MIN && m <= SESSION_MAX ? m : null
-}
-
-export function minutesToHours(minutes: number): string {
-  return String(Math.round((minutes / 60) * 100) / 100)
 }
 
 // ------------------------------------------------------------------ sign-in modal

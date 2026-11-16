@@ -1,7 +1,9 @@
-// Package awsapitest provides a fake AWS query-protocol server (STS + IAM on one URL) for tests.
+// Package awsapitest provides a fake AWS query-protocol server (STS + IAM on one URL) for tests. The same URL
+// serves the console sign-in federation endpoint at /federation.
 package awsapitest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +27,15 @@ type Identity struct{ Account, Arn, UserID string }
 // Key is an IAM access key owned by a user.
 type Key struct{ ID, Status string }
 
-// Fake serves STS and IAM. Configure the exported maps before use; read Requests after.
+// SignIn is one recorded call of the federation endpoint.
+type SignIn struct {
+	Method, ContentType, RawQuery       string
+	Form                                url.Values // the request body
+	SessionID, SessionKey, SessionToken string     // decoded from the Session JSON
+}
+
+// Fake serves STS, IAM and the federation endpoint. Configure the exported maps before use; read Requests
+// and SignIns after.
 type Fake struct {
 	URL string
 
@@ -34,6 +44,8 @@ type Fake struct {
 	Keys       map[string][]Key    // IAM user name -> keys
 	Deny       map[string]bool     // "<signing akid>|<Action>" or "*|<Action>" -> AccessDenied
 	reqs       []Request
+	signIns    []SignIn
+	signInFail int
 }
 
 var credRE = regexp.MustCompile(`Credential=([A-Z0-9]+)/`)
@@ -58,7 +70,53 @@ func xmlErr(w http.ResponseWriter, status int, code, msg string) {
 	fmt.Fprintf(w, `<ErrorResponse xmlns="https://iam.amazonaws.com/doc/2010-05-08/"><Error><Type>Sender</Type><Code>%s</Code><Message>%s</Message></Error><RequestId>req-1</RequestId></ErrorResponse>`, code, msg)
 }
 
+// SignIns returns the recorded federation calls.
+func (f *Fake) SignIns() []SignIn {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]SignIn(nil), f.signIns...)
+}
+
+// FailSignIn makes the federation endpoint answer with this HTTP status and an HTML page, the way AWS reports
+// failures. 0 restores normal answers.
+func (f *Fake) FailSignIn(status int) {
+	f.mu.Lock()
+	f.signInFail = status
+	f.mu.Unlock()
+}
+
+// serveFederation answers a POST Action=getSigninToken with {"SigninToken":"SIGNIN-<sessionId>"}.
+func (f *Fake) serveFederation(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	var s struct {
+		ID    string `json:"sessionId"`
+		Key   string `json:"sessionKey"`
+		Token string `json:"sessionToken"`
+	}
+	_ = json.Unmarshal([]byte(r.PostForm.Get("Session")), &s)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.signIns = append(f.signIns, SignIn{Method: r.Method, ContentType: r.Header.Get("Content-Type"), RawQuery: r.URL.RawQuery,
+		Form: r.PostForm, SessionID: s.ID, SessionKey: s.Key, SessionToken: s.Token})
+	status := f.signInFail
+	if status == 0 && (r.Method != http.MethodPost || r.PostForm.Get("Action") != "getSigninToken" || s.ID == "") {
+		status = http.StatusBadRequest
+	}
+	if status != 0 {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(status)
+		fmt.Fprint(w, `<html><body><h1>Bad Request</h1></body></html>`)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"SigninToken": "SIGNIN-" + s.ID})
+}
+
 func (f *Fake) serve(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/federation" {
+		f.serveFederation(w, r)
+		return
+	}
 	_ = r.ParseForm()
 	auth := r.Header.Get("Authorization")
 	akid := ""

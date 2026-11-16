@@ -239,8 +239,11 @@ func (s *Store) normalize() {
 	for k, r := range d.Sessions {
 		if r.SessionMinutes != 0 && (r.SessionMinutes < minSessionMinutes || r.SessionMinutes > maxSessionMinutes) {
 			r.SessionMinutes = 0
-			d.Sessions[k] = r
 		}
+		if _, err := time.Parse(time.RFC3339, r.SessionEndsAt); r.SessionEndsAt != "" && err != nil {
+			r.SessionEndsAt = ""
+		}
+		d.Sessions[k] = r
 	}
 	if d.RepoTests == nil {
 		d.RepoTests = map[string]api.TestResult{}

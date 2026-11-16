@@ -1,5 +1,6 @@
 // Package awsapi holds the small set of AWS API calls the app makes with explicit credentials:
-// STS identification, IAM access-key deactivation, and the credential providers used for them.
+// STS identification, IAM access-key deactivation, console sign-in through the federation endpoint, and the
+// credential providers used for them.
 package awsapi
 
 import (
@@ -21,7 +22,8 @@ import (
 )
 
 // Endpoints override the AWS defaults (sandbox mode, tests). STS and IAM always use region us-east-1.
-type Endpoints struct{ STS, IAM string }
+// SignIn is a base URL for the console sign-in federation endpoint (SignIn + "/federation").
+type Endpoints struct{ STS, IAM, SignIn string }
 
 const globalRegion = "us-east-1"
 

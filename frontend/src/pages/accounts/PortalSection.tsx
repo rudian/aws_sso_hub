@@ -7,7 +7,6 @@ import { Accounts } from '../../api/services'
 import type { Portal, Profile } from '../../api/models'
 import { AcctTile } from '../../components/AcctTile'
 import { Badge } from '../../components/Badge'
-import { Banner } from '../../components/Banner'
 import { Button } from '../../components/Button'
 import { Dot } from '../../components/Dot'
 import { IconButton } from '../../components/IconButton'
@@ -18,7 +17,7 @@ import { useNow } from '../../lib/useNow'
 import { useActions } from '../../shell/AppActions'
 import { Gated, useErrorToast, useSignOut } from './hooks'
 import type { DialogState } from './hooks'
-import { endIso, endedEarly, isSignedIn, pillState, pillText } from './model'
+import { endIso, isSignedIn, pillState, pillText } from './model'
 import { PassCard } from './PassCard'
 import './accounts.css'
 
@@ -82,10 +81,8 @@ export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed 
   const { toast } = useActions()
   const failToast = useErrorToast()
   const signOut = useSignOut()
-  const now = useNow(30_000)
   const s = portal.session
   const mine = (portal.profiles ?? []).map((n) => profiles.find((p) => p.name === n)).filter((p): p is Profile => !!p)
-  const ended = endedEarly(s, now)
 
   const copyUrl = async () => {
     try {
@@ -102,7 +99,6 @@ export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed 
       ? []
       : [
           { id: 'addRole', label: t('portal.menu.addRole'), separatorBefore: true, disabled: readOnly, onSelect: () => onDialog({ kind: 'addRole', portal: portal.name }) },
-          { id: 'length', label: t('session.length.title'), onSelect: () => onDialog({ kind: 'length', portal: portal.name }) },
           { id: 'rename', label: t('portal.menu.rename'), disabled: readOnly, onSelect: () => onDialog({ kind: 'rename', portal: portal.name }) },
           { id: 'remove', label: t('portal.menu.remove'), danger: true, separatorBefore: true, disabled: readOnly, onSelect: () => onDialog({ kind: 'removePortal', portal: portal.name }) },
         ]),
@@ -141,11 +137,6 @@ export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed 
           <Menu align="end" trigger={<IconButton label={t('tip.portalOptions')} icon={MoreHorizontal} />} items={items} />
         </div>
       </div>
-      {ended && (
-        <Banner kind="warn" actions={<Button size="sm" onClick={() => onDialog({ kind: 'length', portal: portal.name })}>{t('session.overrun.action')}</Button>}>
-          {t('session.endedEarly')}
-        </Banner>
-      )}
       {collapsed && (
         <div className="portal__summary">
           {mine.length > 0 && (
