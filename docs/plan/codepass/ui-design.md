@@ -70,9 +70,30 @@ Milestone 8 (2026-11-16; plan 4.16 and 4.17). Specified in words and text sketch
 | The **queue bar** always says what the queue is doing and why it is not doing more: checking usage, running, waiting for you, waiting for a reset. | 5.15 |
 | **AI accounts**: several accounts per tool (Claude Code, Codex) on the Accounts page, added through the tool's own sign-in. Codepass stores no AI sign-in. | 5.16, 5.11 |
 | **Usage meter**: a chip in the sidebar and a popover with every account's windows, reset times and the usage-credits note. | 5.16, 4.1 |
-| **Limit banner** on a session's bar: which limit, when it resets, "在 B 上继续 / Continue on B", "等待 / Wait". The session bar also names the account. | 5.6 |
-| Four queue notifications replace the placeholder row. | 6 |
+| **Limit banner** on a session's bar: which limit, when it resets, "在 B 上继续 / Continue on B", "等待 / Wait". The session bar also names the account, and the account chip is the "换账号 / Switch account" menu (next table). | 5.6 |
+| Four queue notifications replace the placeholder row (a fifth, for an account that needs attention, came with the third batch). | 6 |
 | Queue settings card. | 5.14 |
+
+Choosing and switching the AI account (2026-11-16, the owner's addition to milestone 8; plan 4.16 decisions 13 to 21). Words and text sketches only:
+
+| Change | Where |
+|---|---|
+| **Any account for any task.** The New task sheet's account row is pre-selected from a default and can be set to any account of the tool. The old rule "the first account in the owner's order that has room" is now only the fallback when the default is used up, and the sheet says so in one line. | 5.6 |
+| **Defaults in three levels per tool**, like the author identity: repository › project › app (the first account in the order). Set in the Repository settings sheet, in the project section's menu, and by the order on the AI accounts page. | 4.2, 5.2, 5.16 |
+| **Switch any time, both ways.** The account chip on the session bar is a menu, "换账号 / Switch account"; the AI tasks page rows have the same menu. After an automatic switch (only when the owner turned automatic switching on) a quiet hint offers the way back; nothing switches back by itself. | 5.6, 5.7 |
+| The account shows in session switcher rows and AI tasks rows. A ticket's account is "跟随仓库 / Follow the repository" or a fixed one. An account's pass says where it is the default, and the remove preview lists those places. The "默认 / Default" badge on the tool's own folder is gone; line 2 of that pass says "工具自带 / Tool's own", so "默认 / default" has one meaning. | 5.7, 5.7a, 5.15, 5.16 |
+
+Keeping the conversation, and staying inside the terms (2026-11-16, the owner's third batch; plan 4.16 decisions 22 to 36). Words and text sketches only:
+
+| Change | Where |
+|---|---|
+| **A switch never starts over without the conversation.** The confirm says what comes along, the cost, and, when it applies, another model, a conversation longer than the other account's window, and a turn cut off at the limit. One result line per layer: the whole conversation, a repaired copy (naming what was left out), or a handoff note with "查看笔记 / View note". The old "could not be continued, start a new session" text and the "ask Work for a summary" checkbox are gone. | 5.6 |
+| **Automatic switching is off by default**, per tool, and asks once before it turns on, with the sentences of the terms that bear on it. With it off, the limit banner, the switch menu, the queue bar and the queue's notice still switch with one click. | 5.16, 5.6, 5.15, 6 |
+| **"需要你处理 / Needs your attention"**: a new account state for an authentication, billing, suspension or policy error. The app stops using the account and never offers another account in its place. | 5.16, 5.6, 5.15, 4.1, 6 |
+| **Add account**: the consent now covers conversation copies; one line for a Team or Enterprise seat; one plain sentence about what Codepass cannot promise. | 5.16 |
+| **Settings**: "Codepass 只用于你自己的账号和你自己的工作。 / Codepass is for your own accounts and your own work." with links to both companies' terms. | 5.14 |
+| **Free up space** lists repaired conversation copies and handoff notes, per task, by exact path. | 5.7b |
+| Several tasks on different accounts at the same time were already possible; the design now says so where the owner looks for it. | 5.6, 5.16 |
 
 Finding a repository fast (2026-11-16, second batch; plan 4.4):
 
@@ -192,7 +213,7 @@ Rules:
 - Order is by daily use. Counts show work to do, never totals, and hide at zero. "AI tasks" turns warn when a task waits for the user and shows a pulsing info dot when tasks only run.
 - **Pull requests** (sidebar) is every GitHub / Bitbucket repository's list in one page, grouped by repository, with the same row component as the repository tab. It is not drawn separately in the mockup; the nav item opens the per-repository screen.
 - **Tickets** (`工单 / Tickets`, milestone 8) sits right after AI tasks. Its count is the number of queued tickets; it turns warn with "1 等待你 / 1 needs you" when a ticket waits for the owner, and shows "等待重置 / waiting for reset" in muted text while the queue is paused for a limit.
-- **AI usage** (`.usage-chip`, milestone 8): one line per tool that has run at least once, for the account in use (the one the last session or the queue used): tool mark, then the two windows as words and numbers. 80% and above is warn, 100% is danger; colour is never the only sign, the number is always there. Unknown: "用量未知 / usage unknown" in muted text. Click opens the usage popover (5.16). The lines hide when no AI tool is installed.
+- **AI usage** (`.usage-chip`, milestone 8): one line per tool that has run at least once, for the account in use (the one the last session or the queue used). When several accounts of a tool have live sessions, the line shows the one closest to its limit, with "+1" for the others; the tooltip names them. Then: tool mark, then the two windows as words and numbers. 80% and above is warn, 100% is danger; colour is never the only sign, the number is always there. Unknown: "用量未知 / usage unknown" in muted text. An account that needs the owner's attention (5.16): the line reads "工作 · 需要你处理 / Work · needs your attention" in danger, with the alert icon, in place of the numbers. Click opens the usage popover (5.16). The lines hide when no AI tool is installed.
 - Keyring rows gain a provider mark. A GitHub / Bitbucket row shows `密钥 / Key` when the key is verified, `未验证 / Unverified` in warn when not, `令牌过期 / Token expired` in warn when the API token fails.
 - The Terminal helper page is gone. Its job moved into the workspace's terminal panel.
 - The keep-awake chip (`.awake`) sits above Settings: cup icon, "保持唤醒中", task count. Click opens AI tasks. Tooltip: "有 AI 任务在运行，这台 Mac 不会自动睡眠 / AI tasks are running, so this Mac will not sleep on its own".
@@ -220,6 +241,20 @@ Rules:
 - **Status bar** (`.ws__status`, 26px): terminal toggle; problems; context (branch, or the task folder); on the right the language servers, cursor position, encoding, language, keep-awake. Every item is a button with a tooltip.
 - **Bottom panel** (`.bpanel`): Terminal / Problems / Find results. It opens under any tab, 196px by default, resizable, remembered per repository. A plain shell here is not an AI task and never holds the computer awake.
 - **Repository settings sheet** (gear; `.sheet`, not drawn): account binding, remotes (add, rename, remove, set URL), author identity (follow project / follow global / own), AI defaults for this repository (tool, where tasks run, "启动 AI 任务时预先选好这个仓库的 AWS 账号 / Start AI tasks with this repository's AWS account selected", off by default. Its help line is honest: "这只是省一步操作。不论开关，任务都以你的身份运行，能使用你已登录的任何 AWS 账号。 / This only saves a step. Either way a task runs as you and can use any AWS account you are signed in to."), setup command for new workspaces. Also: "隐藏这个仓库 / Hide this repository" (5.2).
+- **AI accounts in the Repository settings sheet** (milestone 8; plan 4.16 decision 14). Inside "AI defaults for this repository", under the tool, one row per tool that has more than one AI account (Claude Code, Codex; never OpenCode). It is the repository level of the three levels repository › project › app, and it reads like the author identity rows above it.
+
+  ```
+  AI 账号 / AI accounts          仓库 › 项目 › 应用，越具体的越优先 / Repository › project › app. The most specific one wins.
+    [cc] Claude Code   这个仓库默认用 / This repository uses   [ 跟随项目 acme（现在是「工作」）  v ]
+    [cx] Codex         这个仓库默认用 / This repository uses   [ ● 个人                           v ]
+    新任务会先选好这个账号，开始前还可以换。 / A new task starts with this account selected. You can still change it before it starts.
+  ```
+
+  - Options of each select: first "跟随项目 acme（现在是「工作」）/ Follow project acme (now Work)", then every account of that tool with its colour dot and label. A repository in no project shows "跟随应用默认（现在是「工作」）/ Follow the app default (now Work)" instead. The value in brackets is what the level above gives today, so the owner sees the result before choosing.
+  - Saving is immediate, with the toast "acme_agent_portal 的 Claude Code 任务以后默认用「个人」 / Claude Code tasks in acme_agent_portal now start on Personal" and Undo. Nothing on disk in the repository changes, and running sessions keep their account.
+  - A tool with one account shows no row. With no tool that has two accounts, one muted line stands in: "每个工具只有一个账号。在「账号」页可以再添加。 / Each tool has one account. Add another on the Accounts page." with the link "添加 AI 账号 / Add an AI account".
+  - When the shell decides the account for a tool (5.16), its row stays editable and a warn line sits under it: "你的终端环境设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，这里的选择暂时不起作用。 / Your shell sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. This choice has no effect for now."
+  - An account that is used up or not signed in can still be the default; the option shows "用完了，周一 00:00 重置 / used up, resets Mon 00:00" or "未登录 / not signed in" after the label.
 
 ### 4.3 Keyboard
 
@@ -356,7 +391,30 @@ Shots: `projects-light-zh`, `projects-dark-en`, `projects-drag-light-zh`.
 - Keys while the field has focus: Down / Up move a visible selection (the ink bar of the session switcher) through the matching rows; **Enter opens the selected repository**, which is the best match until another is selected; Cmd/Ctrl+Enter opens it with the new-task sheet (milestone 2 on); Esc clears the text, then a second Esc leaves the field.
 - One line under the toolbar while searching: "3 个仓库匹配 · ⏎ 打开 acme_agent_portal / 3 repositories match · ⏎ opens acme_agent_portal". No match: "没有文件夹名或远程名包含「xyz」的仓库 / No repository's folder or remote name contains "xyz"" with "清除搜索 / Clear search"; hidden repositories that match are counted: "另有 1 个已隐藏 / 1 more is hidden" with "显示 / Show".
 
-**Project section** (`.proj`). The portal-section pattern from Accounts, reused: chevron + layers tile, name, meta ("4 个仓库 · 2 个 AI 任务运行中"), the project's author identity on the right if it has one, a menu (rename, author identity, add repositories, new AI task in..., remove project). Collapse state is remembered. Collapsed sections show the account chips of their repositories as a peek, as portals do.
+**Project section** (`.proj`). The portal-section pattern from Accounts, reused: chevron + layers tile, name, meta ("4 个仓库 · 2 个 AI 任务运行中"), the project's author identity on the right if it has one, a menu (rename, author identity, AI 账号 / AI accounts, add repositories, new AI task in..., remove project). Collapse state is remembered. Collapsed sections show the account chips of their repositories as a peek, as portals do.
+
+**Project menu: "AI 账号 / AI accounts"** (milestone 8; plan 4.16 decision 14; shown only when a tool has more than one AI account). It opens a small sheet (`.modal--sm`), the project level of repository › project › app:
+
+```
+项目 acme 的 AI 账号 / AI accounts for project acme
+  [cc] Claude Code   这个项目默认用 / This project uses   [ 跟随应用默认（现在是「工作」）  v ]
+  [cx] Codex         这个项目默认用 / This project uses   [ 跟随应用默认（现在是「工作」）  v ]
+
+  会跟着变的仓库 3 个 / 3 repositories follow this
+    acme_api
+    acme_cs_portal
+    acme_merchant_portal_v4
+  保留自己的 1 个 / 1 keeps its own
+    acme_agent_portal · Claude Code 用「个人」 / Claude Code uses Personal
+                                                        改为跟随项目 / Make it follow the project
+                                                        [取消 / Cancel]  [保存 / Save]
+```
+
+- Options of each select: "跟随应用默认（现在是「工作」）/ Follow the app default (now Work)", then every account of that tool. The app default is the first account in the order on the AI accounts page (5.16); the sheet links there: "调整顺序 / Change the order".
+- The two lists use the `.affect` pattern of the identity sheet (5.12): repositories that follow the project, then repositories with their own account on a sunken row, each with "改为跟随项目 / Make it follow the project". Hidden repositories are left out of both lists and of the move confirm; they keep their setting (5.16).
+- Saving changes only which account is pre-selected for new tasks and tickets. One muted line says so: "只影响以后新开的任务，正在运行的会话不变。 / Only tasks started later are affected. Running sessions keep their account."
+- A project with a fixed account shows it in the section header beside the author identity, as a small chip with the tool mark: "[cc] 个人 / Personal". Ungrouped has no menu, so its repositories follow the app default unless they set their own.
+- Moving a repository into a project whose account default differs adds one line to the move confirm: "Claude Code 的默认账号会从「工作」变成「个人」。 / The default Claude Code account changes from Work to Personal." Repositories with their own account are not named, because nothing changes for them.
 
 **Repository row** (`.proj-table`, 6 columns): select; provider mark + name (two names when they differ, see below) + path (middle-truncated); account chip (or dashed "未绑定 / Not bound"); branch and sync (`↑2 · 5 个改动`, `↓4`, "干净 / Clean"); status (dot + two lines, same vocabulary as today); actions (AI badge, a primary fix button when the row needs one, else the More menu). **Clicking a row opens the workspace.** The chip still opens the bind popover; the checkbox and buttons do not open the workspace.
 
@@ -381,7 +439,7 @@ Shots: `projects-light-zh`, `projects-dark-en`, `projects-drag-light-zh`.
 
 - New project: `.modal--sm`, one field "项目名 / Project name", then a checklist of ungrouped repositories (pre-ticked by prefix match), optional "作者身份 / Author identity" disclosure. Primary "创建项目 / Create project".
 - Rename: inline edit of the title (Enter saves, Esc cancels).
-- Remove: confirm "移除项目 acme？4 个仓库会回到「未分组」，磁盘上的文件不会动。 / Remove project acme? Its 4 repositories go back to Ungrouped. Nothing on disk is touched." Primary "移除项目 / Remove project". If the project has an identity: one more line listing the repositories that fall back to the global identity.
+- Remove: confirm "移除项目 acme？4 个仓库会回到「未分组」，磁盘上的文件不会动。 / Remove project acme? Its 4 repositories go back to Ungrouped. Nothing on disk is touched." Primary "移除项目 / Remove project". If the project has an identity: one more line listing the repositories that fall back to the global identity. If the project has an AI account default: one more line, "这 3 个仓库的 Claude Code 默认账号会从「个人」变成「工作」。 / The default Claude Code account of these 3 repositories changes from Personal to Work."
 
 **Move.** Drag a row by its grip (appears on hover and on keyboard focus) onto a project header or onto Ungrouped; or select rows and use the bulk bar: "已选 2 个仓库 · 移到项目 ▾ · 检查连接". Keyboard: focus a row, press M, pick a project in the menu. If the destination has an identity, a confirm lists which repositories' author identity will change and which keep their own. Toast: "已把 initech_gateway 移到 globex / Moved initech_gateway to globex" with Undo.
 
@@ -549,7 +607,7 @@ Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `ne
 
 **Layout.** Left pane 330px: the repository's tasks. Right: the selected task's header, session tabs, terminal.
 
-**Task list.** Header "这个仓库的任务 / Tasks in this repository" and primary "新任务 / New task" (Cmd/Ctrl+T). Rows (`.task`): tool mark, title, elapsed time; second line: state, branch (or "主工作区 / main workspace"), changed-file count. Active row: ink bar on the left. Order: waiting first, then running by start time; "已结束 / Finished" is a collapsible group (done, failed, stopped). Context menu: Rename, Review changes, Stop, Discard, Reveal folder. Rename edits the title in place and changes only the label. One muted line under the edit box says so: "只改任务名。分支名不变，AI 可能已经在用它。 / Only the task's name changes. The branch keeps its name, because the AI may already use it."
+**Task list.** Header "这个仓库的任务 / Tasks in this repository" and primary "新任务 / New task" (Cmd/Ctrl+T). Rows (`.task`): tool mark, title, elapsed time; second line: state, branch (or "主工作区 / main workspace"), changed-file count. When the tool has more than one AI account, the row's second line ends with the account's colour dot and label. Active row: ink bar on the left. Order: waiting first, then running by start time; "已结束 / Finished" is a collapsible group (done, failed, stopped). Context menu: Rename, Review changes, Stop, Discard, Reveal folder. Rename edits the title in place and changes only the label. One muted line under the edit box says so: "只改任务名。分支名不变，AI 可能已经在用它。 / Only the task's name changes. The branch keeps its name, because the AI may already use it."
 
 **States** (`.state`, always dot + word).
 
@@ -572,7 +630,72 @@ Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `ne
 
 **Session bar** (`.term-note`, 30px, between the tabs and the terminal). The app cannot and must not draw inside the tool's own screen, so everything the app wants to say about a session sits here: "这个任务以你的身份运行，你能读写的它都能读写。 / This task runs as you. It can read and change whatever you can."; the tool's approval mode ("批准方式 每次询问 / Approvals: ask every time", read from the tool's own settings; Codex shows its sandbox mode); the author that commits will use ("提交作者 Alex <alex@acme.example.com>"); and the link "了解任务能做什么 / What a task can do". That link opens a short sheet in plain words: a task can read and change any file you can, use any AWS account you are signed in to, use the SSH keys on this computer, and run any command; Codepass never turns off the tool's own permission questions and has no switch to do so; choose "own workspace" so tasks cannot disturb each other, and read the changes before you merge. There is no "AWS_PROFILE" badge: it suggested a protection that does not exist.
 
-**Account on the session bar** (milestone 8, only when the tool has more than one AI account): a chip with the account's colour dot and label, "账号 工作 / Account: Work". Its tooltip gives the latest usage reading in one line. A task that came from a ticket also shows "工单 #12 / Ticket #12", a link to the ticket.
+**Account on the session bar** (milestone 8, only when the tool has more than one AI account; Claude Code and Codex alike): a chip with the account's colour dot, the label and a caret, "账号 工作 ▾ / Account: Work ▾". Its tooltip gives the latest usage reading in one line. A task that came from a ticket also shows "工单 #12 / Ticket #12", a link to the ticket.
+
+**The chip is a menu: "换账号 / Switch account"** (plan 4.16 decision 16). The owner can move a session to another account at any time, in either direction, as often as wanted. No limit has to be reached first.
+
+```
+ [● 账号 工作 ▾]
+ +--------------------------------------------------------------+
+ | 换账号 / Switch account                                       |
+ | ✓ ● 工作 / Work        本次 62% · 本周 81%     这个仓库的默认  |
+ |   ● 个人 / Personal    本次 0% · 本周 12%                     |
+ |--------------------------------------------------------------|
+ |   管理 AI 账号 / Manage AI accounts                           |
+ +--------------------------------------------------------------+
+```
+
+- Rows: every account of this session's tool, in the owner's order. The current one has the check mark and cannot be chosen. Each row shows the latest reading; a reading older than 15 minutes shows its age. The repository's default carries a muted tag: "这个仓库的默认 / This repository's default".
+- An account without room is listed but disabled: "用完了，周一 00:00 重置 / Used up, resets Mon 00:00". "Room" follows the one rule in plan 4.16 (after decision 15): for a session the owner started, every window below 100% with no reserve, and an unknown reading counts as room; for a queued ticket's session, below 100% minus the reserve. One that is not signed in is disabled with "未登录 / Not signed in" and the link "登录 / Sign in". One that needs the owner's attention (5.16) is disabled with "需要你处理 / Needs your attention" and the link "查看 / Open". When the session's **own** account needs attention, every row is disabled and the foot says why: "先处理「工作」的问题，才能换账号。 / Deal with the problem on Work first. Then the account can be changed." (plan 4.16 decision 34).
+- Choosing an account opens **the switch confirm** (focus on Cancel). The limit banner, the AI tasks rows, the queue bar and the queue's notice open the same one.
+
+  ```
+  在「个人」上继续这个会话？
+  对话会带过去：你说的每句话原样带过去，AI 的回复、工具调用和结果也带过去
+  （完整的，或者在交接笔记里，笔记会指向完整记录）。                      带不过去的只有一样
+  「个人」上的第一轮会把整段对话重新发送一遍，会用掉它的一部分用量。
+  ! 上一轮在用量上限处被打断了。换过去后，AI 会先看一眼工作区，再从停下的地方接着做。
+  ! 「个人」的套餐没有 Opus，会改用它有的最接近的模型：Sonnet。
+                                                              [取消]  [继续]
+
+  Continue this session on Personal?
+  The conversation comes along: everything you said, word for word, and the AI's replies, tool calls
+  and results (in full, or in a handoff note that points to the full record).                One thing cannot
+  The first turn on Personal sends the whole conversation again and uses part of its allowance.
+  ! The last turn was cut off at the usage limit. After the switch the AI checks the workspace first, then continues where it stopped.
+  ! Personal's plan does not have Opus. The closest model it has is used: Sonnet.
+                                                              [Cancel]  [Continue]
+  ```
+
+  - Lines 1 and 2 are always there. The "!" lines (`.hint`, info, not warn) appear only when they apply (plan 4.16 decision 24):
+    - **Cut off at a limit:** the sentence in the sketch. Not shown for a switch between turns. For "停下并换账号 / Stop and switch" the line reads instead: "换过去后，AI 会先看一眼工作区，然后等你的下一句话。 / After the switch the AI checks the workspace first, then waits for your next message." (plan 4.16 decision 23).
+    - **Another model:** the sentence in the sketch, naming both models, only when Codepass has seen the tool replace this model under the other account before; the session is then resumed with that replacement (plan 4.16 decision 24). When it does not know, no line; the result line names the model if it changed.
+    - **A conversation longer than the other account can hold:** "这段对话比「个人」能装下的长。Claude Code 会先把较早的部分压缩成摘要；压缩不了时，改用交接笔记。 / This conversation is longer than Personal can hold. Claude Code first compacts the earlier part into a summary. If it cannot, a handoff note is used." (the tool's name follows the session's tool).
+  - **"带不过去的只有一样 / One thing cannot"** is a link that opens a small popover, plain text: "对最新的几种 Claude 模型，AI 没显示出来的思考记录只属于产生它的账号，服务方不会交给另一个账号；Codex 是否也这样，还不确定。Codepass 和工具都改变不了。你看得到的内容一样不少。 / For the newest Claude models, the AI's hidden reasoning belongs to the account that produced it, and the service does not hand it to another account. Whether Codex does the same is not known yet. Neither Codepass nor the tool can change that. Nothing you can see is missing." The link is shown only for a Codex session or a Claude model on the list in research R8 (plan 4.16 decision 22); for any other model line 1 ends without it. Line 1 is written before the layer is known, so it promises no more than the handoff note delivers.
+  - While the AI is working, one more line and a different primary: "AI 正在干活，换账号前要先让它停下这一轮。 / The AI is working. It has to stop this turn before the account can change." · "停下并换账号 / Stop and switch". This one confirm is the only one; no second Stop confirm follows. A switch stops the tool the way "Stop task" does, so programs the session started end too (plan 4.16 step 3). When the tracker reports programs, working or not, the confirm adds the Stop line: "还会结束它启动的 2 个程序 / This also ends 2 programs it started".
+  - The confirm has no option about how the conversation is carried. The three layers are tried in order by themselves (plan 4.16 decision 22); the owner reads the outcome in the result line.
+- **While the switch runs**, the chip shows a small spinner and "正在换到「个人」… / Switching to Personal...". If the session does not resume as it is, the text changes once, without alarm: "原样接不上，正在换一种方式带过去… / It did not resume as it is. Trying another way...". The terminal area keeps the last screen, dimmed, until the tool is back.
+- **The result line** (one info line on the bar, `role="status"`, dismissible; plan 4.16 decision 26). It names the layer that carried the conversation and never says more than that layer delivered:
+
+  | What carried the conversation | Line (zh / en) | Extra |
+  |---|---|---|
+  | The same session | 已换到「个人」。对话完整带过去了。 / Now on Personal. The whole conversation came along. | none |
+  | A repaired copy | 已换到「个人」。对话带过去了，只去掉了只属于「工作」的部分：AI 的思考记录。 / Now on Personal. The conversation came along, without the parts that belong only to Work: the AI's reasoning records. | Codex names its parts: "AI 的推理记录和加密的摘要 / the AI's reasoning records and encrypted summaries". When the last tool call never finished and was left out: "还有最后一次没做完的工具调用 / and the last tool call, which never finished". |
+  | A handoff note | 已换到「个人」。对话以交接笔记的形式带过去了。 / Now on Personal. The conversation came along as a handoff note. | Button "查看笔记 / View note". Help under the line, muted: "原来的对话记录还在，新会话需要时会去读。 / The earlier conversation record is still there, and the new session reads it when it needs a detail." |
+  | No session could start on the other account | 没有换成：「个人」上启动不了会话。会话还在「工作」上，对话没有动。 / The switch did not happen: no session could start on Personal. The session is still on Work, and its conversation is untouched. | Danger. The tool's own message under it, as text. Buttons "继续 / Resume" (on Work) and "查看账号 / Open the account". |
+
+  | The tool started a new conversation itself | Claude Code 开了一个新对话，原来的对话没有接上。 / Claude Code started a new conversation; the earlier one was not continued. | Danger. Shown when the tool reports a session ID other than the one resumed (the owner chose "Start a new conversation" in the tool's own screen). Button "换账号 / Switch account" to retry; the earlier conversation is untouched. |
+
+  The first line ("The whole conversation came along") is shown only once the tool reports that it resumed the expected session; until then the chip keeps its spinner. If the tool refuses only in the first turn, after the owner has typed, the line changes to the next layer's, and that layer carries the owner's last message: the owner does not type it again (plan 4.16 decision 26).
+
+  After any of the first three, three short additions when they are true: "模型换成了 Sonnet。 / The model is now Sonnet.", "Claude Code 把较早的对话压缩成了摘要。 / Claude Code compacted the earlier conversation into a summary." and "仍在计划模式。 / Still in plan mode." (a session that was in plan mode stays in it after a switch; plan 4.16 decision 22). **There is no line that offers a new session without the conversation**; that path does not exist (plan 4.16 step 5).
+- **"查看笔记 / View note"** opens a read-only sheet (640px, from the right): header "交接笔记 · 工作 → 个人 · 今天 14:02 / Handoff note · Work → Personal · today 14:02"; the note as plain text in the mono font (never rendered as markup); one muted line above it: "这份笔记由 Codepass 在这台电脑上根据对话记录和 git 整理，没有调用 AI。你说过的每句话都原样在里面。 / Codepass built this note on this computer from the conversation record and git. No AI was called. Everything you said is in it, word for word."; footer "复制路径 / Copy path" and "在访达中显示 / Reveal in Finder". The same sheet opens from the task's row menu on the AI tasks page ("交接笔记 / Handoff notes", listed by date when there are several).
+- **What the tool may ask in its own screen after a switch** (plan 4.16 decision 22): "Resume this conversation?", a usage-credits question, or a notice that the model was replaced. Codepass never answers these and draws nothing over them. The task reads "等待你 / Waiting for you" and the bar adds one muted line: "Claude Code 在问你一个问题，请在终端里回答。 / Claude Code is asking you something. Answer it in the terminal." Right after a switch the line adds: "选「Resume」才能接着原来的对话。 / Choose \"Resume\" to keep the conversation." ("Resume" is the tool's own word and is not translated.)
+- Going back is the same menu: on Personal, the menu lists Work, and the same confirm and result lines apply in that direction. Nothing about a switch changes the repository's default, and the menu says so in its foot when the session is not on the default: "这个仓库的默认还是「工作」。 / This repository's default is still Work."
+- A stopped task that can be resumed keeps the chip. Choosing another account there changes the "继续 / Resume" button to "在「个人」上继续 / Resume on Personal". "在「个人」上继续 / Resume on Personal" opens the same confirm as the menu, with the cost sentence. A stopped task whose account was removed shows "已移除的账号 / Removed account" on the chip; "继续 / Resume" then opens the menu first, to pick an account, and its confirm.
+- **The shell decides** (plan 4.16 decision 20): the chip reads "账号 由终端环境决定 / Account: set by your shell" with no caret. Its popover holds the sentence of 5.16: "你的终端环境设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，Codepass 选不了。 / Your shell sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. Codepass cannot choose." On Windows the sentence names the Windows environment variable instead (5.16). A task started in this state records no account, so its rows elsewhere read "由终端环境决定 / set by your shell" (5.7, 5.7a).
+- The menu changes the account only. The approval mode, the sandbox mode and the author on the same bar stay as they are: the settings file that holds them is always linked between a tool's accounts (plan 4.16 decision 21). MCP servers the owner added, and folder trust, are kept per account, so after a switch the tool may ask to trust the folder again; the confirm does not repeat this, the add-account sheet said it (5.16 step 2).
+- Keyboard: the chip is a button (`aria-haspopup="menu"`); the rows are `menuitemradio`; a disabled row's reason is part of its name.
 
 **Limit banner** (`.term-note--limit`, milestone 8). When the session reaches a usage limit, the session bar grows a second line, warn-tinted, `role="status"`. It replaces nothing the tool shows in its own screen; it adds what the app knows.
 
@@ -585,13 +708,57 @@ Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `ne
 
 - Line 1 names the account and the window: "本次用量 / session usage" (Claude Code), "5 小时用量 / 5-hour usage" (Codex), "每周用量 / weekly usage", "Opus 的每周用量 / weekly usage for Opus". Then the reset time in the person's local time, weekday included when it is not today. Unknown reset: "重置时间未知 / reset time unknown".
 - Line 2 says who continues. Claude Code with its own automatic continue on: "Claude Code 会在重置后自己继续。 / Claude Code continues by itself after the reset." With it off: "重置后不会自己继续。 / It will not continue by itself after the reset." Codex: a checkbox "到时自动继续 / Continue automatically then" (off; when ticked the app resumes the session at the reset).
-- **"在「个人」上继续 / Continue on Personal"** shows only when another account of the same tool has room; with several, it is a split button listing them with their percentages. It opens a confirm (focus on Cancel): "在「个人」上继续这个会话？ / Continue this session on Personal?" · "对话会保留。「个人」上的第一轮会把整段对话重新发送一遍，会用掉它的一部分用量。 / The conversation is kept. The first turn on Personal sends the whole conversation again and uses part of its allowance." · primary "继续 / Continue".
+- **"在「个人」上继续 / Continue on Personal"** is a shortcut into the same switch as the account chip's menu. It shows only when another account of the same tool has room (the same rule as the menu's disabled rows); with several, it is a split button listing them with their percentages. It opens the switch confirm above, with the cut-off line, because the limit ended the turn. This is the owner's S1 case: one click on the banner, one on the confirm, and the task carries on with its conversation. Nothing switches without that click unless the owner turned automatic switching on (5.16).
+- **The other account is checked before anything stops** (plan 4.16 step 3). When it is not signed in or needs attention, nothing is stopped and the bar says why: "「个人」没有登录，没有换。 / Personal is not signed in, so nothing was switched." or "「个人」需要你处理，没有换。 / Personal needs your attention, so nothing was switched." When an automatic switch still could not start a session on the other account, line 2 of the banner reads "Codepass 会在重置后让它继续 / Codepass continues it after the reset": the tool was stopped for the switch, so Codepass continues the session on its own account once a fresh reading shows room.
 - **"等待 / Wait"** collapses the banner to one muted line: "等待重置 · 周一 00:00 / Waiting for reset · Mon 00:00". The task's state reads "等待重置 / Waiting for reset" (warn, steady dot) in every list.
-- After an automatic switch (plan 4.16): info-tinted, one line, dismissible: "「工作」的用量用完了，已在「个人」上继续。第一轮重新发送了整段对话。 / Work ran out of usage, so this session continued on Personal. The first turn sent the whole conversation again."
-- Resume on the other account failed: danger line "在「个人」上接不上原来的对话。 / The conversation could not be continued on Personal." with "在「个人」上新开一个会话 / Start a new session on Personal" and the help text "分支上的改动都在，对话不会带过去。 / The changes on the branch are kept. The conversation is not carried over."
+- After an automatic switch (only when the owner turned automatic switching on for this tool, 5.16; plan 4.16 decision 33): info-tinted, one line, dismissible. It is the result line of the switch with the reason in front: "「工作」的用量用完了，已在「个人」上继续。对话完整带过去了。 / Work ran out of usage, so this session continued on Personal. The whole conversation came along." The second sentence follows the layer exactly as in the result-line table above, including "查看笔记 / View note". When programs the session started were ended by the switch, the line adds: "它启动的 2 个程序已结束。 / The 2 programs it started were ended."
+- **Switch-back hint** (plan 4.16 decision 17). The app never switches back by itself. After an automatic switch, when a later reading shows that the account the session left has room again, the bar shows one quiet line, muted, not warn, with a link and a close button:
+
+  ```
+  「工作」又有用量了 · 切回「工作」                                                        [×]
+  Work has usage again · Switch back to Work                                               [×]
+  ```
+
+  The link opens the same confirm as the menu, with "切回 / Switch back" as the primary. Nothing happens without that click. The hint shows once per reset, only between turns, and only for a session that was switched automatically; closing it keeps it away until the next reset. A switch the owner made by hand gets no hint: the menu is always there.
+- **When the session does not resume as it is on the other account**, nothing is asked and nothing is offered: the next layer is tried by itself, and the result line says which one carried the conversation (the table above). The earlier danger line "在「个人」上接不上原来的对话 / The conversation could not be continued on Personal", its button "Start a new session on Personal" and the checkbox "Ask Work for a summary first" are removed.
+- **An account problem is not a limit** (plan 4.16 decision 34). When the tool reports an authentication, billing, suspension, disabled-account or policy error, the bar shows a different second line, danger-tinted, `role="alert"`, with no other account on it:
+
+  ```
+  ! 「工作」需要你处理：Claude Code 报告这个账号的登录或账号本身有问题。              [查看账号]
+    Codepass 不会自动换账号，也不会重试。
+    > (the tool's own message, as plain text)
+  ! Work needs your attention: Claude Code reports a problem with this account's sign-in or the account itself.   [Open the account]
+    Codepass will not switch accounts or retry by itself.
+  ```
+
+  "查看账号 / Open the account" opens the Accounts page at that pass (5.16), where "重新检查 / Check again" and "重新登录 / Sign in again" are. The line stays until the account's state is cleared there.
 - Usage credits on for that account: no limit banner appears, because the tool does not stop. Instead a muted line on the bar while the account is past 100%: "正在使用用量额度，按量计费 / Running on usage credits, billed by use."
 
-**Account in the New task sheet** (milestone 8): when the chosen tool has more than one AI account, a row under the tool cards: "用哪个账号 / Account" with a select; each option shows label and the latest reading ("工作 · 本周 81% / Work · week 81%"); an account with no room is listed with "用量已用完，周一重置 / used up, resets Mon" and can still be chosen. Default: the first account in the owner's order that has room.
+**Account in the New task sheet** (milestone 8; plan 4.16 decisions 13 to 15): when the chosen tool has more than one AI account, a row under the tool cards, "用哪个账号 / Account", with a select. Any account of the tool can be chosen for any repository.
+
+```
+  用哪个账号 / Account   [ ● 工作 · 本周 81%                         v ]   这个仓库的默认 / This repository's default
+                          ● 工作 / Work        本次 62% · 本周 81%      这个仓库的默认
+                          ● 个人 / Personal    本次 0% · 本周 12%
+```
+
+- **What is pre-selected:** the default for this repository and this tool, from the three levels repository › project › app (4.2, 5.2, 5.16). A muted tag after the select names the source, in the vocabulary of the identity source tags (5.12): "这个仓库的默认 / This repository's default", "来自项目 acme / From project acme", "应用默认 / App default". Changing the tool card re-selects for that tool.
+- **Options:** every account of the tool in the owner's order, each with its colour dot, label and latest reading ("工作 · 本周 81% / Work · week 81%"). An account with no room reads "用完了，周一 00:00 重置 / Used up, resets Mon 00:00" and can still be chosen. One that is not signed in reads "未登录 / Not signed in" and can be chosen too; the tool's own sign-in then appears in the terminal. One that needs the owner's attention reads "需要你处理 / Needs your attention" and cannot be chosen. When it is the default, nothing is pre-selected in its place: the select shows it, "开始任务 / Start task" is disabled, and the line under the row reads "「工作」需要你处理。先去处理，或者自己选另一个账号。 / Work needs your attention. Deal with it first, or choose another account yourself." with the link "查看账号 / Open the account" (plan 4.16 decision 34: the app never puts another account in its place by itself).
+- **The default has no room** (decision 15): the sheet pre-selects the first account in the owner's order that has room and says so in one line under the row (`.hint`, info):
+
+  ```
+  用哪个账号 / Account   [ ● 个人 · 本周 12%                         v ]
+  「工作」用完了，周一 00:00 重置，这次先用「个人」。
+  Work is used up until Mon 00:00, so this task uses Personal.
+  ```
+
+  The default not signed in: "「工作」没有登录，这次先用「个人」。 / Work is not signed in, so this task uses Personal." No account has room: the default stays selected, with "所有账号都用完了。「工作」周一 00:00 重置；最早重置的是「个人」，15:45。 / Every account is used up. Work resets Mon 00:00; the first to reset is Personal, at 15:45." The line gives both times because nothing moves the task at the earlier one. For a Codex task it adds: "Codex 不会自己继续，到时要你点继续。 / Codex does not continue by itself; continue it then." A reading that is unknown counts as room. Here "room" is below 100% on every window; the queue's reserve is not counted for a task the owner starts by hand (the one rule in plan 4.16, after decision 15).
+- **Picking the used-up account anyway** is allowed. The line becomes "「工作」用完了。任务会等到周一 00:00，或者自动换到有用量的账号。 / Work is used up. The task waits until Mon 00:00, or switches to an account with usage." (the second half only when automatic switching is on for that tool, 5.16). For a Codex task the line adds: "Codex 不会自己继续，到时要你点继续。 / Codex does not continue by itself; continue it then."
+- **One task only.** The choice does not change any default. When the owner picked a different account by hand, a checkbox appears under the row, off: "以后这个仓库都用「个人」 / Use Personal for this repository from now on"; ticked, Start also saves it as the repository's default (4.2).
+- **Several accounts at once** (plan 4.16 decision 29). Nothing limits which accounts run together: a task on Work in acme_api and a task on Personal in globex_web run side by side, each with its own chip. The sheet needs no extra control for it.
+- **The shell decides** (decision 20): the select is disabled and shows what the default would be; the line under it is the sentence of 5.16: "你的终端环境设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，Codepass 选不了。 / Your shell sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. Codepass cannot choose."
+- OpenCode chosen, or a tool with one account: no row.
+- The sheet opened from Projects (Cmd/Ctrl+Enter) or from the AI tasks page behaves the same once the repository is known.
 
 **Terminal** (`.term`). xterm.js on `--term-bg`, 12.5px mono, 19px lines, 16px padding. The tool draws its own interface; the app adds nothing inside it. Copy on select is off; Cmd/Ctrl+C copies when there is a selection, otherwise it is sent to the process. Paste of more than 5 lines asks once. Shift+Enter inserts a new line in tools that support multi-line input. Chinese and other wide characters keep their columns; typing with a Chinese input method shows the candidate window at the cursor. `https://` links are Cmd/Ctrl+clickable and open in the browser; `http://localhost` and `http://127.0.0.1` links (dev servers) also open, after a one-time confirm per port; other `http://` links are copied, not opened. File paths with a line number open in the Code tab. A program inside the terminal cannot write to the clipboard. Scrollback 10,000 lines, kept while the task exists; a terminal stays alive when you switch page, tab or folder, so coming back shows the exact screen you left. Search in scrollback: Cmd/Ctrl+F inside the terminal. Settings has "屏幕阅读器模式 / Screen reader mode" for the terminal (off by default; it exposes the output as text at some cost in speed).
 
@@ -603,7 +770,7 @@ Shots: `workspace-ai-light-zh`, `workspace-ai-dark-en`, `new-task-light-zh`, `ne
 - *Tool not installed*: the terminal area shows a card instead: tool mark, "还没有安装 OpenCode / OpenCode is not installed yet", the exact command that will run, primary "安装并开始 / Install and start", then the install log in the same terminal surface.
 - *Tool needs sign-in*: nothing special. The tool's own sign-in appears in the terminal; a one-line hint above it the first time: "登录由 Claude Code 自己处理，Codepass 不保存任何 AI 账号信息。 / Sign-in is handled by Claude Code itself. Codepass stores no AI account details."
 - *Process ended*: a bar under the terminal: done "任务结束了 / The task ended" + "查看改动", "再开一个会话 / Start another session"; failed shows the exit code and "重新开始 / Start again".
-- *App restarted*: tasks are listed as stopped with "继续 / Resume". Resume reopens **that task's own conversation** in its folder (the app remembers each session's identifier), so two tasks in one folder never resume into each other. If the tool no longer has that conversation: "找不到原来的会话，已开始一个新的 / The earlier session could not be found, so a new one was started".
+- *App restarted*: tasks are listed as stopped with "继续 / Resume". Resume reopens **that task's own conversation** in its folder (the app remembers each session's identifier), so two tasks in one folder never resume into each other. Resume looks for the conversation under every session ID the task has had, newest first, in the task's account folder and then in the tool's other account folders (plan 4.16, "Switch and resume"). Found in another account's folder, it is a switch, with the confirm and the result line above. Found nowhere, **no session starts**: "找不到这个任务的对话记录，没有开新的会话。 / This task's conversation record could not be found, so no new session was started." with the button "开一个新会话 / Start a new session", the owner's explicit choice. A switch that the restart interrupted is undone: the task is stopped on the account it was on, with "上次换账号没有完成，会话还在「工作」上。 / The last switch did not finish. The session is still on Work.", "继续 / Resume" and the account menu to retry.
 - *Fifth concurrent task*: a confirm, once: "已经有 4 个任务在运行。同一个账号下的任务共用它的用量，开得越多用得越快。 / 4 tasks are already running. Tasks under the same account share its usage allowance; more tasks spend it faster." 继续 / 取消. The cap (default 6) is in Settings.
 - *Quit with running tasks*: the quit dialog (5.6b), every time. Closing the window does not ask: it hides the window and the tasks keep running (4.4).
 - *Stop task*: ends the tool and every program it started (a dev server, a test watcher). The confirm says so when such programs exist: "还会结束它启动的 2 个程序 / This also ends 2 programs it started".
@@ -660,6 +827,8 @@ Shots: `ai-tasks-light-zh`, `ai-tasks-light-en`, `ai-leftover-light-zh`.
 
 Header "AI 任务" with "5 个任务 · 2 个运行中 · 1 个等待你" (plus "· 2 个已关闭仍在运行" when true). Actions: "切换会话 ⌘J / Switch session" (ghost; opens 5.7a), "释放空间 6.4 GB / Free up space" (trash icon and the total that can be freed; opens 5.7b; hidden when nothing can be freed) and primary "新任务" (asks for the repository first). Then, in this order: the "closed, still running" section when it applies (5.6a); an ok banner while keep-awake is held (the reason, when it ends, the lid limit, a link to Settings); one table per repository (`.tasks-table`): tool, task (title + branch), where it runs, state, elapsed, one action ("去回答 / Answer" in primary for waiting tasks, "查看 n 个改动 / Review n files", or "打开 / Open"). The group label shows both names when they differ. Clicking a row opens that repository's AI tasks tab on that task. A finished task's row menu has "删除这个会话的数据… / Delete this session's data..." (opens 5.7b with that one row ticked). Empty: the same `.empty` as 5.6 with "选择仓库 / Choose a repository".
 
+**Account on a row** (milestone 8; when the task's tool has more than one AI account): the account chip of 5.6 (colour dot + label) sits after the tool mark, for Claude Code and Codex tasks alike. It is the same "换账号 / Switch account" menu as on the session bar, with the same confirm, so a session can be moved without opening its terminal; the row shows "正在换到「个人」… / Switching to Personal..." in place of the state while it runs. A row that was switched automatically (only with automatic switching on, 5.16) shows a small muted "自动换的 / switched automatically" after the chip until the owner opens the task. A row whose last switch was carried by a handoff note shows a small muted "交接笔记 / handoff note" there instead, a link to the note (5.6). A row whose account needs the owner's attention shows the chip in danger with "需要你处理 / Needs your attention" and no menu. The switch-back hint is only on the session bar. A task that recorded no account because the shell decided shows "由终端环境决定 / set by your shell" in place of the chip, with no menu. A stopped or ended task whose account was removed shows "已移除的账号 / Removed account"; its Resume asks for an account first (5.6).
+
 The page and the switcher read the same list, so their order and counts always agree.
 
 #### 5.7a Session switcher (`session-switcher`)
@@ -676,7 +845,7 @@ The owner runs several sessions in several repositories at once. Cmd+J (Ctrl+J o
   2. **运行中 / Running** (including "running, no signal"), newest activity first.
   3. **已关闭，仍在运行 / Closed, still running**: instead of a state and a time, "3 个进程 / 3 processes" and "CPU 41%".
   4. **刚结束 / Just ended**: done, failed or stopped in the last 10 minutes, so a session that finished while the owner looked elsewhere is still one keystroke away.
-- **Row** (`.sess`, 52px): tool mark; title; second line: provider mark, repository name (both names when they differ), branch in mono or "主工作区 / main workspace"; on the right the state (dot + word), elapsed time in mono, and a digit key (1 to 9).
+- **Row** (`.sess`, 52px): tool mark; title; second line: provider mark, repository name (both names when they differ), branch in mono or "主工作区 / main workspace"; on the right the state (dot + word), elapsed time in mono, and a digit key (1 to 9). When the session's tool has more than one AI account (milestone 8), the second line ends with the account: its colour dot and label, "● 工作 / ● Work". It is display only here; switching is done on the session bar or the AI tasks page. A session that recorded no account because the shell decided reads "由终端环境决定 / set by your shell" there; one whose account was removed reads "已移除的账号 / Removed account".
 - The selected row has the ink bar on its left and a raised surface. On open, the selection is the first waiting session that is not the one already on screen; with none waiting, the most recently used other session. So Cmd+J, Enter flips between the two sessions in use.
 - **Foot**: key hints: "↑↓ 选择 / Select", "⏎ 跳到这个会话的终端 / Go to its terminal", "⌘J 下一个 / Next", "⌘⏎ 查看改动 / Review changes"; on the right a link "打开 AI 任务页 / Open AI tasks".
 
@@ -688,14 +857,14 @@ The owner runs several sessions in several repositories at once. Cmd+J (Ctrl+J o
 | Cmd/Ctrl + Enter | Opens that session's changes (the working tree switched to its workspace). Disabled for a main-workspace session with no changes. |
 | Cmd + J again (Ctrl + J) | Moves the selection down one row, wrapping. Holding Cmd and tapping J walks the list. |
 | 1 to 9 | Jumps to that row at once (only while the search field is empty). |
-| Typing | Filters by title, repository (either name) or branch; groups stay; matches are bold. No match: "没有匹配的会话 / No matching sessions". |
+| Typing | Filters by title, repository (either name), branch or account label; groups stay; matches are bold. No match: "没有匹配的会话 / No matching sessions". |
 | Esc, click outside | Closes; focus returns. |
 
 **States.** No live session at all: the list is replaced by a quiet line "现在没有在运行的 AI 会话 / No AI session is running right now" and one button "新任务 / New task". A session that ends while the list is open changes its state in place; the selection does not jump. More than about 9 rows: the list scrolls inside the panel, groups stay in order.
 
 **Motion.** The panel fades in and drops 4px (160ms), like other popovers; rows do not animate when the list is filtered.
 
-**Accessibility.** `role="dialog"` labelled "切换会话 / Switch session"; the field controls the listbox with `aria-activedescendant`; each option's name is "title, repository, state, elapsed"; group labels are presentation. The shortcut is listed in the View menu and in the palette.
+**Accessibility.** `role="dialog"` labelled "切换会话 / Switch session"; the field controls the listbox with `aria-activedescendant`; each option's name is "title, repository, state, elapsed", with "账号 工作 / account Work" added when the account is shown; group labels are presentation. The shortcut is listed in the View menu and in the palette.
 
 #### 5.7c Open repository (`repo-switcher`)
 
@@ -734,18 +903,19 @@ Ended sessions keep things on disk: a workspace (often with gigabytes of build o
 1. Header: "释放空间 / Free up space"; sub "4 个已结束的会话占用 6.4 GB。正在运行的 3 个会话不在这里，也不会被动到。 / 4 ended sessions use 6.4 GB. The 3 sessions that are running are not listed and are never touched."
 2. **Table** (`.fs-table`), one row per ended session: checkbox; tool mark + title + "repository · how it ended · when"; then three sizes and the total:
    - **工作区 / Workspace**: the size, and under it the part that is build output ("其中 node_modules 2.1 GB / 2.1 GB of it is node_modules"). "没有（主工作区）/ None (main workspace)" for a session that ran in the repository folder: that folder is never offered.
-   - **终端记录 / Terminal log**: Codepass's own saved screen and hook files for that session.
-   - **工具的对话记录 / Tool transcript**: the files Claude Code or Codex keep for exactly that session. For OpenCode: "由 OpenCode 保管 / kept by OpenCode" (it stores sessions in its own database; Codepass asks OpenCode to delete the session and cannot show a size).
+   - **终端记录 / Terminal log**: Codepass's own saved screen and hook files for that session, and its handoff notes ("含 2 份交接笔记 / includes 2 handoff notes").
+   - **工具的对话记录 / Tool transcript**: the files Claude Code or Codex keep for exactly that session, under every session ID the task has had, and the repaired conversation copies Codepass made at account switches (plan 4.8a). A small muted count under the size when there are any: "含 1 份修好的副本 / includes 1 repaired copy". For OpenCode: "由 OpenCode 保管 / kept by OpenCode" (it stores sessions in its own database; Codepass asks OpenCode to delete the session and cannot show a size).
    - **合计 / Total**, bold.
    Sessions that merged or were discarded are ticked by default; a session whose workspace holds commits that exist nowhere else is **not** ticked, its row is warn-tinted and its workspace cell says "有 2 个提交没有合并 / 2 commits not merged anywhere".
 3. **Extra confirmation** (`.fs-extra`, warn box) for each such session: a checkbox "也删除「重写对账报表的导出」（2 个提交还没合并）/ Also delete "Rewrite the reconcile report export" (2 commits not merged)" with "这 2 个提交 14 天内可以在「最近丢弃」里找回；没提交的文件不能找回。 / The 2 commits can be brought back from Recently discarded for 14 days. Files that were never committed cannot." Ticking it ticks the row.
-4. **The exact list** (`.paths`): label "将要删除的 9 项，一项不多 / Exactly these 9 items will be deleted". One line per path: the full path in mono (long paths wrap; nothing is shortened with an ellipsis), what it is, its size. An OpenCode session appears as the command that will run (`opencode session delete ses_...`), in info colour, with "由 OpenCode 自己删除这个会话 / OpenCode removes this session itself". The list follows the ticks at once and scrolls inside its box.
+4. **The exact list** (`.paths`): label "将要删除的 9 项，一项不多 / Exactly these 9 items will be deleted". One line per path: the full path in mono (long paths wrap; nothing is shortened with an ellipsis), what it is, its size. A repaired copy reads "修好的对话副本（换到「个人」时建的）/ Repaired conversation copy (made for the switch to Personal)"; a handoff note reads "交接笔记 / Handoff note". They are listed like every other path: full path, kind, size. An OpenCode session appears as the command that will run (`opencode session delete ses_...`), in info colour, with "由 OpenCode 自己删除这个会话 / OpenCode removes this session itself". The list follows the ticks at once and scrolls inside its box.
 5. Footer: left "已选 3 个会话 · 将释放 4.27 GB · 不经过废纸篓 / 3 sessions selected · frees 4.27 GB · does not go through the Trash"; 取消 / Cancel; danger primary "删除并释放 4.27 GB / Delete and free 4.27 GB". Focus starts on Cancel.
 
 **Rules the screen makes visible.**
 
-- A session that is starting, running, waiting, or closed with programs still running is not in the table. If the owner wants its space, he stops it first.
-- Only paths that carry that session's full ID are listed. Two sessions in one folder never share a line.
+- A session that is starting, running, waiting, or closed with programs still running is not in the table. The owner who wants its space stops it first.
+- Only paths that carry that session's full ID are listed. Two sessions in one folder never share a line. A repaired copy has its own session ID; it is listed because its exact path was recorded on the task when it was made, never by a pattern.
+- Copies and notes are deleted for that task only. The conversation records and copies of other tasks are not touched, and nothing here reaches a backup or an export. This dialog is the only place where Codepass deletes a file of a tool (plan 4.16 decision 2).
 - What is listed is exactly what is deleted. If a listed path changed in a way that makes it unsafe (it is now a link pointing elsewhere), that line is skipped and reported.
 - Nothing is deleted from a repository's main folder.
 
@@ -892,11 +1062,11 @@ Two columns of cards (`.set-grid`); each row is `.set-row`: title, one line of h
 
 | Card | Rows |
 |---|---|
-| **AI 编码工具 / AI coding tools** | One row per tool: mark, name, command and how it is kept current, version badge, "更新 / Update" or "安装 / Install". Then "新任务在哪里运行 / Where a new task runs" (独立工作区 / 主工作区), "同时运行的任务上限 / Tasks running at once" (select, default 6), and under a disclosure: custom command and extra arguments per tool, "任务等你时发系统通知 / Notify me when a task waits" (on), "会话结束后保留最后的终端内容 / Keep the last terminal screen after a session ends" (on; help: "重启后还能回看。它可能包含屏幕上出现过的任何内容，「释放空间」会删掉它。 / Lets you read it after a restart. It may hold anything that was on screen; Free up space deletes it."). Each tool row also shows its approval mode as read from the tool ("每次询问 / Ask every time"), read-only, with "在工具里修改 / Change it in the tool". There is no Codepass switch that skips a tool's permission questions. |
+| **AI 编码工具 / AI coding tools** | One row per tool: mark, name, command and how it is kept current, version badge, "更新 / Update" or "安装 / Install". Then "新任务在哪里运行 / Where a new task runs" (独立工作区 / 主工作区), "同时运行的任务上限 / Tasks running at once" (select, default 6), and under a disclosure: custom command and extra arguments per tool, "任务等你时发系统通知 / Notify me when a task waits" (on), "会话结束后保留最后的终端内容 / Keep the last terminal screen after a session ends" (on; help: "重启后还能回看。它可能包含屏幕上出现过的任何内容，「释放空间」会删掉它。 / Lets you read it after a restart. It may hold anything that was on screen; Free up space deletes it."). Each tool row also shows its approval mode as read from the tool ("每次询问 / Ask every time"), read-only, with "在工具里修改 / Change it in the tool". There is no Codepass switch that skips a tool's permission questions. Last line of the card, muted, always shown (milestone 8; plan 4.16 decision 35): "Codepass 只用于你自己的账号和你自己的工作。 / Codepass is for your own accounts and your own work." followed by two links that open in the browser: "Anthropic 的条款 / Anthropic's terms" (`https://www.anthropic.com/legal/consumer-terms`) and "OpenAI 的条款 / OpenAI's terms" (`https://openai.com/policies/terms-of-use/`). Every terms link in the app opens the company's live page, never an archive copy; the full list of targets is in 5.16. Its tooltip: "不共享账号，不转售，不替别人跑任务。登录始终由工具自己完成。 / No shared accounts, no reselling, no work run for other people. Sign-in is always done by the tool itself." |
 | **编辑器和代码智能 / Editor and code intelligence** | Go · gopls, TypeScript / JavaScript and PHP rows (PHP added 2026-11-16; its server is named after E5-11's research) with what they provide, version badge, Update / Reinstall in a menu; "同时运行的语言服务 / Language servers running at once" (2 / 4; help: "每个要用几百 MB 到 1 GB 多的内存 / Each one uses from a few hundred MB to over 1 GB of memory"); 字号 / Font size; Tab width; 自动换行 / Wrap long lines; "保存时格式化 / Format on save" (off); terminal theme (深色 / 跟随应用). |
 | **登录提醒 / Sign-in reminders** (the existing card; rows added, the two existing rows unchanged) | Existing: "登录快过期时提醒 / Remind me before sign-in expires" (on) and "提前多久提醒 / How early" (15 分钟 / 30 分钟 / 1 小时). The first row's help now says what it does: "用系统通知提醒，通知上可以直接重新登录。 / Sends a system notification. You can sign in again from it." New row under them: "登录过期时通知我 / Notify me when a sign-in expires" (on), help "过期的那一刻通知一次，写明是哪个登录。 / One notification at the moment it expires, naming the sign-in." It has its own switch because the two are different wishes: some people want no early reminder but must know when work stops. Last line of the card, muted: "登录能保持多久由管理员决定，Codepass 不能延长，只能重新登录。 / Your administrator decides how long a sign-in lasts. Codepass cannot extend it; it can only sign in again." |
 | **系统通知 / System notifications** (one status row, shown at the top of the right column only when there is something to say) | *macOS, turned off for Codepass:* warn dot + "macOS 没有允许 Codepass 发通知 / macOS does not allow notifications from Codepass", help "登录过期和 AI 任务等待的提醒都不会出现。 / Reminders about expired sign-ins and waiting AI tasks will not appear.", button "打开系统设置 / Open System Settings" (opens the Notifications pane; the row re-checks when the window gets focus again and disappears once allowed). *macOS, not asked yet:* neutral dot + "Codepass 还没有申请通知权限 / Codepass has not asked for permission to notify you yet", button "允许通知 / Allow notifications" (macOS then shows its own question). *Allowed:* no row. *Windows:* no state can be read, so one muted help line under the Sign-in reminders card instead: "没看到通知？请检查 Windows 设置 → 系统 → 通知 里的 Codepass。 / No notifications? Check Codepass under Windows Settings → System → Notifications." with the link "打开 Windows 设置 / Open Windows Settings". The switches above stay usable in every state; they are not greyed out. |
-| **工单队列 / Ticket queue** (milestone 8; plan 4.17) | "给自己留多少用量 / Keep this much usage for myself" (0% / 10% / 20% / 30%, default 0%; help: "队列用到只剩这么多时就停下，留给你自己用。 / The queue stops when this much is left, so you can still work yourself."). "一个账号用完后自动换下一个 / Switch to the next account when one runs out" (on once a tool has two accounts; help: "换账号后的第一轮会把整段对话重新发送一遍。 / The first turn after a switch sends the whole conversation again."). "允许队列使用用量额度 / Let the queue use usage credits" (off; help: "关着时，用量到头队列就停，不会按量计费。一轮很长的回答可能在停下前用掉一点额度。 / When off, the queue stops at the limit and nothing is billed by use. One very long turn may spend a little before it stops."). "每张票开始前先问我 / Ask me before each ticket" (off). "队列附言 / Queue note": a 3-row text field with the two marker lines and "恢复默认 / Restore default"; help: "加在每张票的第一条消息后面，让 AI 说明它是做完了还是在等你。 / Added after each ticket's first message so the AI says whether it is finished or waiting for you." The four queue notifications (section 6) follow the existing switch "任务等你时发系统通知 / Notify me when a task waits" for "needs you", and one new switch "队列暂停、换账号或跑完时通知我 / Notify me when the queue pauses, switches account or finishes" (on) for the other three. |
+| **工单队列 / Ticket queue** (milestone 8; plan 4.17) | "给自己留多少用量 / Keep this much usage for myself" (0% / 10% / 20% / 30%, default 0%; help: "队列用到只剩这么多时就停下，留给你自己用。 / The queue stops when this much is left, so you can still work yourself."). One muted line with a link to the Accounts page, in place of a switch: "自动换账号默认关闭，在「账号」页按工具设置 / Automatic switching is off by default. It is set per tool on the Accounts page" (the setting applies to the owner's own sessions too, so it lives in 5.16). "允许队列使用用量额度 / Let the queue use usage credits" (off; help: "关着时，用量到头队列就停，不会按量计费。一轮很长的回答可能在停下前用掉一点额度。 / When off, the queue stops at the limit and nothing is billed by use. One very long turn may spend a little before it stops."). "每张票开始前先问我 / Ask me before each ticket" (off). "队列附言 / Queue note": a 3-row text field with the two marker lines and "恢复默认 / Restore default"; help: "加在每张票的第一条消息后面，让 AI 说明它是做完了还是在等你。 / Added after each ticket's first message so the AI says whether it is finished or waiting for you." The queue notifications (section 6) follow the existing switch "任务等你时发系统通知 / Notify me when a task waits" for "needs you", and one new switch "队列暂停、换账号或跑完时通知我 / Notify me when the queue pauses, switches account or finishes" (on) for the other three; the notice for an account that needs attention follows this switch too. |
 | **保持唤醒 / Keep awake** | Header badge "现在生效 · 2 个任务 / Active now · 2 tasks" while held. "AI 任务运行时不让电脑睡眠" (on). "屏幕也保持常亮" (on): "关掉后屏幕可以熄灭并锁定，AI 照常工作。在办公室更安全。" "任务等你回答时，继续保持" 5 分钟 / 15 分钟 / 1 小时 / 一直. "最长保持 / Longest hold" 4 小时 / 8 小时 / 12 小时 (default 8): after that long without any answer from you or sign of progress, the hold is released even if a task still looks busy. Then the limits, always visible: closing a MacBook's lid still sleeps it unless it is on power with an external display; while the screen stays on, the computer does not lock by itself. On Windows the first limit reads "按下睡眠键或合上盖子仍然会睡眠 / Pressing sleep or closing the lid still sleeps it". |
 | **更新 / Updates** | Current version, when it was last checked and from where, "现在检查 / Check now"; "每天自动检查一次" (on) with "只读取版本号，不上传任何信息。下载的更新会先校验签名。" |
 | **外观 / Appearance** | Theme (跟随系统 / 浅色 / 深色), Language (中文 / English), **Motion** (跟随系统 / 完整 / 减少) with "「减少」会去掉滑动和淡入，只保留必要的进度提示。" This replaces the old "Reduce motion" switch. |
@@ -946,13 +1116,17 @@ English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editi
 | Checking | 正在检查用量… / Checking usage... | 「工作」· Claude Code | 暂停队列 / Pause queue |
 | Running | 正在运行 #12「…」 / Running #12 "..." | 下一张开始前会检查用量。本周 81%，给自己留 10%。 / Usage is checked before the next one. Week 81%, keeping 10% for you. | 打开终端 / Open terminal · 暂停队列 / Pause queue |
 | Needs you | #12 在等你 / #12 needs you | one of the reasons below | 去回答 / Answer · 算完成 / Mark done · 跳过 / Skip |
-| Waiting for reset, the tool continues | #12 等待重置，周一 00:00 / #12 is waiting for the reset, Mon 00:00 | Claude Code 会在重置后自己继续。 / Claude Code continues by itself after the reset. | 在「个人」上继续 / Continue on Personal (when it has room) |
+| Waiting for reset, the tool continues | #12 等待重置，周一 00:00 / #12 is waiting for the reset, Mon 00:00 | Claude Code 会在重置后自己继续。 / Claude Code continues by itself after the reset. | 在「个人」上继续 / Continue on Personal (when it has room: for a ticket's session that is below 100% minus the reserve, plan 4.16). It opens the switch confirm of 5.6 for that session. |
 | Waiting for reset, the queue continues | the same line 1 | 到时 Codepass 会让它继续。 / Codepass will continue it then. | the same |
 | Paused for the limit, nothing running | 队列因用量暂停，周一 00:00 再试 / Paused for usage. Trying again Mon 00:00 | 所有账号都没有余量了（给自己留 10%）。 / No account has room (keeping 10% for you). | 现在再查一次 / Check again now |
+| Paused for this ticket's account, another account has room (automatic switching off, the default) | 队列因用量暂停，周一 00:00 再试 / Paused for usage. Trying again Mon 00:00 | 「工作」没有余量了。「个人」还有，要用它继续吗？ / Work has no room. Personal has. Continue on it? | 在「个人」上继续 / Continue on Personal · 现在再查一次 / Check again now |
+| Paused because an account needs the owner | 队列停下了：「工作」需要你处理 / The queue stopped: Work needs your attention | Claude Code 报告这个账号有问题。队列不会换到别的账号。 / Claude Code reports a problem with this account. The queue will not move to another account. (the tool's name follows the account's tool: "Codex 报告… / Codex reports..." for a Codex account) | 查看账号 / Open the account |
 | Usage unknown | 正在运行 #13「…」 | 没法读取用量，这张票直接开始了。 / Usage could not be read, so this ticket started without a check. | as Running |
 | Paused by the owner | 队列已暂停 / The queue is paused | 当前这张做完后不会开始下一张。 / After the current ticket, no new one starts. | 继续队列 / Resume queue |
 | Asking before each ticket | 下一张：#13「…」 / Next: #13 "..." | 你打开了「每张票开始前先问我」。 / "Ask me before each ticket" is on. | 开始 / Start · 跳过 / Skip |
 | Usage credits would be used | 队列停下了：再跑就要按量计费 / The queue stopped: going on would be billed by use | 「工作」开着用量额度，而队列不允许使用它。 / Usage credits are on for Work, and the queue is not allowed to use them. | 设置 / Settings |
+
+"在「个人」上继续 / Continue on Personal" is the owner's click, so it works with automatic switching off (plan 4.17). For a ticket that has not started, it starts that ticket on Personal, this once; for a running ticket at a limit, it opens the switch confirm (5.6) and the conversation comes along. Nothing is remembered for the next ticket. The button is never shown when the reason is an account that needs the owner.
 
 **"Needs you" reasons** (line 2; the same words are the ticket's sub-line and the notification body):
 
@@ -963,7 +1137,8 @@ English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editi
 | A permission prompt | AI 在等你批准一个操作 / The AI is waiting for you to approve an action |
 | Turn ended with no marker | AI 停下了，但没说做完没有 / The AI stopped without saying whether it is finished |
 | A turn ended by an error | AI 那边出错了，这一轮没有做完 / The AI service returned an error and the turn did not finish |
-| The tool exited or lost its sign-in | 会话结束了（退出码 1） / The session ended (exit code 1) · 需要重新登录 Claude Code / Claude Code needs you to sign in again |
+| The tool exited | 会话结束了（退出码 1） / The session ended (exit code 1) |
+| The tool reports a problem with the account (plan 4.16 decision 34) | 「工作」需要你处理 / Work needs your attention |
 | OpenCode | OpenCode 不会告诉 Codepass 做完没有，请看一眼 / OpenCode does not tell Codepass whether it is finished. Take a look |
 
 - "算完成 / Mark done" and "跳过 / Skip" confirm nothing: both only change the ticket and let the queue go on. They are undoable from a toast for 10 seconds ("已标记为完成 / Marked as done" + "撤销 / Undo"), because the next ticket starts after that delay.
@@ -983,7 +1158,7 @@ English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editi
   预览 / Preview
   仓库 / Repository   [aws] acme_api                    v
   工具 / Tool         ( Claude Code ) ( Codex ) ( OpenCode )
-  账号 / Account      自动：第一个有余量的 / Automatic: the first with room   v
+  账号 / Account      跟随仓库（现在是「工作」）/ Follow the repository (now Work)   v
   在哪里运行 / Where   (•) 独立工作区 / Own workspace   ( ) 主工作区 / Main workspace
   v 队列附言 / Queue note
     When everything in this ticket is finished, end your last message with the single line CODEPASS-DONE. ...
@@ -992,7 +1167,9 @@ English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editi
 
 - The text is Markdown, edited as plain text in the mono font; "预览 / Preview" shows it with the app's safe renderer (raw HTML off, no remote images).
 - **Autosave** about a second after the last keystroke; the header shows "正在保存… / Saving..." then "已保存 / Saved". There is no Save button. Closing the sheet (Esc, or a click outside) never loses text.
-- The account row shows only when the tool has more than one AI account. "自动 / Automatic" is the default.
+- **Account** (plan 4.16 decision 18): shown only when the tool has more than one AI account. Options: "跟随仓库（现在是「工作」）/ Follow the repository (now Work)", the default, then each account of the tool with its latest reading. "Follow the repository" uses the repository's default for that tool (repository › project › app; 4.2) as it is when the ticket starts, so a default changed later still applies to a ticket already in the queue. With no repository chosen yet it reads "跟随仓库 / Follow the repository" with no value. Changing the tool sets the account back to "Follow the repository". An account that no longer exists, or a ticket imported on another computer, also reads "Follow the repository".
+- Help line under the row: "这个账号用完时，队列会停下来等；另一个账号有用量时，它会问你要不要换。 / When this account is used up, the queue stops and waits. If another account has usage, it asks whether to continue there." With "一个账号用完后自动换下一个 / Switch to the next account when one runs out" turned on for that tool (5.16; off by default), the line reads instead: "这个账号用完时，队列会自动换到有用量的账号。 / When this account is used up, the queue switches to an account with usage." The queue never treats a fixed account as "never switch", and never switches by itself while that setting is off.
+- Queued cards and the queue bar name the account the ticket will start on ("Claude Code · 工作"); a fixed account that differs from the repository's default has a small pin mark with the tooltip "这张票固定用「个人」 / This ticket always starts on Personal". When the shell decides the account, the row is disabled with the sentence of 5.16.
 - "队列附言 / Queue note" is collapsed; opened, it shows the text that will be added and the link "在设置里修改 / Change it in Settings".
 - OpenCode chosen: a muted line "OpenCode 的票不检查用量，每一轮结束都会等你看一眼。 / OpenCode tickets run without a usage check, and wait for you after every turn."
 - A ticket that is running or finished opens read-only with its state, the reason, and "打开任务 / Open task".
@@ -1009,7 +1186,7 @@ English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editi
 ```
 
 - A small centred sheet (560px), focus in the text. It opens in under 100 ms and gives focus back to where it was, also to a terminal.
-- The repository and tool are pre-filled from the screen it was opened on (the open workspace's repository; its default tool); they can be cleared.
+- The repository and tool are pre-filled from the screen it was opened on (the open workspace's repository; its default tool); they can be cleared. Quick capture has no account field: the ticket follows the repository until the editor says otherwise.
 - Enter adds a new line. The two actions: "存为编辑中 / Save as editing" (Esc does the same when there is text) and "排入队列 / Queue it" (Cmd/Ctrl+Enter; disabled with a tooltip until a repository and a tool are set).
 - It saves while typing, so a crash loses nothing. Toast after closing: "已存为工单 #17 / Saved as ticket #17" + "打开 / Open".
 
@@ -1023,47 +1200,137 @@ English labels: "Tickets", "3 queued · 1 running", "New ticket", columns "Editi
 
 Milestone 8; plan 4.16. Not drawn yet (section 8). Claude Code and Codex; OpenCode has no accounts here in 1.0.
 
-**AI accounts group on the Accounts page** (after Bitbucket; section label with the two tool marks: "AI 账号 / AI accounts"). One sub-group per tool; rows are the same `.pass` component, in the owner's order (drag to reorder; the order is the order of automatic switching).
+**AI accounts group on the Accounts page** (after Bitbucket; section label with the two tool marks: "AI 账号 / AI accounts"). One sub-group per tool; rows are the same `.pass` component, in the owner's order (drag to reorder). The order means two things, and one muted line under the tool's name says both: "排第一的是应用默认账号；一个账号用完时，按这个顺序找下一个有用量的。拖动可以调整。 / The first account is the app default. When one runs out, the next one with usage is looked for in this order. Drag to reorder."
+
+Under that line, one switch per tool, shown once the tool has two accounts and **off by default** (plan 4.16 decision 33): "一个账号用完后自动换下一个 / Switch to the next account when one runs out", with the help line "关着时，用完会停下来问你，点一下就能在另一个账号上继续，对话会带过去。 / When off, a session stops at the limit and asks you. One click continues it on another account, with its conversation." Turned on, the help line reads "对你自己开的会话和队列都有效。换账号后的第一轮会把整段对话重新发送一遍。 / Applies to your own sessions and to the queue. The first turn after a switch sends the whole conversation again." It is set per tool and stored with the accounts (plan 3.1, 4.16), not in the queue's settings. Adding a second account never turns it on.
+
+**Turning it on asks once** (per tool; `alertdialog`, 560px, focus on Cancel). The quoted sentences are shown as published, in English, in both languages, each one whole (a cut would be marked with "…"); the lines around them are ours. For Claude Code:
+
+```
+打开「用完后自动换账号」？                                Turn on automatic switching?
+
+打开后，Claude Code 的一个账号用完时，Codepass 不等你点，    When one Claude Code account runs out, Codepass continues the
+直接在下一个有用量的账号上继续这个会话。                    session on the next account with usage, without waiting for you.
+
+服务条款没有写明这样做可不可以。和它有关的原话：            The terms do not say whether this is allowed. The sentences
+                                                          that bear on it:
+  “Advertised usage limits for Pro, Max, and Ultra plans assume ordinary, individual usage”
+  “Except when you are accessing our Services via an Anthropic API Key or where we otherwise explicitly permit it,
+   to access the Services through automated or non-human means, whether through a bot, script, or otherwise.”
+                                                          (列在不允许的行为里 / listed among what is not allowed)
+  阅读全文 / Read them in full:  Anthropic 消费者条款 / Consumer Terms · 使用政策 / Usage Policy · Claude Code 法律说明 / legal page
+
+Codepass 不能保证账号不会被限制或停用。几个订阅怎么用，     Codepass cannot guarantee that an account will not be limited
+由你决定。                                                 or suspended. How you use several subscriptions is your decision.
+
+                                   [取消 / Cancel]   [打开自动换账号 / Turn it on]
+```
+
+- For Codex the two quoted lines are replaced by one: “Interfere with or disrupt our Services, including circumvent any rate limits or restrictions or bypass any protective measures or safety mitigations” with "(列在不允许的行为里 / listed among what is not allowed)", and the links are "OpenAI 使用条款 / Terms of Use · 使用政策 / Usage Policies".
+- No warn or danger colour, no icon, no checkbox to tick: two paragraphs, the quotes in a quiet block, one sentence, two buttons. The dialog is shown once per tool; turning the switch off and on again later does not show it again, and the same text stays reachable from a small "条款怎么说 / What the terms say" link beside the switch.
+- The second Anthropic quote is shown with its opening clause. That exception is part of the sentence, and it is what allows the unattended features Anthropic ships itself (research R9).
+- The quotes and the link targets are kept in one place in the code with the date they were read, and the release checklist re-reads them (plan section 10). **Link targets**, always the live pages, never `web.archive.org`:
+
+  | Link | Target |
+  |---|---|
+  | Anthropic 消费者条款 / Consumer Terms; "Anthropic 的条款 / Anthropic's terms" | `https://www.anthropic.com/legal/consumer-terms` |
+  | Anthropic 使用政策 / Usage Policy | `https://www.anthropic.com/legal/aup` |
+  | Claude Code 法律说明 / legal page | `https://code.claude.com/docs/en/legal-and-compliance` |
+  | OpenAI 使用条款 / Terms of Use; "OpenAI 的条款 / OpenAI's terms" | `https://openai.com/policies/terms-of-use/` |
+  | OpenAI 使用政策 / Usage Policies | `https://openai.com/policies/usage-policies/` |
+
+The sketch shows Claude Code with two accounts and Codex in its one-account state (before "个人 / Personal" is added for Codex).
 
 ```
 AI 账号 / AI accounts                                          Codepass 不保存任何 AI 登录信息
  Claude Code
  +----------------------------------------------+  +----------------------------------------------+
- | [cc] 工作 / Work            默认 / Default    |  | [cc] 个人 / Personal                          |
- | 已登录 / Signed in · 用工具自己的文件夹        |  | 已登录 / Signed in · ~/.codepass/ai-accounts/… |
+ | [cc] 工作 / Work     应用默认 / App default   |  | [cc] 个人 / Personal                          |
+ | 已登录 / Signed in · 工具自带 / Tool's own     |  | 已登录 / Signed in · ~/.codepass/ai-accounts/… |
  | 本次 62%  ▓▓▓▓▓▓░░░░  15:45 重置              |  | 本次 0%   ░░░░░░░░░░                          |
  | 本周 81%  ▓▓▓▓▓▓▓▓░░  周一 00:00 重置         |  | 本周 12%  ▓░░░░░░░░░  周四 09:00 重置         |
  | Opus 本周 40%                                 |  | 3 分钟前读取                                   |
+ | 默认用于：应用默认                             |  | 默认用于：项目 globex · acme_agent_portal      |
  | [刷新] [登录状态] [···]                        |  | [刷新] [登录状态] [···]                        |
  +----------------------------------------------+  +----------------------------------------------+
  Codex
  +----------------------------------------------+
- | [cx] 默认 / Default                           |     [ + 添加 Codex 账号 / Add a Codex account ]
+ | [cx] 工作 / Work                              |     [ + 添加 Codex 账号 / Add a Codex account ]
  | 5 小时 18% · 16:10 重置   本周 40% · 周三重置  |
  +----------------------------------------------+
 ```
 
-- **Pass content.** Tool mark, the owner's label, "默认 / Default" badge on the tool's own folder. Line 2: sign-in state ("已登录 / Signed in", warn "未登录 / Not signed in" + "登录 / Sign in", muted "正在检查… / Checking...") and where it lives ("用工具自己的文件夹 / the tool's own folder", or the extra folder's path, which can be copied). Then one bar per usage window with the percentage as a number, the window's name and the reset time. Then the reading's age.
+- **Pass content.** Tool mark, the owner's label, and the badge "应用默认 / App default" on the first account in the order (it moves when the order changes). Line 2: sign-in state ("已登录 / Signed in", warn "未登录 / Not signed in" + "登录 / Sign in", danger "需要你处理 / Needs your attention" (below), muted "正在检查… / Checking...") and where it lives ("工具自带 / Tool's own" for the account in the tool's own folder, with the tooltip "用工具自己的文件夹。Codepass 不改动里面的文件，只在「释放空间」里删除你选中的已结束会话的记录。 / It uses the tool's own folder. Codepass never changes a file in it, and deletes only the records of ended sessions you choose in Free up space."; or the extra folder's path, which can be copied). The earlier "默认 / Default" badge on the tool's own folder is gone: in the UI, "默认 / default" now only means the account a new task starts with. Then one bar per usage window with the percentage as a number, the window's name and the reset time. Then the reading's age.
+- **"默认用于 / Default for"** (plan 4.16 decision 14). One line on the pass after the reading's age, listing where this account is the default: "应用默认 / App default", then projects ("项目 acme / Project acme"), then repositories by local folder name. Two fit on the line; more are counted, "默认用于：项目 globex · acme_agent_portal · 另外 3 个 / Default for: project globex · acme_agent_portal · 3 more". The line names only the places where this account is set: a project or repository that follows the level above is not listed, so Work's line in the sketch reads "默认用于：应用默认 / Default for: App default". Hidden repositories are left out of the line. Not the default anywhere: "没有项目或仓库把它设为默认 / No project or repository uses it by default". The line is a button; it opens the account's details:
+
+  ```
+  「个人」默认用于 / Personal is the default for
+    项目 / Projects
+      globex                       3 个仓库跟随 / 3 repositories follow          改 / Change
+    仓库 / Repositories
+      acme_agent_portal · acme     仓库自己的设置 / The repository's own setting   改 / Change
+    正在使用它的会话 / Sessions using it now
+      修复结算金额的四舍五入 · acme_agent_portal · 运行中                        打开 / Open
+  ```
+
+  "改 / Change" opens the project's AI accounts sheet (5.2) or the Repository settings sheet (4.2). The list is per tool: this is a Claude Code account, so only Claude Code defaults appear.
+- **"需要你处理 / Needs your attention"** (plan 4.16 decision 34). The state of an account for which the tool reported an authentication, billing, suspension, disabled-account or policy error. It is not the state of a used-up account, and not of one the owner has simply not signed in to.
+
+  ```
+  +----------------------------------------------+
+  | [cc] 工作 / Work     应用默认 / App default   |
+  | ! 需要你处理 / Needs your attention · 14:02   |
+  | Claude Code 报告这个账号的登录或账号本身有问题。|
+  | > (the tool's own message, as plain text)     |
+  | 在你处理之前，Codepass 不用这个账号，也不会把   |
+  | 它的会话换到别的账号。                         |
+  | [重新检查] [重新登录] [为什么]                  |
+  +----------------------------------------------+
+  ```
+
+  - Text: "Claude Code 报告这个账号的登录或账号本身有问题。 / Claude Code reports a problem with this account's sign-in or the account itself." (the tool's name follows the account's tool) Then the tool's own message, unchanged, as plain text (shown from memory; after a restart the line reads "重新检查可以看到工具现在怎么说 / Check again to see what the tool says now"). Then: "在你处理之前，Codepass 不用这个账号，也不会把它的会话换到别的账号。 / Until you deal with it, Codepass does not use this account and does not move its sessions to another account."
+  - The usage bars are hidden while the state is set.
+  - "重新检查 / Check again" asks the tool for its status, which says only signed in or not (plan 4.16 decision 34). For the sign-in kind that decides: signed in, the state goes; not signed in, the pass becomes a normal "未登录 / Not signed in" pass. For the kinds billing, refused and unknown the status cannot tell, so Check again shows what the tool says now, and the state goes only when the owner presses "我已处理好 / I have dealt with it" (a quiet button that appears after the check, for these kinds only). Either way the toast is "「工作」的标记已清除 / The mark on Work is cleared": Codepass does not claim the account works. The next account error marks it again.
+  - "重新登录 / Sign in again" opens the tool's own login in a terminal sheet, as for any account.
+  - "为什么 / Why" opens a small popover, plain and without alarm: "如果是登录过期或付款的问题，处理好再点「重新检查」。如果是服务方停用了这个账号，请按它自己的流程申诉。它的条款不允许换一个账号绕过停用，所以 Codepass 不会替你换。 / If the sign-in expired or a payment failed, fix it and press Check again. If the service suspended this account, appeal through its own process. Its terms do not allow going around a suspension with another account, so Codepass does not switch for you." with the link to Anthropic's Usage Policy. That last sentence is for a Claude Code account. For a Codex account it reads: "OpenAI 的条款没有专门写这一条，但写了绕过规则和保护措施可能失去使用权，所以 Codepass 同样不会替你换。 / OpenAI's terms have no sentence on this, but say that circumventing their rules and safeguards may cost access, so Codepass does not switch for you either." with the link to OpenAI's Usage Policies.
+  - Everywhere else the account is disabled with the same two words: the switch menu and the New task row (5.6), the ticket editor's account field, the queue bar (5.15), the usage chip and popover (4.1). A screen reader gets "工作，需要你处理 / Work, needs your attention".
 - **Window names.** Claude Code: "本次 / Session", "本周 / Week", "Opus 本周 / Week, Opus" (the model's name as the tool gives it). Codex: "5 小时 / 5 hours", "本周 / Week" (named from the window's length; an unexpected length is shown as "N 小时 / N hours").
 - **Reset times** are local, "15:45 重置 / resets 15:45" today, "周一 00:00 重置 / resets Mon 00:00" otherwise.
 - **Usage credits**: a warn chip on the pass, "已开启用量额度 / Usage credits are on", tooltip "这个账号用量到头后不会停，会按量计费。队列默认不使用它。 / This account does not stop at its limit; it is billed by use. The queue does not use credits unless you allow it."
 - **Unknown usage**: the bars are replaced by one muted line. Claude Code: "用量未知，运行过一次会话后才知道 / Usage unknown until a session has run". Codex: "用量未知 / Usage unknown". When the reason is known, it follows: "终端环境里设置了 ANTHROPIC_API_KEY，工具会改用它 / ANTHROPIC_API_KEY is set in your shell, so the tool uses it instead".
-- **Actions.** "刷新 / Refresh" (disabled with a countdown tooltip inside the 5-minute spacing or the tool's own "rate limited until"); "登录状态 / Sign-in status" (asks the tool and shows its answer as text in a small popover); More: Rename, Change colour, Sign in again (opens the tool's login in a terminal sheet), Shared parts..., Show folder, Remove account. The default account has no Remove and no Shared parts.
-- **Remove** confirms with exact paths: "移除「个人」？会先让 Claude Code 在这个文件夹里退出登录，然后删除下面的文件夹。共享的对话记录不受影响。 / Remove Personal? Claude Code signs out in this folder first, then the folder below is deleted. Shared conversations are not affected." + the folder path + the list of links that will be removed.
-- **The shell decides** (plan 4.16 probe): a warn row above a tool's accounts, "你的终端环境设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，Codepass 选不了。 / Your shell sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. Codepass cannot choose." The passes stay visible and read-only.
-- **One account only** (the usual start): the group shows the default pass and a quiet button "添加账号 / Add account". No empty state.
+- **Actions.** "刷新 / Refresh" (disabled with a countdown tooltip inside the 5-minute spacing or the tool's own "rate limited until"); "登录状态 / Sign-in status" (asks the tool and shows its answer as text in a small popover); More: Rename, Change colour, 设为应用默认 / Make it the app default (moves it to the front of the order; hidden on the first one), Sign in again (opens the tool's login in a terminal sheet), Shared parts..., Show folder, Remove account. The tool's own account has no Remove and no Shared parts.
+- **Remove** confirms with exact paths: "移除「个人」？会先让 Claude Code 在这个文件夹里退出登录，然后删除下面的文件夹。共享的对话记录不受影响。 / Remove Personal? Claude Code signs out in this folder first, then the folder below is deleted. Shared conversations are not affected." + the folder path + the list of links that will be removed. The sentence "共享的对话记录不受影响 / Shared conversations are not affected" is shown only when the conversation folders are linked. When they are not (plan 4.16 decisions 2 and 19), the preview lists instead the tasks whose latest conversation is only in this folder, under "这些任务最新的对话只在这个文件夹里。会先把对话复制到「工作」。 / The latest conversation of these tasks is only in this folder. Their conversations are copied to Work first.", and the folder is deleted only after every copy succeeded. When the account is a default somewhere (plan 4.16 decision 19), the preview adds what falls back, before the paths:
+
+  ```
+  这些地方现在默认用「个人」，移除后会改用上一级的默认：
+  These use Personal by default. After removal they use the default of the level above:
+    项目 globex                    →  应用默认「工作」 / app default, Work
+    仓库 acme_agent_portal · acme  →  项目 acme「工作」 / project acme, Work
+  2 张工单固定用「个人」，会改为跟随仓库。 / 2 tickets are fixed to Personal. They will follow the repository.
+  另有 1 个已隐藏的仓库也默认用「个人」 / 1 hidden repository also uses Personal by default
+  ```
+
+  A hidden repository keeps its setting. The project sheet's lists (5.2), the move confirm and the "默认用于 / Default for" line leave hidden repositories out; the remove preview counts them in the one line above, shown only when there is at least one. A stopped or ended task that ran under the removed account shows "已移除的账号 / Removed account" afterwards (5.6, 5.7).
+
+  Removing the first account in the order makes the next one the app default; the preview says "应用默认会变成「工作」 / The app default becomes Work". While a session runs under the account, Remove is blocked: "还有 1 个会话在用「个人」。先停掉它，或者把它换到别的账号。 / 1 session is still using Personal. Stop it, or switch it to another account first." with "打开 / Open" per session.
+- **The shell decides** (plan 4.16 probe): a warn row above a tool's accounts, "你的终端环境设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，Codepass 选不了。 / Your shell sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. Codepass cannot choose." The passes stay visible and read-only. The defaults of that tool stay visible everywhere ("默认用于 / Default for", 4.2, 5.2) but are not applied; the account row of the New task sheet, the "换账号 / Switch account" menu and the ticket editor's account field are disabled with this same sentence (5.6, 5.15). **Windows** has no login shell, so the probe reads the app's own environment (user and system variables), and the row reads: "你的 Windows 环境变量设置了 CLAUDE_CONFIG_DIR，Claude Code 用哪个账号由它决定，Codepass 选不了。 / A Windows environment variable sets CLAUDE_CONFIG_DIR, so it decides which account Claude Code uses. Codepass cannot choose."
+- **One account only** (the usual start): the group shows the tool's own pass, with no "应用默认 / App default" badge and no "默认用于 / Default for" line, and a quiet button "添加账号 / Add account". No empty state.
 
 **Add an AI account** (`add-ai-account`, modal 640px, three steps; the same stepper as 5.11).
 
-1. **名字 / Name.** Tool (already chosen), "给它起个名字 / Give it a name" (for example "个人 / Personal"), a colour. Under it, muted, the folder that will be created: `~/.codepass/ai-accounts/claude/personal/`.
-2. **共享 / Share.** The consent step. Text: "新账号有自己的登录。下面这些可以和默认账号共用，这样换账号后还能接着原来的对话，工具的行为也一样。Codepass 会在新文件夹里建立指向它们的链接。 / The new account has its own sign-in. The items below can be shared with the default account, so a conversation can continue after a switch and the tool behaves the same. Codepass creates links to them inside the new folder."
-   - Ticked and locked, with the reason: "对话记录和文件历史（换账号后接着对话需要它们）/ Conversations and file history (needed to continue a conversation after a switch)".
-   - Ticked, can be unticked: "设置 / Settings", "说明文件 / Instructions file", "代理、技能、命令 / Agents, skills, commands", "插件 / Plugins". For Codex: "设置 / Settings" and the other shared parts the tool has.
+1. **名字 / Name.** Tool (already chosen), "给它起个名字 / Give it a name" (for example "个人 / Personal"), a colour. Under it, muted, the folder that will be created: `~/.codepass/ai-accounts/claude/personal/`. Then two lines in body text, no box and no warning colour (plan 4.16 decisions 29, 30 and 36):
+   - "只添加你自己的账号：你自己付费、自己登录的。如果它是团队或企业席位，哪些工作可以用它，由你的团队决定。 / Add only an account of your own: one you pay for and sign in to yourself. If it is a Team or Enterprise seat, your team decides which work may run on it."
+   - "Codepass 不能保证账号不会被限制或停用。几个订阅怎么用，由你决定。 / Codepass cannot guarantee that an account will not be limited or suspended. How you use several subscriptions is your decision." with the links "Anthropic 的条款 / Anthropic's terms" or "OpenAI 的条款 / OpenAI's terms" for the chosen tool. This sentence appears here and in the automatic-switching confirm, nowhere else.
+2. **共享 / Share.** The consent step. Text: "新账号有自己的登录。下面这些可以和工具自带的账号共用，这样换账号后还能接着原来的对话，工具的行为也一样。Codepass 会在新文件夹里建立指向它们的链接。 / The new account has its own sign-in. The items below can be shared with the tool's own account, so a conversation can continue after a switch and the tool behaves the same. Codepass creates links to them inside the new folder." Under the list, the consent sentence for conversation copies (plan 4.16 decision 27), as its own short paragraph: "换账号时如果原样接不上，Codepass 会在共享的对话文件夹里新建一份这段对话的副本，用新的会话编号。它只新建文件，从不修改工具已有的文件；对话记录只有你在「释放空间」里选中时才会删除。这些副本也在那里看到和删除。 / If a session cannot continue as it is after a switch, Codepass adds a copy of that conversation, under a new session ID, to the shared conversations folder. It only adds files. It never changes a file the tool already has; conversation records are deleted only when you choose them in Free up space. You can see and delete these copies there too." When the conversation folders are not linked (the fallback of plan 4.16 decision 2), one sentence is added after the first: "对话文件夹没有共享时，换账号会把这段对话复制一份到另一个账号的文件夹里。 / When the conversation folders are not shared, a switch copies that conversation into the other account's folder." "下一步 / Next" is the consent to the links and to both kinds of copy.
+   - Ticked and locked, each with its reason: "对话记录、文件历史、计划和待办（换账号后接着对话需要它们）/ Conversations, file history, plans and to-do lists (needed to continue a conversation after a switch)" (Codex: "对话记录 / Conversations") and "设置（换账号后，AI 能做什么保持不变）/ Settings (so a switch never changes what the AI may do)". This holds for both tools: Claude Code's `settings.json` and Codex's `config.toml` are always linked (plan 4.16).
+   - Ticked, can be unticked: "说明文件 / Instructions file", "代理、技能、命令 / Agents, skills, commands", "插件 / Plugins". For Codex: the instructions file and the other shared parts the tool has.
    - Always separate, stated: "不共享：登录信息和账号文件。所以你自己加的 MCP 服务和「信任这个文件夹」要在新账号里再设一次。 / Not shared: the sign-in and the account file. So MCP servers you added yourself, and \"trust this folder\", are set up once more for the new account."
    - One line: "Codepass 不会读取、保存或发送任何 AI 登录信息。 / Codepass never reads, stores or sends any AI sign-in."
 3. **登录 / Sign in.** A terminal inside the modal runs the tool's own login for the new folder. Lead: "下面是 Claude Code 自己的登录。按它的提示在浏览器里完成。 / This is Claude Code's own sign-in. Follow it in your browser." Under the terminal the result: ok "已登录 / Signed in" (the app asked the tool), or "还没有登录 / Not signed in yet" + "重新检查 / Check again". Primary "完成 / Finish" is enabled after a successful check; "稍后登录 / Sign in later" saves the account as not signed in.
 
-After finishing: the pass appears with the insert motion; a first usage reading starts.
+After finishing: the pass appears with the insert motion, last in the order, so no default changes; a first usage reading starts. Automatic switching stays off. When it is the tool's second account, one `.suggest` row appears once under the group: "现在可以给项目或仓库各选一个默认账号了，不同的任务也可以同时用不同的账号。一个账号用完时，你点一下就能在另一个上继续。 / You can now choose a default account per project or repository, and different tasks can run on different accounts at the same time. When one runs out, one click continues the session on another." with "去设置 / Set them" (opens Projects) and "不用了 / No thanks".
+
+**Several accounts at the same time** (plan 4.16 decision 29). A task on Work and a task on Personal running side by side is a normal state and needs no control: both passes show "正在使用 / in use" in the popover below, and the account details list "正在使用它的会话 / Sessions using it now" per account.
 
 **Usage popover** (`usage-popover`, from the sidebar chip or the rail's usage button; 380px).
 
@@ -1077,22 +1344,25 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
   ○ 个人 / Personal
      本次 0% · 本周 12%                     周四 09:00 重置
  Codex
-  ● 默认 / Default
+  ● 工作 / Work   (正在使用 / in use)
      5 小时 / 5 hours    18%  ▓▓░░░░░░░░   16:10 重置
      本周 / Week         40%  ▓▓▓▓░░░░░░   周三 08:00 重置
+  ○ 个人 / Personal
+     5 小时 0% · 本周 6%                    周五 10:00 重置
  ---------------------------------------------------------------------
  队列给自己留 10% · 管理账号 / The queue keeps 10% for you · Manage accounts
 ```
 
-- Every account of both tools, the one in use first and expanded; the others one line each, expandable.
+- Every account of both tools. "正在使用 / in use" on every account with a live session; those come first and are expanded. The others are one line each, expandable. With no live session, the account the last session or the queue used is the one expanded, without the mark.
 - "这些数字来自工具自己的报告，也包含你在它其他应用里的用量。 / These numbers come from the tool's own report and include your use in its other apps." as a muted footnote on first open.
 - A reading older than 15 minutes shows its age in warn. Refresh follows the same spacing as on the pass.
 - With the limit reached on the account in use, the top of the popover repeats the limit banner's line 1 and its actions (5.6).
+- An account that needs the owner's attention is listed first, expanded, with "需要你处理 / Needs your attention" in danger in place of its bars and the link "查看账号 / Open the account".
 - Workspace layout: the rail gets a usage button (a small gauge) with a pip at 80% and above; the status bar shows the short form "CC 81%" as a button that opens the same popover.
 
-**States.** No AI tool installed: the group and the chip are hidden. A tool installed but never signed in: the default pass with "未登录 / Not signed in" and "登录 / Sign in" (opens the tool's login in a terminal sheet). Reading in progress: the bars keep their last values, dimmed, with a small spinner by the age.
+**States.** No AI tool installed: the group and the chip are hidden. A tool installed but never signed in: the tool's own pass with "未登录 / Not signed in" and "登录 / Sign in" (opens the tool's login in a terminal sheet). Reading in progress: the bars keep their last values, dimmed, with a small spinner by the age.
 
-**Accessibility.** Each bar is a `progressbar` with a text value ("本周用量 81%，周一 00:00 重置 / Weekly usage 81%, resets Monday 00:00"). The popover is a dialog with a heading; accounts are a list. Warn and danger are also words ("快用完了 / almost used up", "已用完 / used up") for a screen reader.
+**Accessibility.** Each bar is a `progressbar` with a text value ("本周用量 81%，周一 00:00 重置 / Weekly usage 81%, resets Monday 00:00"). The popover is a dialog with a heading; accounts are a list. Warn and danger are also words ("快用完了 / almost used up", "已用完 / used up", "需要你处理 / needs your attention") for a screen reader. The automatic-switching confirm is an `alertdialog` whose description includes the quoted sentences; the quotes carry `lang="en"` in the Chinese interface.
 
 ---
 
@@ -1118,8 +1388,9 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
   | AI task waiting | A task changes to "waiting" while the window is not focused (5.6). Default sound. | acme_api | Claude Code 在等你回答 / Claude Code is waiting for your answer | none | Shows the window, opens that task's terminal. |
   | Still running | The first time the window is closed while tasks run (4.4). Once ever. No sound. | Codepass 还在运行 / Codepass is still running | 2 个 AI 任务没有中断 / 2 AI tasks were not interrupted | none | Shows the window. |
   | Queue: needs you | A queued ticket's session needs the owner (5.15), window focused or not, once per ticket and reason. Default sound. | 工单 #12 在等你 / Ticket #12 needs you | acme_api · AI 有问题要问你 / acme_api · The AI has a question for you (the reason line from 5.15) | 去回答 / Answer | Shows the window, opens that task's terminal. The button does the same. |
-  | Queue: paused for the limit | No account has room, or the running ticket waits for a reset. Once per pause. No sound. | 队列因用量暂停 / Queue paused for usage | Claude Code · 周一 00:00 重置后继续 / Claude Code · continues after the reset, Mon 00:00 | none | Shows the window, opens Tickets. |
-  | Queue: continued on another account | An automatic switch happened for a queued ticket. No sound. | 已换到「个人」继续 / Continued on Personal | 工单 #12 · 「工作」的用量用完了 / Ticket #12 · Work ran out of usage | none | Shows the window, opens that task's terminal. |
+  | Queue: paused for the limit | No account has room, or the running ticket waits for a reset, or this ticket's account is used up while automatic switching is off. Once per pause. No sound. | 队列因用量暂停 / Queue paused for usage | Claude Code · 周一 00:00 重置后继续 / Claude Code · continues after the reset, Mon 00:00. When another account has room and automatic switching is off: 「工作」用完了，「个人」还有用量 / Work is used up. Personal has usage. | none; **"在「个人」上继续 / Continue on Personal"** when another account has room and automatic switching is off | Shows the window, opens Tickets. The button shows the window and opens the switch confirm for that ticket's session (5.6); for a ticket that has not started, it starts it on Personal. |
+  | Queue: continued on another account | An automatic switch happened for a queued ticket (only with automatic switching on for that tool). No sound. | 已换到「个人」继续 / Continued on Personal | 工单 #12 · 「工作」的用量用完了，对话带过去了 / Ticket #12 · Work ran out of usage. The conversation came along (with a handoff note: 对话以交接笔记的形式带过去了 / The conversation came along as a handoff note) | none | Shows the window, opens that task's terminal. |
+  | AI account needs attention | A tool reported an authentication, billing, suspension or policy error for an account (5.16). Once per account until the owner cleared it; window focused or not when the queue stopped because of it, otherwise only when the window is not focused. Default sound. | 「工作」需要你处理 / Work needs your attention | Claude Code 报告这个账号有问题。队列已停下，不会换到别的账号。 / Claude Code reports a problem with this account. The queue stopped and will not move to another account. (without a queue, the second sentence is: 有一个会话因此停下了。Codepass 不会把它换到别的账号。 / A session stopped because of it. Codepass will not move it to another account.) The tool's name follows the account's tool: "Codex 报告… / Codex reports..." for a Codex account. Other sessions running under the account are left alone (plan 4.16 decision 34). | none | Shows the window, opens Accounts at that pass. |
   | Queue: finished | The last queued ticket ended and nothing waits for the owner. Once. Default sound. | 队列跑完了 / The queue is finished | 完成 3 张，失败 1 张，跳过 0 张 / 3 done, 1 failed, 0 skipped | 查看 / Review | Shows the window, opens Tickets at Finished. |
 
   - **Names in the body.** First the Identity Center user (left out when unknown), then " · ", then the accounts: one account "acme-prod"; two "acme-prod、globex / acme-prod and globex"; three or more "acme-prod 等 3 个账户 / acme-prod and 2 more". A portal with no account yet: only the second sentence.
@@ -1128,7 +1399,8 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
   - **Opening Accounts at a portal:** the page scrolls to the portal's section and its pass gets the one-time highlight (the existing insert motion; none under reduced motion).
   - **Never in a notification:** tokens, sign-in codes, URLs, account IDs, role names, file paths. A long portal name is cut by the system, not by us.
   - **When notifications are off or unavailable** and the window is visible: the same title, body and button as an in-app toast (danger for "ended", warn for the heads-up; "ended" stays until dismissed). When the window is hidden, nothing extra: the pass, the sidebar count and the repository rows already show the expired state.
-  - **Queue notices** (milestone 8) name the ticket by number, the repository by its local folder name and the account by the owner's label. They never contain ticket text, the AI's words, a file path or an email address. "Needs you" for a queued ticket replaces the plain "AI task waiting" notice for that task; the two are never both sent.
+  - **Queue notices** (milestone 8) name the ticket by number, the repository by its local folder name and the account by the owner's label. They never contain ticket text, the AI's words, a file path or an email address. The account notice never contains the tool's own message (it may name an email address); that message is shown only in the app. "Needs you" for a queued ticket replaces the plain "AI task waiting" notice for that task; the two are never both sent.
+  - **"Continue on Personal" from a notice** is the owner's click, so it is offered while automatic switching is off (plan 4.17). It never switches without the confirm when the ticket is already running, and it is never on the account notice.
   - **One button at most**, because macOS shows a single button by name and folds two or more into a menu. The button text follows the app language, also for notifications sent after a language change.
   - **Windows:** the same words. The title is one line. Old notifications cannot be withdrawn there, so a heads-up may still be listed after the sign-in was renewed; pressing its button then only shows "已经登录了 / Already signed in".
 
@@ -1152,7 +1424,7 @@ Not drawn in the mockup; specified above in words: quick open / palette, create 
 
 **Open repository (5.7c) is drawn later**, by A2-16 ("Fable first"), from the session switcher's drawing.
 
-**Milestone 8 screens are drawn later.** Tickets (5.15: the page, the queue bar in each state, the editor, quick capture), AI accounts and usage (5.16: the accounts group, the add-account sheet, the usage popover, the sidebar chip), the limit banner and account chip on the session bar (5.6), the queue settings card (5.14) and the Tickets item in the sidebar (4.1) exist only as words and text sketches. The milestone's tasks draw them in the mockup first ("Fable first"), take the shots, and only then build. Mock data for them: AI accounts "工作 / Work" (default) and "个人 / Personal" for Claude Code, "默认 / Default" for Codex; tickets #6 to #17 in the repositories of section 7.
+**Milestone 8 screens are drawn later.** Tickets (5.15: the page, the queue bar in each state, the editor, quick capture), AI accounts and usage (5.16: the accounts group, the add-account sheet, the usage popover, the sidebar chip), the limit banner and account chip on the session bar (5.6), the "换账号 / Switch account" menu, the switch-back hint and the New task sheet's account row with its one-line reason (5.6), the two account rows in the Repository settings sheet (4.2), the project's AI accounts sheet (5.2), the account on AI tasks rows and session switcher rows (5.7, 5.7a), the ticket editor's account field (5.15), the "默认用于 / Default for" line, the account details and the remove preview (5.16), the queue settings card (5.14) and the Tickets item in the sidebar (4.1) exist only as words and text sketches. So do the third batch's parts: the switch confirm with its extra lines, the four result lines and the "查看笔记 / View note" sheet, the account-problem line on the session bar (5.6); the automatic-switching switch with its one-time confirm, the "需要你处理 / Needs your attention" pass and its "为什么 / Why" popover, the two new lines in step 1 and the consent paragraph in step 2 of the add-account sheet (5.16); the personal-use line in Settings (5.14); copies and notes in Free up space (5.7b); the two new queue bar rows (5.15). The milestone's tasks draw them in the mockup first ("Fable first"), take the shots, and only then build. Mock data for them: AI accounts "工作 / Work" (the tool's own folder, first in the order, so the app default) and "个人 / Personal" for Claude Code, and the same two labels for Codex ("工作 / Work" is the tool's own, first; "个人 / Personal" is the extra one); project globex uses Personal, repository acme_agent_portal in project acme uses Personal, acme_api and globex_web follow their projects; tickets #6 to #17 in the repositories of section 7.
 
 Drawn at the milestone-0 gate (2026-11-16): the session switcher, Rename local folder, Free up space, the "closed, still running" rows, the quit dialog.
 
@@ -1170,6 +1442,14 @@ Open points for the planner or the owner:
 10. **Tickets as a board.** Three columns side by side follow the owner's three states. If the owner mostly keeps a long Editing list, one list with a state filter would use the width better.
 11. **Where the usage chip sits.** In the sidebar above sign-in status, always visible. It could instead be a single line by the keep-awake chip.
 12. **An account's identity.** A pass shows the owner's label only, never an email address or plan name, because the app stores nothing from a tool's account file. If the owner wants the email shown, it can be read from the tool on demand and shown without being stored.
+13. **One order, two meanings.** The order on the AI accounts page gives both the app default (the first account) and the order in which the next account with usage is looked for (the New task fallback, the "Continue on" button, and automatic switching when it is on). If the owner wants them apart, the app default becomes its own setting.
+14. **"默认" has one meaning.** The "默认 / Default" badge on the tool's own folder is gone; line 2 of that pass says "工具自带 / Tool's own", because "默认 / default" now means the account a new task starts with.
+15. **Switching back is offered, never done.** The hint after an automatic switch is one quiet line. If the owner would rather have sessions return by themselves at the reset, it becomes a setting; each return sends the whole conversation again.
+16. **The word for the hidden reasoning.** The confirm's popover says "AI 没有显示出来的思考记录 / the AI's hidden reasoning notes". It is the one thing a switch cannot carry, for some models, and the design says so once, behind a link. If the owner wants it in the confirm's body instead of behind the link, it becomes line 3.
+17. **Automatic switching: how much to say.** The confirm quotes two sentences for Claude Code and one for Codex, in English as published. A Chinese gloss under each quote would help reading but would be our wording of a legal text; the design leaves the quotes alone and links to the pages.
+18. **A Team or Enterprise seat is not marked.** The add-account sheet has one line about it. Codepass does not store what kind of account it is, so it cannot add a line to the switch confirm when a conversation moves between a seat and a personal account. If the owner wants that line, the sheet gets a checkbox "这是团队或企业席位 / This is a Team or Enterprise seat", stored as one flag.
+19. **An account that needs attention blocks its sessions from moving.** The design is strict: until the owner cleared the state, the app does not move that account's sessions, even by hand. The other choice is to allow the owner's own click from the switch menu, with the "为什么 / Why" text shown first.
+20. **"修好的副本 / repaired copy".** The word in Free up space and in the result line's help. "去掉账号专属内容的副本 / a copy without the account-only parts" is more exact and longer.
 
 ---
 
