@@ -529,8 +529,8 @@ func (c *Container) openIsolated(ctx context.Context, raw string) bool {
 	}
 	c.signInMu.Lock()
 	old := c.signInWin[raw]
-	if _, ended := c.signInDone[raw]; ended {
-		// the sign-in ended while this window was opening
+	if _, ended := c.signInDone[raw]; ended || c.ctx.Err() != nil {
+		// the sign-in ended while this window was opening, or the app is quitting
 		old = append(old, w)
 		delete(c.signInWin, raw)
 	} else {
