@@ -13,6 +13,7 @@ import (
 	"github.com/rudian/aws_sso_hub/internal/api"
 	"github.com/rudian/aws_sso_hub/internal/paths"
 	"github.com/rudian/aws_sso_hub/internal/sso"
+	"github.com/rudian/aws_sso_hub/internal/version"
 )
 
 // TestShutdownKeepsLogin: quitting never signs out. Token file, role cache and the settings
@@ -306,7 +307,7 @@ func TestSelfTestReport(t *testing.T) {
 	if err := json.Unmarshal([]byte(w.read(out)), &rep); err != nil {
 		t.Fatal(err)
 	}
-	if !rep.OK || !rep.Sandbox || rep.Version != "0.0.1" || rep.Profiles != 3 || rep.Portals != 2 || rep.Repos != 1 ||
+	if !rep.OK || !rep.Sandbox || rep.Version != version.Version || rep.Profiles != 3 || rep.Portals != 2 || rep.Repos != 1 ||
 		rep.AWSCLI.Status != "ok" || rep.AWSCLI.Path != awsPath || rep.Git.Status != "ok" || rep.Errors == nil || len(rep.Errors) != 0 {
 		t.Fatalf("%+v", rep)
 	}
