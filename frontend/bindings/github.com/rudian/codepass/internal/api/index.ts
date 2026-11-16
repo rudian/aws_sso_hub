@@ -45,6 +45,7 @@ export {
     Theme,
     ToolStatus,
     Tri,
+    UpdatePhase,
     WarningCode
 } from "./models.js";
 
@@ -155,6 +156,8 @@ export type {
     URLRuleMigration,
     URLRuleMigrationResult,
     URLRulePlan,
+    UpdatePreferences,
+    UpdateState,
     VerifyResult,
     WriteResult
 } from "./models.js";

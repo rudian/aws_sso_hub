@@ -14,6 +14,7 @@ import { useAccounts } from '../state/accounts'
 import { useAppInfo } from '../state/appInfo'
 import { useEnv } from '../state/env'
 import { useRepos } from '../state/repos'
+import { useUpdateIndicator } from '../pages/update/useUpdate'
 import { Keyring } from './Keyring'
 
 interface NavDef {
@@ -42,6 +43,7 @@ export function Sidebar() {
   const { state: accounts } = useAccounts()
   const { state: repos } = useRepos()
   const { report } = useEnv()
+  const updateDot = useUpdateIndicator()
 
   const activePage: PageId = route.page === 'migrate' ? 'accounts' : route.page === 'repos' ? 'projects' : route.page
   const platform = info?.platform ?? guessPlatform()
@@ -101,6 +103,7 @@ export function Sidebar() {
           <button type="button" className={clsx('nav__item', activePage === 'settings' && 'is-active')} aria-current={activePage === 'settings' ? 'page' : undefined} onClick={() => navigate({ page: 'settings' })}>
             <Settings className="nav__icon" aria-hidden="true" />
             {t('nav.settings')}
+            {updateDot && <span className="nav__dot" role="img" aria-label={t('update.dot')} />}
           </button>
         </nav>
       </div>

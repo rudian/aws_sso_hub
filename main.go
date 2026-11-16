@@ -92,6 +92,7 @@ func main() {
 			application.NewService(app.NewSystemService(c)),
 			application.NewService(app.NewToolService(c, nc)),
 			application.NewService(app.NewIdentityService(c, c.Projects)),
+			application.NewService(app.NewUpdateService(c)),
 		},
 		Assets: application.AssetOptions{
 			Handler:    application.AssetFileServerFS(assets),

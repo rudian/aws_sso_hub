@@ -12,6 +12,7 @@ import type {
   ScanProgress,
   SessionStatus,
   Settings,
+  UpdateState,
 } from './models'
 
 export interface EventPayloads {
@@ -30,6 +31,7 @@ export interface EventPayloads {
   'app:second-instance': string[]
   'tools:install-progress': InstallState
   'identity:changed': Record<string, never>
+  'update:state': UpdateState
   /** Menu and tray commands; the Go side registers it in internal/app/menu.go. */
   'app:command': string
 }

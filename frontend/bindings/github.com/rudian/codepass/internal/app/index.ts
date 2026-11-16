@@ -8,6 +8,7 @@ import * as MigrationService from "./migrationservice.js";
 import * as RepoService from "./reposervice.js";
 import * as SystemService from "./systemservice.js";
 import * as ToolService from "./toolservice.js";
+import * as UpdateService from "./updateservice.js";
 export {
     AccountService,
     GitGlobalService,
@@ -15,5 +16,6 @@ export {
     MigrationService,
     RepoService,
     SystemService,
-    ToolService
+    ToolService,
+    UpdateService
 };

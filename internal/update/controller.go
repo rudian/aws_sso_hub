@@ -96,7 +96,10 @@ type ControllerConfig struct {
 	// IdleTimeout overrides the no-progress limit of a download (default 60 s; tests only).
 	IdleTimeout time.Duration
 	OnState     func(State)
-	Logf        func(format string, a ...any) // never given tokens, notes or file contents
+	// AutoCheck, when set, is asked before every tick of Run; false skips that check (the person turned the daily
+	// check off). A manual Check ignores it.
+	AutoCheck func() bool
+	Logf      func(format string, a ...any) // never given tokens, notes or file contents
 }
 
 // Controller owns the update flow. It never exposes the raw Wails Restart, so nothing can start the helper without
@@ -558,6 +561,10 @@ func (c *Controller) Run(ctx context.Context, firstDelay, interval time.Duration
 		case <-ctx.Done():
 			return
 		case <-t.C:
+		}
+		if c.cfg.AutoCheck != nil && !c.cfg.AutoCheck() {
+			t.Reset(interval)
+			continue
 		}
 		switch c.State().Phase {
 		case PhaseDownloading, PhaseVerifying, PhaseReady, PhaseRestarting:

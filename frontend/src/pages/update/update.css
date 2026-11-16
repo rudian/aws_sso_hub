@@ -1,0 +1,57 @@
+/* The update banner, dialog, page and the Settings dot (design 5.13). Tokens only. */
+.nav__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--info); margin-left: auto; flex: none; }
+
+.update-banner { display: flex; align-items: center; gap: var(--sp-3); padding: 10px var(--sp-4); border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-1); font-size: var(--fs-13); color: var(--text-2); }
+.update-banner--failed { border-color: var(--danger-border, var(--danger)); }
+.update-banner__mark { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--ink); color: var(--on-ink); flex: none; }
+.update-banner__mark svg { width: 15px; height: 15px; }
+.update-banner__text { min-width: 0; }
+.update-banner b { color: var(--text); font-weight: var(--fw-semibold); }
+.update-banner .spacer { flex: 1; }
+.update-banner__actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+
+.update-modal { width: min(560px, 100%); }
+.ver { display: flex; align-items: center; justify-content: center; gap: var(--sp-4); padding: var(--sp-5) 0 var(--sp-4); }
+.ver__box { text-align: center; }
+.ver__n { font: var(--fw-semibold) 26px/1.2 var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: var(--tracking-display); color: var(--text); }
+.ver__box--cur .ver__n { color: var(--text-3); }
+.ver__k { font-size: var(--fs-12); color: var(--text-3); }
+.ver svg { width: 20px; height: 20px; color: var(--text-3); }
+
+.notes { margin: 0; padding: 12px 14px 12px 30px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--border-subtle); font-size: var(--fs-13); line-height: 1.7; color: var(--text-2); max-height: calc(1.7em * 8 + 24px); overflow-y: auto; overflow-wrap: anywhere; }
+.notes--empty { list-style: none; padding-left: 14px; color: var(--text-3); }
+
+.uprog { margin-top: var(--sp-4); }
+.uprog__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-2); font-size: var(--fs-13); }
+.uprog__label { font-weight: var(--fw-semibold); color: var(--text); }
+.uprog__meta { color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+.usteps { list-style: none; margin: var(--sp-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+.usteps li { display: flex; align-items: center; gap: 7px; font-size: var(--fs-12); color: var(--text-3); padding-top: 9px; border-top: 2px solid var(--border); min-width: 0; }
+.usteps li.is-done { color: var(--text-2); border-color: var(--ink); }
+.usteps li.is-now { color: var(--text); font-weight: var(--fw-semibold); border-color: var(--info); }
+.usteps li.is-error { color: var(--danger); border-color: var(--danger); }
+.usteps svg, .usteps .spinner { width: 13px; height: 13px; flex: none; }
+.usteps li.is-done svg { color: var(--ok); }
+
+.update-modal .banner { margin-top: var(--sp-4); }
+.update-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); row-gap: var(--sp-2); width: 100%; }
+.update-focus:focus, .update-focus:focus-visible { outline: none; box-shadow: none; }
+.update-foot__btns { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--sp-2); margin-left: auto; }
+/* The link sits first on screen but last in the tab order, so focus opens on the real action. */
+.update-foot .link { order: -1; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
+
+/* the page */
+.update-page { max-width: 640px; }
+.update-card { padding: var(--sp-5); }
+.update-card__head { display: flex; align-items: center; gap: var(--sp-3); }
+.update-card__title { font-size: var(--fs-16, 16px); font-weight: var(--fw-semibold); color: var(--text); margin: 0; }
+.update-card__sub { font-size: var(--fs-13); color: var(--text-3); margin-top: 2px; }
+.update-card__actions { display: flex; gap: var(--sp-2); margin-left: auto; }
+.update-card .banner { margin-top: var(--sp-4); }
+.update-card .notes { margin-top: var(--sp-3); }
+.update-card__h { margin: var(--sp-5) 0 0; font-size: var(--fs-13); font-weight: var(--fw-semibold); color: var(--text-2); }
+
+@media (max-width: 1100px) {
+  .update-banner { flex-wrap: wrap; }
+}

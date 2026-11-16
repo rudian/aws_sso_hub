@@ -12,7 +12,7 @@ import (
 	"github.com/rudian/codepass/internal/version"
 )
 
-// EventUpdateState carries an update.State on every change of the update flow. The update service (F1-17) types it.
+// EventUpdateState carries an api.UpdateState on every change of the update flow (registered in events.go).
 const EventUpdateState = "update:state"
 
 // UpdateOptions are what main passes to StartUpdates.
@@ -36,7 +36,10 @@ func (c *Container) StartUpdates(o UpdateOptions) *update.Controller {
 	if err := hi.Record(version.Version); err != nil {
 		c.Log.Warn("cannot record the running version", "err", err)
 	}
-	ctl := update.NewController(update.ControllerConfig{
+	var ctl *update.Controller
+	auto := &autoChecker{on: func() bool { return readUpdatePrefs(updatePrefsFile(c)).AutoCheck }, now: time.Now,
+		state: func() update.State { return ctl.State() }}
+	ctl = update.NewController(update.ControllerConfig{
 		Quit:         o.Quit,
 		Running:      version.Version,
 		Gate:         update.ProductionGate(),
@@ -45,13 +48,14 @@ func (c *Container) StartUpdates(o UpdateOptions) *update.Controller {
 		Proxy:        o.Proxy,
 		HelperLog:    filepath.Join(dir, "restarts"),
 		StagedRecord: filepath.Join(dir, "staged"),
-		OnState:      func(s update.State) { c.emit(EventUpdateState, s) },
+		OnState:      func(s update.State) { c.emit(EventUpdateState, toAPIUpdateState(s)) },
+		AutoCheck:    auto.due,
 		Logf:         func(f string, a ...any) { c.Log.Info(fmt.Sprintf(f, a...)) },
 	})
 	c.Update = ctl
 	c.OnShutdown(ctl.Close)
 	if !c.Paths.Sandbox {
-		c.spawn(func() { ctl.Run(c.ctx, 30*time.Second, 6*time.Hour) })
+		c.spawn(func() { ctl.Run(c.ctx, updateFirstCheck, updateCheckEvery) })
 	}
 	return ctl
 }

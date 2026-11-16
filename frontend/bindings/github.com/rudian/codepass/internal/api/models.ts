@@ -2948,6 +2948,97 @@ export interface URLRulePlan {
     "preview": FilePreview;
 }
 
+export enum UpdatePhase {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    UpdateIdle = "idle",
+    UpdateChecking = "checking",
+    UpdateUpToDate = "up-to-date",
+
+    /**
+     * a verified newer release exists; nothing downloaded yet
+     */
+    UpdateAvailable = "available",
+
+    /**
+     * Written and Total carry the progress
+     */
+    UpdateDownloading = "downloading",
+    UpdateVerifying = "verifying",
+
+    /**
+     * staged and verified; waiting for Restart
+     */
+    UpdateReady = "ready",
+    UpdateRestarting = "restarting",
+
+    /**
+     * this copy cannot replace itself (Block and Folder say why)
+     */
+    UpdateBlocked = "blocked",
+
+    /**
+     * a release was found and refused (Code says why)
+     */
+    UpdateRefused = "refused",
+
+    /**
+     * network or disk trouble
+     */
+    UpdateError = "error",
+};
+
+/**
+ * UpdatePreferences are the person's choices about the update check.
+ */
+export interface UpdatePreferences {
+    /**
+     * check once a day by itself (default true)
+     */
+    "autoCheck": boolean;
+}
+
+/**
+ * UpdateState is one snapshot of the flow; it is also the payload of the update:state event. Notes come from the
+ * signed update file and are plain text. The UI words every failure from Code, Step and Block, in the user's language.
+ */
+export interface UpdateState {
+    "phase": UpdatePhase;
+
+    /**
+     * the running version
+     */
+    "current": string;
+
+    /**
+     * the release found
+     */
+    "version"?: string;
+    "notes"?: string;
+    "written"?: number;
+    "total"?: number;
+    "code"?: string;
+
+    /**
+     * "check" | "download" | "verify" | "restart"
+     */
+    "step"?: string;
+
+    /**
+     * "translocated" | "not-writable" | "unsupported-os"
+     */
+    "block"?: string;
+
+    /**
+     * the folder to name in a "cannot update" message
+     */
+    "folder"?: string;
+    "checkedAt"?: string;
+}
+
 export interface VerifyResult {
     "ok": boolean;
     "accountId"?: string;

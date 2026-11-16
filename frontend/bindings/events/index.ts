@@ -88,3 +88,8 @@ export const SettingsChanged = "settings:changed";
  */
 export const ToolsInstallProgress = "tools:install-progress";
 
+/**
+ * Name of the custom event "update:state".
+ */
+export const UpdateState = "update:state";
+

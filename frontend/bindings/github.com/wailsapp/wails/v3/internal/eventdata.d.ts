@@ -28,6 +28,7 @@ declare module "@wailsio/runtime" {
             "session:renewed": api$0.SessionStatus;
             "settings:changed": api$0.Settings;
             "tools:install-progress": api$0.InstallState;
+            "update:state": api$0.UpdateState;
         }
     }
 }
