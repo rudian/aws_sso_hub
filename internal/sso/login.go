@@ -356,6 +356,7 @@ func (m *Manager) buildToken(s Session, reg *registration, out *ssooidc.CreateTo
 		ClientSecret:          reg.ClientSecret,
 		RegistrationExpiresAt: regExp.UTC(),
 		RefreshToken:          aws.ToString(out.RefreshToken),
+		Granted:               time.Duration(out.ExpiresIn) * time.Second,
 	}
 }
 

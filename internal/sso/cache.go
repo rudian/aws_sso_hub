@@ -100,6 +100,9 @@ type CachedToken struct {
 	RegistrationExpiresAt time.Time
 	RefreshToken          string // SECRET, optional
 	Extra                 map[string]json.RawMessage
+	// Granted is the lifetime AWS gave the access token when this process received it (sign-in or renewal).
+	// It is 0 for a token read from the cache file and is never written to it.
+	Granted time.Duration
 }
 
 // String and GoString never print secrets.

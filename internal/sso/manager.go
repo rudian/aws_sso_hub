@@ -327,7 +327,8 @@ func (m *Manager) refresh(ctx context.Context, s Session, seen *CachedToken) (*C
 	n := *cur
 	n.StartURL, n.Region = firstNonEmpty(s.StartURL, cur.StartURL), firstNonEmpty(s.Region, cur.Region)
 	n.AccessToken = aws.ToString(out.AccessToken)
-	n.ExpiresAt = m.now().UTC().Add(time.Duration(out.ExpiresIn) * time.Second).Truncate(time.Second)
+	n.Granted = time.Duration(out.ExpiresIn) * time.Second
+	n.ExpiresAt = m.now().UTC().Add(n.Granted).Truncate(time.Second)
 	n.RefreshToken = aws.ToString(out.RefreshToken)
 	if err := WriteToken(m.tokenDir(), key, &n); err != nil {
 		return nil, api.NewError(api.ErrFileIO, "cannot write the SSO token cache").WithParam("file", key+".json")

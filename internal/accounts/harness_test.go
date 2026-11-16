@@ -243,6 +243,13 @@ func (h *harness) setRecord(loginAgo time.Duration, clientID string, minutes int
 		TokenIssuedAt: h.clock().Format(time.RFC3339), SessionMinutes: minutes})
 }
 
+// setEnd records the session end AWS showed for the current sign-in of initech, relative to the clock.
+func (h *harness) setEnd(in time.Duration) {
+	rec, _ := h.store.SessionRecord("initech")
+	rec.SessionEndsAt = h.clock().Add(in).Format(time.RFC3339)
+	h.store.SetSessionRecord("initech", rec)
+}
+
 func (h *harness) status(portal string) api.SessionStatus {
 	h.t.Helper()
 	st, err := h.eng.SessionStatus(portal)

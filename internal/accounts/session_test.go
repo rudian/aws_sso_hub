@@ -156,10 +156,15 @@ func TestRefreshKeepsLoginAt(t *testing.T) {
 
 func TestStateExpiringBySessionNotToken(t *testing.T) {
 	h := newHarness(t, true)
-	// token 50 min, session 10 min -> expiring
-	h.writeToken(50*time.Minute, "CID-a")
+	// token 10 min, session 10 min -> expiring
+	h.writeToken(10*time.Minute, "CID-a")
 	h.setRecord(470*time.Minute, "CID-a", 480)
-	if st := h.status("initech"); st.State != api.SessionExpiring || !st.SessionKnown {
+	if st := h.status("initech"); st.State != api.SessionExpiring || !st.SessionKnown || st.SessionEndExact {
+		t.Fatalf("%+v", st)
+	}
+	// AWS never issues a token that outlives the session: an estimate that ends before the token moves out to it
+	h.writeToken(50*time.Minute, "CID-a")
+	if st := h.status("initech"); st.State != api.SessionActive || st.SessionEndsAt != h.clock().Add(50*time.Minute).Format(time.RFC3339) || st.SessionMinutes != 520 {
 		t.Fatalf("%+v", st)
 	}
 	// token 5 min + CanRefresh + session 5 h -> active
@@ -174,7 +179,7 @@ func TestStateExpiringBySessionNotToken(t *testing.T) {
 		t.Fatalf("%+v", st)
 	}
 	// session exactly at the 15 minute boundary
-	h.writeToken(time.Hour, "CID-a")
+	h.writeToken(5*time.Minute, "CID-a")
 	h.setRecord(465*time.Minute, "CID-a", 480)
 	if st := h.status("initech"); st.State != api.SessionActive {
 		t.Fatalf("15 min left is still active: %+v", st)
@@ -187,33 +192,46 @@ func TestStateExpiringBySessionNotToken(t *testing.T) {
 
 func TestSessionOverrun(t *testing.T) {
 	h := newHarness(t, true)
+	// past the estimate, but the token still has 30 min: the session lasts at least that long
 	h.writeToken(30*time.Minute, "CID-a")
 	h.setRecord(9*time.Hour, "CID-a", 480)
 	st := h.status("initech")
-	if !st.SessionOverrun || st.State != api.SessionActive || st.ProgressPct != 0 || !st.SessionKnown {
+	if st.SessionOverrun || st.State != api.SessionActive || !st.SessionKnown || st.SessionEndsAt != h.clock().Add(30*time.Minute).Format(time.RFC3339) {
 		t.Fatalf("%+v", st)
 	}
+	// past the estimate with an expired token that can still be renewed
 	h.writeToken(-time.Minute, "CID-a")
-	if st := h.status("initech"); !st.SessionOverrun || st.State != api.SessionRefreshable {
+	if st := h.status("initech"); !st.SessionOverrun || st.State != api.SessionRefreshable || st.ProgressPct != 0 {
 		t.Fatalf("%+v", st)
 	}
 }
 
-func TestEndedEarlyAfterInvalidGrant(t *testing.T) {
+func TestRefusedRenewalEndsAtTokenExpiry(t *testing.T) {
 	h := newHarness(t, true)
-	h.writeToken(-time.Minute, "CID-a")
-	h.setRecord(time.Hour, "CID-a", 480)
+	// refused while the token still has 10 min: the session ends when that token expires
+	h.writeToken(10*time.Minute, "CID-a")
+	h.setRecord(time.Hour, "CID-a", 0)
 	h.oidc.QueueToken(ssotest.TokenResp{Status: 400, ErrType: "InvalidGrantException"})
-	_, err := h.eng.Refresh(bg, "initech")
-	if api.AsAppError(err).Code != api.ErrSessionExpired {
+	if _, err := h.eng.Refresh(bg, "initech"); api.AsAppError(err).Code != api.ErrSessionExpired {
 		t.Fatalf("%v", err)
 	}
 	st := h.status("initech")
-	endsAt, _ := time.Parse(time.RFC3339, st.SessionEndsAt)
-	if st.State != api.SessionExpired || !st.SessionKnown || endsAt.Sub(h.clock()) <= 30*time.Minute || st.CanRefresh {
-		t.Fatalf("the UI derives 'ended early' from expired + sessionEndsAt > now+30m: %+v", st)
+	if !st.SessionEndExact || st.SessionEndsAt != h.clock().Add(10*time.Minute).Format(time.RFC3339) || st.State != api.SessionExpiring || st.CanRefresh {
+		t.Fatalf("%+v", st)
 	}
-	if st.SessionOverrun || st.ProgressPct != 0 {
+	// nothing is learned from a refusal: it can also be a sign-out or a revoked session
+	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 0 {
+		t.Fatalf("%+v", rec)
+	}
+	// refused after the token expired: expired, end unknown
+	h2 := newHarness(t, true)
+	h2.writeToken(-time.Minute, "CID-a")
+	h2.setRecord(time.Hour, "CID-a", 0)
+	h2.oidc.QueueToken(ssotest.TokenResp{Status: 400, ErrType: "InvalidGrantException"})
+	if _, err := h2.eng.Refresh(bg, "initech"); api.AsAppError(err).Code != api.ErrSessionExpired {
+		t.Fatalf("%v", err)
+	}
+	if st := h2.status("initech"); st.State != api.SessionExpired || !st.SessionKnown || st.SessionEndExact || st.SessionOverrun || st.ProgressPct != 0 {
 		t.Fatalf("%+v", st)
 	}
 }
@@ -221,9 +239,7 @@ func TestEndedEarlyAfterInvalidGrant(t *testing.T) {
 func TestLogoutClearsLoginKeepsLength(t *testing.T) {
 	h := newHarness(t, true)
 	h.login()
-	if _, err := h.eng.SetSessionLength(bg, "initech", 120); err != nil {
-		t.Fatal(err)
-	}
+	h.learned(120)
 	// a role cache file of a profile of the portal
 	cache := sso.CLICacheDir(h.p.Home)
 	os.MkdirAll(cache, 0o700)
@@ -253,35 +269,125 @@ func TestLogoutClearsLoginKeepsLength(t *testing.T) {
 	}
 }
 
-func TestSetSessionLengthValidates(t *testing.T) {
+// learned stores a learned session length for initech, as a past sign-in would have.
+func (h *harness) learned(minutes int) {
+	h.t.Helper()
+	rec, _ := h.store.SessionRecord("initech")
+	rec.SessionMinutes = minutes
+	if err := h.store.SetSessionRecord("initech", rec); err != nil {
+		h.t.Fatal(err)
+	}
+}
+
+func TestProbeFindsAnHourLongSession(t *testing.T) {
 	h := newHarness(t, true)
-	for _, bad := range []int{0, 14, 129601, -5} {
-		if _, err := h.eng.SetSessionLength(bg, "initech", bad); api.AsAppError(err).Code != api.ErrInvalidInput {
-			t.Errorf("%d accepted", bad)
-		}
+	h.login() // the fake grants a full hour: a new session
+	loginAt := h.clock()
+	if rec, _ := h.store.SessionRecord("initech"); !rec.NewSession || rec.SessionEndsAt != "" {
+		t.Fatalf("%+v", rec)
 	}
-	if _, err := h.eng.SetSessionLength(bg, "nope", 60); api.AsAppError(err).Code != api.ErrInvalidInput {
-		t.Fatalf("%v", err)
+	if st := h.status("initech"); st.SessionEndExact || st.SessionMinutes != 480 {
+		t.Fatalf("first sign-in starts from the AWS default: %+v", st)
 	}
-	for _, ok := range []int{15, 129600, 480} {
-		st, err := h.eng.SetSessionLength(bg, "initech", ok)
-		if err != nil || st.SessionMinutes != ok {
-			t.Fatalf("%d: %v %+v", ok, err, st)
-		}
+	h.eng.Tick(bg)
+	if n := len(h.oidc.TokenCalls()); n != 1 {
+		t.Fatalf("no check before probeDelay: %d token calls", n)
 	}
-	if len(h.emitted(api.EventSessionChanged)) != 3 {
-		t.Fatalf("session:changed per change, got %d", len(h.emitted(api.EventSessionChanged)))
+	// the administrator set 1 hour: two minutes in, AWS only renews up to the session's end
+	h.advance(probeDelay)
+	h.oidc.SetExpiresIn(int((time.Hour - probeDelay) / time.Second))
+	renewed := len(h.emitted(api.EventSessionRenewed))
+	h.eng.Tick(bg)
+	calls := h.oidc.TokenCalls()
+	if len(calls) != 2 || calls[1]["grantType"] != "refresh_token" {
+		t.Fatalf("one check renewal: %v", calls)
 	}
-	// the countdown follows the new length
-	h.writeToken(time.Hour, "CID-a")
-	h.setRecord(time.Hour, "CID-a", 120)
-	st, _ := h.eng.SetSessionLength(bg, "initech", 60)
-	if st.State != api.SessionActive || !st.SessionOverrun {
-		t.Fatalf("1 h login with a 60 min length is overrun: %+v", st)
-	}
-	st, _ = h.eng.SetSessionLength(bg, "initech", 90)
-	if st.SessionOverrun || st.State != api.SessionActive || st.ProgressPct != 33 {
+	st := h.status("initech")
+	if !st.SessionEndExact || st.SessionEndsAt != loginAt.Add(time.Hour).Format(time.RFC3339) || st.SessionMinutes != 60 || st.State != api.SessionActive {
 		t.Fatalf("%+v", st)
+	}
+	if len(h.emitted(api.EventSessionRenewed)) != renewed {
+		t.Fatal("the check renewal is quiet")
+	}
+	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 60 {
+		t.Fatalf("length learned: %+v", rec)
+	}
+	// only once per sign-in
+	h.advance(5 * time.Minute)
+	h.eng.Tick(bg)
+	if len(h.oidc.TokenCalls()) != 2 {
+		t.Fatal("probe repeated")
+	}
+	// the next sign-in starts with the learned hour
+	h.oidc.SetExpiresIn(3600)
+	h.login()
+	if st := h.status("initech"); st.SessionEndExact || st.SessionMinutes != 60 || st.SessionEndsAt != h.clock().Add(time.Hour).Format(time.RFC3339) {
+		t.Fatalf("%+v", st)
+	}
+}
+
+func TestProbeLeavesLongerSessions(t *testing.T) {
+	h := newHarness(t, true)
+	h.login()
+	h.advance(probeDelay)
+	h.eng.Tick(bg)
+	st := h.status("initech")
+	if len(h.oidc.TokenCalls()) != 2 || st.SessionEndExact || st.SessionMinutes != 480 {
+		t.Fatalf("%+v", st)
+	}
+	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 0 || rec.SessionEndsAt != "" {
+		t.Fatalf("%+v", rec)
+	}
+	// auto renew off: no check renewal either
+	h2 := newHarness(t, true)
+	h2.store.autoRenew = false
+	h2.login()
+	h2.advance(probeDelay)
+	h2.eng.Tick(bg)
+	if len(h2.oidc.TokenCalls()) != 1 {
+		t.Fatal("auto renew disabled")
+	}
+}
+
+func TestRenewalCutShortShowsTheEnd(t *testing.T) {
+	h := newHarness(t, true)
+	h.writeToken(10*time.Minute, "CID-a")
+	h.setRecord(7*time.Hour+30*time.Minute, "CID-a", 0)
+	rec, _ := h.store.SessionRecord("initech")
+	rec.NewSession = true
+	h.store.SetSessionRecord("initech", rec)
+	h.oidc.SetExpiresIn(1800) // 8 h session: the last renewal only gets 30 min
+	h.eng.Tick(bg)
+	st := h.status("initech")
+	if !st.SessionEndExact || st.SessionEndsAt != h.clock().Add(30*time.Minute).Format(time.RFC3339) || st.SessionMinutes != 480 {
+		t.Fatalf("%+v", st)
+	}
+	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 480 {
+		t.Fatalf("%+v", rec)
+	}
+	if len(h.emitted(api.EventSessionRenewed)) != 1 {
+		t.Fatal("a normal renewal still says so")
+	}
+}
+
+func TestReusedBrowserSessionIsNotLearned(t *testing.T) {
+	h := newHarness(t, true)
+	// the browser was still signed in: the first token only gets the 49 min the running session has left
+	h.oidc.SetExpiresIn(49 * 60)
+	h.login()
+	loginAt := h.clock()
+	if rec, _ := h.store.SessionRecord("initech"); rec.NewSession {
+		t.Fatalf("%+v", rec)
+	}
+	h.advance(probeDelay)
+	h.oidc.SetExpiresIn(47 * 60)
+	h.eng.Tick(bg)
+	st := h.status("initech")
+	if !st.SessionEndExact || st.SessionEndsAt != loginAt.Add(49*time.Minute).Format(time.RFC3339) || st.SessionMinutes != 49 {
+		t.Fatalf("%+v", st)
+	}
+	if rec, _ := h.store.SessionRecord("initech"); rec.SessionMinutes != 0 {
+		t.Fatalf("a reused session says nothing about the length: %+v", rec)
 	}
 }
 
@@ -366,13 +472,14 @@ func TestTickAutoRenew(t *testing.T) {
 
 func TestTickEmitsOnSessionCrossing15Min(t *testing.T) {
 	h := newHarness(t, true)
-	h.writeToken(time.Hour, "CID-a")
+	h.store.autoRenew = false
+	h.writeToken(20*time.Minute, "CID-a")
 	h.setRecord(8*time.Hour-20*time.Minute, "CID-a", 480)
+	h.setEnd(20 * time.Minute)
 	h.eng.State(bg)
 	h.eng.Tick(bg)
 	n := len(h.emitted(api.EventSessionChanged))
 	h.advance(6 * time.Minute) // 14 min left
-	h.writeTokenKeepClient(t, time.Hour)
 	h.eng.Tick(bg)
 	ch := h.emitted(api.EventSessionChanged)
 	if len(ch) != n+1 || ch[len(ch)-1].(api.SessionStatus).State != api.SessionExpiring {
@@ -384,6 +491,7 @@ func TestTickReminder(t *testing.T) {
 	h := newHarness(t, true)
 	h.writeToken(time.Hour, "CID-a")
 	h.setRecord(8*time.Hour-10*time.Minute, "CID-a", 480)
+	h.setEnd(10 * time.Minute)
 	h.eng.Tick(bg)
 	h.eng.Tick(bg)
 	if n := len(h.emitted(api.EventSessionReminder)); n != 1 {
@@ -405,6 +513,7 @@ func TestTickReminder(t *testing.T) {
 	h3.store.notice = false
 	h3.writeToken(time.Hour, "CID-a")
 	h3.setRecord(8*time.Hour-10*time.Minute, "CID-a", 480)
+	h3.setEnd(10 * time.Minute)
 	h3.eng.Tick(bg)
 	if len(h3.emitted(api.EventSessionReminder)) != 0 {
 		t.Fatal("expiry notice disabled")
@@ -414,7 +523,7 @@ func TestTickReminder(t *testing.T) {
 func TestRenamePortalMovesToken(t *testing.T) {
 	h := newHarness(t, true)
 	h.login()
-	h.eng.SetSessionLength(bg, "initech", 240)
+	h.learned(240)
 	cache := sso.CLICacheDir(h.p.Home)
 	os.MkdirAll(cache, 0o700)
 	oldRole := filepath.Join(cache, sso.RoleCacheKey("777788889999", "AdministratorAccess", "initech", "")+".json")

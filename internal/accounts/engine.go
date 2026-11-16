@@ -92,6 +92,7 @@ type Engine struct {
 	lastSig     map[string]string
 	lastRenewal map[string]time.Time
 	reminded    map[string]string
+	probes      map[string]string // portal -> LoginAt of the sign-in whose check renewal is pending (see probeDelay)
 }
 
 func New(d Deps) *Engine {
@@ -105,7 +106,7 @@ func New(d Deps) *Engine {
 		d.OnWrite = func(string, []byte) {}
 	}
 	return &Engine{d: d, drafts: map[string]awsconfig.Session{}, migrating: map[string]bool{}, identified: map[string]bool{},
-		lastSig: map[string]string{}, lastRenewal: map[string]time.Time{}, reminded: map[string]string{}}
+		lastSig: map[string]string{}, lastRenewal: map[string]time.Time{}, reminded: map[string]string{}, probes: map[string]string{}}
 }
 
 // LockWrites runs fn while no other config write of this engine is in progress.

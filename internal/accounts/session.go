@@ -2,6 +2,7 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -13,6 +14,20 @@ import (
 
 var recMu sync.Mutex // serialises read-modify-write of session records
 
+// How the app learns when an IAM Identity Center session ends. AWS never tells apps the session length an
+// administrator set, but it never issues an access token that outlives the session: a token normally lives
+// one hour, and a token issued in the session's last hour is cut short to the session's end. So a token
+// that does not get the full hour shows exactly when the session ends. probeDelay after a sign-in by this
+// app, the ticker renews once to catch sessions of an hour or less right away.
+const (
+	fullGrant  = time.Hour
+	grantSlack = 30 * time.Second
+	probeDelay = 2 * time.Minute
+)
+
+// cutShort reports whether AWS gave a newly issued access token less than the full hour.
+func cutShort(granted time.Duration) bool { return granted > 0 && granted < fullGrant-grantSlack }
+
 func fmtTime(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 func normMinutes(m int) int {
@@ -20,6 +35,36 @@ func normMinutes(m int) int {
 		return defaultSessionMinutes
 	}
 	return m
+}
+
+// sessionEnd returns when the session of the current sign-in ends and whether that is exact: the end AWS
+// showed (record SessionEndsAt), else LoginAt plus the learned (or default) length, but never before the
+// access token expires.
+func sessionEnd(rec api.SessionRecord, loginAt time.Time, minutes int, tokenExpires time.Time) (time.Time, bool) {
+	if t, err := time.Parse(time.RFC3339, rec.SessionEndsAt); err == nil && t.After(loginAt) {
+		return t, true
+	}
+	ends := loginAt.Add(time.Duration(minutes) * time.Minute)
+	if tokenExpires.After(ends) {
+		ends = tokenExpires
+	}
+	return ends, false
+}
+
+// setSessionEnd stores the exact end of the current sign-in's session. When that sign-in started a new
+// session, the portal's session length is learned from it for the next sign-ins.
+func setSessionEnd(r *api.SessionRecord, end time.Time) {
+	r.SessionEndsAt = fmtTime(end)
+	if !r.NewSession {
+		return
+	}
+	loginAt, err := time.Parse(time.RFC3339, r.LoginAt)
+	if err != nil {
+		return
+	}
+	if m := int(math.Round(end.Sub(loginAt).Minutes())); m >= minSessionMinutes && m <= maxSessionMinutes {
+		r.SessionMinutes = m
+	}
 }
 
 // sessionStatusFor implements the user-facing session state.
@@ -39,12 +84,14 @@ func (e *Engine) sessionStatusFor(pd portalDef, now time.Time) api.SessionStatus
 		return out
 	}
 
-	var left time.Duration
+	var left, total time.Duration
 	if rec.LoginAt != "" && rec.ClientIDHash != "" && rec.ClientIDHash == raw.ClientIDHash {
 		if loginAt, err := time.Parse(time.RFC3339, rec.LoginAt); err == nil {
-			ends := loginAt.Add(time.Duration(minutes) * time.Minute)
-			out.SessionKnown = true
+			ends, exact := sessionEnd(rec, loginAt, minutes, raw.ExpiresAt)
+			total = ends.Sub(loginAt)
+			out.SessionKnown, out.SessionEndExact = true, exact
 			out.LoginAt, out.SessionEndsAt = fmtTime(loginAt), fmtTime(ends)
+			out.SessionMinutes = max(1, int(math.Round(total.Minutes())))
 			left = ends.Sub(now)
 		}
 	}
@@ -67,8 +114,8 @@ func (e *Engine) sessionStatusFor(pd portalDef, now time.Time) api.SessionStatus
 			out.State = activeOrRefreshable
 			out.SessionOverrun = true
 		}
-		if !out.SessionOverrun {
-			pct := int(math.Round(float64(left) / float64(time.Duration(minutes)*time.Minute) * 100))
+		if !out.SessionOverrun && total > 0 {
+			pct := int(math.Round(float64(left) / float64(total) * 100))
 			if pct < 0 {
 				pct = 0
 			}
@@ -101,7 +148,8 @@ func sigOf(s api.SessionStatus, now time.Time) string {
 			low = t.Sub(now) < expiringWindow
 		}
 	}
-	return fmt.Sprintf("%s|%v|%v|%d|%v|%s|%v|%v", s.State, s.Refreshing, s.SessionKnown, s.SessionMinutes, s.SessionOverrun, code, low, s.CanRefresh)
+	return fmt.Sprintf("%s|%v|%v|%d|%v|%s|%v|%v|%v|%s", s.State, s.Refreshing, s.SessionKnown, s.SessionMinutes, s.SessionOverrun, code, low, s.CanRefresh,
+		s.SessionEndExact, s.SessionEndsAt)
 }
 
 func (e *Engine) seedSig(portal string, s api.SessionStatus) {
@@ -171,13 +219,26 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 		return api.LoginResult{}, sso.ToAppError(lerr, portal)
 	}
 	now := e.d.Now()
+	// A token this app cannot renew ends the session for it when the token expires.
+	renewable := e.d.Sessions.Status(pd.sess).CanRefresh
 	e.updateRecord(portal, func(r *api.SessionRecord) {
 		r.LoginAt = fmtTime(now)
 		r.ClientIDHash = sso.ClientIDHash(tok.ClientID)
 		r.TokenIssuedAt = fmtTime(now)
+		r.SessionEndsAt = ""
+		// A sign-in that reused a session already running in the browser gets a shorter first token.
+		r.NewSession = !cutShort(tok.Granted)
+		if !renewable {
+			setSessionEnd(r, tok.ExpiresAt)
+		}
 	})
 	e.mu.Lock()
 	delete(e.reminded, portal)
+	if renewable {
+		e.probes[portal] = fmtTime(now)
+	} else {
+		delete(e.probes, portal)
+	}
 	e.mu.Unlock()
 	e.publishSession(pd)
 	e.EmitState(ctx)
@@ -196,11 +257,15 @@ func (e *Engine) Refresh(ctx context.Context, portal string) (api.SessionStatus,
 	if !ok {
 		return api.SessionStatus{}, api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", portal)
 	}
-	if _, rerr := e.d.Sessions.Refresh(ctx, pd.sess); rerr != nil {
+	tok, rerr := e.d.Sessions.Refresh(ctx, pd.sess)
+	if rerr != nil {
+		if errors.Is(rerr, sso.ErrInvalidGrant) {
+			e.noteRefusal(pd, e.d.Now())
+		}
 		e.publishSession(pd)
 		return api.SessionStatus{}, sso.ToAppError(rerr, portal)
 	}
-	e.updateRecord(portal, func(r *api.SessionRecord) { r.TokenIssuedAt = fmtTime(e.d.Now()) })
+	e.noteRenewal(portal, tok, e.d.Now())
 	st := e.publishSession(pd)
 	e.emit(api.EventSessionRenewed, st)
 	e.EmitState(ctx)
@@ -238,23 +303,47 @@ func (e *Engine) Logout(ctx context.Context, portal string) (api.LogoutResult, e
 	return api.LogoutResult{Portal: portal, DeletedRoleCaches: n, ServerLogout: server}, nil
 }
 
-// SetSessionLength stores the per-portal session length (minutes, 15..129600) used by the countdown.
-func (e *Engine) SetSessionLength(ctx context.Context, portal string, minutes int) (api.SessionStatus, error) {
-	if minutes < minSessionMinutes || minutes > maxSessionMinutes {
-		return api.SessionStatus{}, api.NewError(api.ErrInvalidInput, "session length out of range").WithParam("field", "minutes")
+// noteRenewal records a renewal by this app. A token that no longer gets the full hour shows where the
+// session ends (see fullGrant).
+func (e *Engine) noteRenewal(portal string, tok *sso.CachedToken, now time.Time) {
+	hash := sso.ClientIDHash(tok.ClientID)
+	e.updateRecord(portal, func(r *api.SessionRecord) {
+		r.TokenIssuedAt = fmtTime(now)
+		if cutShort(tok.Granted) && r.LoginAt != "" && r.ClientIDHash == hash {
+			setSessionEnd(r, tok.ExpiresAt)
+		}
+	})
+}
+
+// noteRefusal records a renewal AWS refused. While the access token is still valid, the session ends when it
+// expires. No length is learned from it: a refusal can also mean that the session was signed out or revoked.
+func (e *Engine) noteRefusal(pd portalDef, now time.Time) {
+	raw := e.d.Sessions.Status(pd.sess)
+	if !raw.ExpiresAt.After(now) {
+		return
 	}
-	snap, err := e.Snapshot()
-	if err != nil {
-		return api.SessionStatus{}, err
-	}
-	pd, ok := e.portalDef(snap, portal)
+	e.updateRecord(pd.name, func(r *api.SessionRecord) {
+		if r.LoginAt != "" && r.ClientIDHash == raw.ClientIDHash && r.SessionEndsAt == "" {
+			r.SessionEndsAt = fmtTime(raw.ExpiresAt)
+		}
+	})
+}
+
+// probeDue reports whether the check renewal after this app's sign-in (probeDelay later) is due for the
+// sign-in that is still current. It shows a session of an hour or less right away.
+func (e *Engine) probeDue(portal string, st api.SessionStatus, now time.Time) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	at, ok := e.probes[portal]
 	if !ok {
-		return api.SessionStatus{}, api.NewError(api.ErrInvalidInput, "unknown portal").WithParam("field", "portal")
+		return false
 	}
-	e.updateRecord(portal, func(r *api.SessionRecord) { r.SessionMinutes = minutes })
-	st := e.publishSession(pd)
-	e.EmitState(ctx)
-	return st, nil
+	if !st.SessionKnown || st.LoginAt != at || st.SessionEndExact {
+		delete(e.probes, portal)
+		return false
+	}
+	loginAt, err := time.Parse(time.RFC3339, at)
+	return err == nil && !now.Before(loginAt.Add(probeDelay))
 }
 
 // Tick is the 30 s ticker body: renew tokens, emit session changes and reminders.
@@ -272,25 +361,35 @@ func (e *Engine) Tick(ctx context.Context) {
 		e.mu.Lock()
 		last := e.lastRenewal[pd.name]
 		e.mu.Unlock()
-		if !pd.legacy && e.d.Store.AutoRenew() && raw.CanRefresh && raw.ExpiresAt.Sub(now) < expiringWindow &&
+		renew := raw.ExpiresAt.Sub(now) < expiringWindow
+		probe := !renew && e.probeDue(pd.name, st, now)
+		if !pd.legacy && e.d.Store.AutoRenew() && raw.CanRefresh && (renew || probe) &&
 			now.Sub(last) > 60*time.Second && ctx.Err() == nil {
 			e.mu.Lock()
 			e.lastRenewal[pd.name] = now
 			e.mu.Unlock()
-			busy := st
-			busy.Refreshing = true
-			e.emit(api.EventSessionChanged, busy)
-			if _, rerr := e.d.Sessions.Refresh(ctx, pd.sess); rerr == nil {
-				e.updateRecord(pd.name, func(r *api.SessionRecord) { r.TokenIssuedAt = fmtTime(e.d.Now()) })
-				after := e.sessionStatusFor(pd, e.d.Now())
-				e.emit(api.EventSessionRenewed, after)
-				e.emit(api.EventSessionChanged, after)
-				e.setSig(pd.name, after)
-			} else {
-				after := e.sessionStatusFor(pd, e.d.Now())
-				e.emit(api.EventSessionChanged, after)
-				e.setSig(pd.name, after)
+			if !probe { // the probe is a quiet check, not a renewal the user needs to see
+				busy := st
+				busy.Refreshing = true
+				e.emit(api.EventSessionChanged, busy)
 			}
+			tok, rerr := e.d.Sessions.Refresh(ctx, pd.sess)
+			if rerr == nil || errors.Is(rerr, sso.ErrInvalidGrant) {
+				e.mu.Lock()
+				delete(e.probes, pd.name) // a network error leaves the probe for the next tick
+				e.mu.Unlock()
+			}
+			if rerr == nil {
+				e.noteRenewal(pd.name, tok, e.d.Now())
+			} else if errors.Is(rerr, sso.ErrInvalidGrant) {
+				e.noteRefusal(pd, e.d.Now())
+			}
+			after := e.sessionStatusFor(pd, e.d.Now())
+			if rerr == nil && !probe {
+				e.emit(api.EventSessionRenewed, after)
+			}
+			e.emit(api.EventSessionChanged, after)
+			e.setSig(pd.name, after)
 			changed = true
 			continue
 		}
