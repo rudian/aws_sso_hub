@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { Clock, ExternalLink, KeyRound, Link as LinkIcon, LogIn, MoreHorizontal, Terminal } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { copyText } from '../../api/platform'
 import { Accounts, System } from '../../api/services'
 import { MigrationStep } from '../../api/models'
@@ -52,6 +53,23 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
   const signedIn = isSignedIn(session)
   const shared = sharedLine(profile, portal, counting || signedIn, t)
   const keysLeft = hasKeysLeft(profile)
+  const [consoleOpening, setConsoleOpening] = useState(false)
+  const consoleBusy = useRef(false)
+
+  // OpenConsole makes two network calls (about 1 s); clicks meanwhile are ignored
+  const openConsole = async () => {
+    if (consoleBusy.current) return
+    consoleBusy.current = true
+    setConsoleOpening(true)
+    try {
+      await Accounts.OpenConsole(profile.name)
+    } catch (e) {
+      failToast(e)
+    } finally {
+      consoleBusy.current = false
+      setConsoleOpening(false)
+    }
+  }
 
   const copy = async (text: string) => {
     try {
@@ -154,7 +172,7 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
       <div className="pass__actions">
         {counting && (
           <>
-            <Button size="sm" icon={ExternalLink} onClick={() => void Accounts.OpenConsole(profile.name).catch(failToast)}>
+            <Button size="sm" icon={ExternalLink} loading={consoleOpening} onClick={() => void openConsole()}>
               {t('card.console')}
             </Button>
             <IconButton size="sm" label={t('card.terminal')} icon={Terminal} onClick={() => navigate({ page: 'terminal', profile: profile.name })} />

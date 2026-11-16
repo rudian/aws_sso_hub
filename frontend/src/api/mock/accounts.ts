@@ -423,8 +423,9 @@ export const mockAccountService: typeof AccountReal = {
       return { private: privateSignIn, isolated: privateSignIn }
     }),
 
+  // two network calls in the app (about 1 s)
   OpenConsole: (profile) =>
-    run(READ, () => {
+    run(SLOW, () => {
       const w = getWorld()
       const p = findProfile(w, profile)
       if (!p || p.kind !== ProfileKind.ProfileKindSSO) throw fail(ErrorCode.ErrInvalidInput, 'console needs an SSO profile', { field: 'profile' })
