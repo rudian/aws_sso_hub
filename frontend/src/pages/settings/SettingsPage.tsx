@@ -30,6 +30,7 @@ import { useEnv } from '../../state/env'
 import { useRepos } from '../../state/repos'
 import { useSettings } from '../../state/settings'
 import { TerminalAppSelect } from '../terminal/TerminalAppSelect'
+import { NotifyStatusCard, NotifyWindowsHelp, useNotifyState } from './NotifyRows'
 import { RestoreModal } from './RestoreModal'
 import { REPO_URL, backupReasonText, formatBytes, newestBackup, platformName } from './util'
 import './settings.css'
@@ -105,6 +106,7 @@ export function SettingsPage() {
   const platform = info?.platform ?? guessPlatform()
   const backups = useAsync(() => System.ListBackups(), [])
   const [restoreId, setRestoreId] = useState<string | null>(null)
+  const notifyState = useNotifyState()
 
   const fail = (e: unknown, title?: string) => {
     const text = errorText(toUiError(e), t)
@@ -135,6 +137,15 @@ export function SettingsPage() {
       if (newest) setRestoreId(newest.id)
     }
   }, [backups.data])
+
+  // ?open=reminders: scroll to the sign-in reminders card (screenshots of the notification rows)
+  const openedReminders = useRef(false)
+  useEffect(() => {
+    if (openedReminders.current || !settings) return
+    openedReminders.current = true
+    if (takeOpen('reminders') === null) return
+    window.setTimeout(() => document.getElementById('set-reminders')?.scrollIntoView({ block: 'center' }), 80)
+  }, [settings])
 
   const display = useMemo(() => {
     const m = new Map<string, string>()
@@ -190,6 +201,8 @@ export function SettingsPage() {
       </header>
       <GlobalBanner />
       <div className="page__body">
+        <NotifyStatusCard state={notifyState} platform={platform} />
+
         <Card id="set-general" title={t('settings.group.general')}>
           <Row label={t('settings.language')} desc={t('settings.language.hint')}>
             <Segmented<Language>
@@ -277,8 +290,8 @@ export function SettingsPage() {
           </Row>
         </Card>
 
-        <Card id="set-reminders" title={t('settings.reminders')}>
-          <Row label={t('settings.reminders.expiry')}>
+        <Card id="set-reminders" title={t('settings.notify.title')}>
+          <Row label={t('settings.reminders.expiry')} desc={t('settings.notify.expiry.hint')}>
             <Switch label={t('settings.reminders.expiry')} checked={s.reminders.expiryNotice} onChange={(v) => void save({ reminders: { ...s.reminders, expiryNotice: v } })} />
           </Row>
           <Row label={t('settings.reminders.lead')}>
@@ -293,10 +306,15 @@ export function SettingsPage() {
               <option value="60">{t('settings.reminders.lead.hour')}</option>
             </Select>
           </Row>
+          <Row label={t('settings.notify.ended')} desc={t('settings.notify.ended.hint')}>
+            <Switch label={t('settings.notify.ended')} checked={!s.reminders.endedNoticeOff} onChange={(v) => void save({ reminders: { ...s.reminders, endedNoticeOff: !v } })} />
+          </Row>
           <Row label={t('settings.reminders.autoRenew')} desc={t('settings.reminders.autoRenew.hint')}>
             <Switch label={t('settings.reminders.autoRenew')} checked={s.reminders.autoRenew} onChange={(v) => void save({ reminders: { ...s.reminders, autoRenew: v } })} />
           </Row>
+          <p className="notify-note">{t('settings.notify.admin')}</p>
         </Card>
+        <NotifyWindowsHelp platform={platform} />
 
         <Card id="set-tray" title={t('settings.group.tray')}>
           <Row label={platform === 'windows' ? t('settings.tray.win') : t('settings.tray')}>

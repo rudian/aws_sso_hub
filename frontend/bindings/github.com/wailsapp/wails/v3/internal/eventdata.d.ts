@@ -21,9 +21,12 @@ declare module "@wailsio/runtime" {
             "identity:changed": {};
             "login:progress": api$0.LoginProgress;
             "migration:progress": api$0.MigrationProgress;
+            "notify:state": api$0.NotifyState;
+            "notify:toast": api$0.NotifyToast;
             "repos:changed": api$0.ReposState;
             "repos:scan-progress": api$0.ScanProgress;
             "session:changed": api$0.SessionStatus;
+            "session:ended": api$0.SessionStatus;
             "session:reminder": api$0.SessionStatus;
             "session:renewed": api$0.SessionStatus;
             "settings:changed": api$0.Settings;

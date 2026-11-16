@@ -29,6 +29,7 @@ type fakeStore struct {
 	autoRenew  bool
 	lead       time.Duration
 	notice     bool
+	endedOff   bool // reminders.endedNoticeOff
 	colorSets  int
 }
 
@@ -125,6 +126,7 @@ func (s *fakeStore) DeleteSessionRecord(p string) error {
 func (s *fakeStore) AutoRenew() bool             { return s.autoRenew }
 func (s *fakeStore) ReminderLead() time.Duration { return s.lead }
 func (s *fakeStore) ExpiryNotice() bool          { return s.notice }
+func (s *fakeStore) EndedNotice() bool           { return !s.endedOff }
 
 type event struct {
 	name string
@@ -144,6 +146,7 @@ type harness struct {
 	sso      *sso.Manager
 	eng      *Engine
 	bk       *backup.Store
+	log      *recLog // the notice log; survives h.restart()
 
 	mu     sync.Mutex
 	now    time.Time
@@ -215,8 +218,16 @@ func newHarness(t *testing.T, withFixtures bool) *harness {
 		t.Fatal(err)
 	}
 	h.bk = bk
-	h.eng = New(Deps{
-		Paths: p, Sessions: h.sso, Backup: bk, Store: h.store, Endpoints: awsapi.Endpoints{STS: h.aws.URL, IAM: h.aws.URL, SignIn: h.aws.URL},
+	h.log = newRecLog()
+	h.eng = h.newEngine()
+	return h
+}
+
+// newEngine builds an engine over the harness's files, clock and notice log. h.restart() uses it to model the
+// app being closed and opened again.
+func (h *harness) newEngine() *Engine {
+	return New(Deps{
+		Paths: h.p, Sessions: h.sso, Backup: h.bk, Store: h.store, Endpoints: awsapi.Endpoints{STS: h.aws.URL, IAM: h.aws.URL, SignIn: h.aws.URL},
 		Emit: func(name string, data any) {
 			h.mu.Lock()
 			h.events = append(h.events, event{name, data})
@@ -228,8 +239,33 @@ func newHarness(t *testing.T, withFixtures bool) *harness {
 			h.writes = append(h.writes, path)
 			h.mu.Unlock()
 		},
+		Notices: h.log,
 	})
-	return h
+}
+
+// restart replaces the engine by a new one: in-memory state is gone, the settings and the notice log stay.
+func (h *harness) restart() { h.eng = h.newEngine() }
+
+// recLog is a NoticeLog that also records what it was told.
+type recLog struct {
+	*memLog
+	mu   sync.Mutex
+	ins  []string
+	outs []string
+}
+
+func newRecLog() *recLog { return &recLog{memLog: newMemLog()} }
+func (l *recLog) SignedIn(p string) {
+	l.mu.Lock()
+	l.ins = append(l.ins, p)
+	l.mu.Unlock()
+	l.memLog.SignedIn(p)
+}
+func (l *recLog) SignedOut(p string) {
+	l.mu.Lock()
+	l.outs = append(l.outs, p)
+	l.mu.Unlock()
+	l.memLog.SignedOut(p)
 }
 
 var portalInitech = sso.Session{Name: "initech", StartURL: "https://d-1234567890.awsapps.com/start", Region: "us-west-2", Scopes: []string{"sso:account:access"}, ScopesSet: true}

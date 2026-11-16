@@ -145,6 +145,15 @@ Setup by the owner (none of it is done by the scripts or by this task):
 4. `gh auth login` on the Mac with an account that can create releases there.
 5. Release candidates: tags `v1.0.0-rc.1`, `v1.0.0-rc.2`, ... Final: `v1.0.0`.
 
+### System notifications in a development build
+
+A release build (`-tags production`, `build/darwin/Taskfile.yml` `BUILD_FLAGS`) uses the system's notification
+service. Sandbox mode (`AWSSSOHUB_SANDBOX`) and every test use a fake, which also shows each notice as a toast in the
+window. A development build (no `production` tag) uses the fake too, unless `AWSSSOHUB_REAL_NOTIFICATIONS=1` is set
+(never inside `go test`). That one variable is for the owner's manual checks (C22 to C24, B19): the development build
+shares the installed app's bundle ID, so its permission answer, its notifications and a click on them are the
+installed app's. Quit the installed app first, or accept the shared identity.
+
 ## Dry run (what CI can run)
 
 ```

@@ -70,8 +70,9 @@ func (e *Engine) RenamePortal(oldName, newName, baseHash string) (api.WriteResul
 	recMu.Unlock()
 	e.mu.Lock()
 	delete(e.lastSig, oldName)
-	delete(e.reminded, oldName)
+	delete(e.watch, oldName)
 	e.mu.Unlock()
+	e.d.Notices.SignedOut(oldName) // the old name's records and delivered notice go with it
 	e.EmitState(context.Background())
 	return api.WriteResult{File: e.display(e.d.Paths.AWSConfigFile), BackupID: id}, nil
 }
@@ -129,8 +130,9 @@ func (e *Engine) RemovePortal(name, baseHash string) (api.WriteResult, error) {
 	recMu.Unlock()
 	e.mu.Lock()
 	delete(e.lastSig, name)
-	delete(e.reminded, name)
+	delete(e.watch, name)
 	e.mu.Unlock()
+	e.d.Notices.SignedOut(name)
 	e.EmitState(context.Background())
 	return api.WriteResult{File: e.display(e.d.Paths.AWSConfigFile), BackupID: id}, nil
 }

@@ -124,6 +124,9 @@ type ReminderSettings struct {
 	ExpiryNotice bool `json:"expiryNotice"`
 	LeadMinutes  int  `json:"leadMinutes"` // 15 | 30 | 60
 	AutoRenew    bool `json:"autoRenew"`
+	// EndedNoticeOff turns off the system notification sent when a sign-in has ended. It is stored as "off" so
+	// that the zero value (a settings file written before this field existed) means "notify" (plan 3.1, 4.15).
+	EndedNoticeOff bool `json:"endedNoticeOff"`
 }
 
 type TraySettings struct {
@@ -235,8 +238,10 @@ type ExternalChange struct {
 
 type NavigateRequest struct {
 	Page   string `json:"page"`             // PageId of the frontend
-	Action string `json:"action,omitempty"` // "login"
-	Arg    string `json:"arg,omitempty"`    // portal name for "login"
+	Action string `json:"action,omitempty"` // "login", "show" or "signed-in"
+	Arg    string `json:"arg,omitempty"`    // portal name for "login", "show" and "signed-in"
+	// "show": scroll to the portal and highlight its pass once (a click on a sign-in notification).
+	// "signed-in": the same, plus the toast "Already signed in" (a stale button of a sign-in notification).
 }
 
 // ---- tools gate and installers (F1-12) -----------------------------------------------------------------------

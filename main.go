@@ -85,6 +85,9 @@ func main() {
 		Icon:        appIcon,
 		Logger:      logger,
 		Services: []application.Service{
+			// first: the system notification service (started and guarded by internal/notify) must be up, with
+			// its delegate set, before the accounts ticker can send a notice or a click can arrive
+			application.NewService(app.NewNotifyService(c)),
 			application.NewService(app.NewAccountService(c)),
 			application.NewService(app.NewMigrationService(c)),
 			application.NewService(app.NewRepoService(c)),

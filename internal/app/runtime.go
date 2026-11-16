@@ -151,6 +151,18 @@ func (r *wailsRuntime) ShowWindow() {
 	w.Focus()
 }
 
+// WindowVisible reports whether the main window is on screen (shown and not minimised).
+func (r *wailsRuntime) WindowVisible() bool {
+	w := r.window()
+	return w != nil && w.IsVisible() && !w.IsMinimised()
+}
+
+// WindowFocused reports whether the main window is in front.
+func (r *wailsRuntime) WindowFocused() bool {
+	w := r.window()
+	return w != nil && w.IsVisible() && !w.IsMinimised() && w.IsFocused()
+}
+
 // checkHTTPS accepts only absolute https URLs with a host (SystemService.OpenURL).
 func checkHTTPS(raw string) error {
 	u, err := url.Parse(raw)

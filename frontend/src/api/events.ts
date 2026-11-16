@@ -8,6 +8,8 @@ import type {
   LoginProgress,
   MigrationProgress,
   NavigateRequest,
+  NotifyState,
+  NotifyToast,
   ReposState,
   ScanProgress,
   SessionStatus,
@@ -20,6 +22,9 @@ export interface EventPayloads {
   'session:changed': SessionStatus
   'session:renewed': SessionStatus
   'session:reminder': SessionStatus
+  'session:ended': SessionStatus
+  'notify:toast': NotifyToast
+  'notify:state': NotifyState
   'login:progress': LoginProgress
   'migration:progress': MigrationProgress
   'repos:changed': ReposState

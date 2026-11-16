@@ -685,6 +685,14 @@ func (s *Store) ExpiryNotice() bool {
 	defer s.mu.Unlock()
 	return s.d.Reminders.ExpiryNotice
 }
+
+// EndedNotice reports whether a system notification is sent when a sign-in has ended. The file stores the
+// opposite (reminders.endedNoticeOff), so a file from 0.0.1 or 0.0.2 without the field means "notify".
+func (s *Store) EndedNotice() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.d.Reminders.EndedNoticeOff
+}
 func (s *Store) ReminderLead() time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()

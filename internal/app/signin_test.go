@@ -60,7 +60,19 @@ type fakeWindow struct {
 	url, dir string
 	mu       sync.Mutex
 	closed   int
+	focused  int
 }
+
+// Focus stands in for bringing an isolated browser to the front (F1-22: a click on "Sign in again" while that
+// portal's sign-in is already running).
+func (w *fakeWindow) Focus(context.Context) error {
+	w.mu.Lock()
+	w.focused++
+	w.mu.Unlock()
+	return nil
+}
+
+func (w *fakeWindow) focusCount() int { w.mu.Lock(); defer w.mu.Unlock(); return w.focused }
 
 func (w *fakeWindow) Close(context.Context) error {
 	err := os.RemoveAll(w.dir)

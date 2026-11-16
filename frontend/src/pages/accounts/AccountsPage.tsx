@@ -18,6 +18,7 @@ import { useAccounts } from '../../state/accounts'
 import { AddPortalModal } from './AddPortalModal'
 import { ColorDialog } from './ColorDialog'
 import { ExportDialog } from './ExportDialog'
+import { showPortalOnce, usePortalFocus } from './focus'
 import { Gated, useCollapsedPortals, useSignOut } from './hooks'
 import type { DialogState } from './hooks'
 import { ImportDialog } from './ImportDialog'
@@ -44,6 +45,25 @@ export function AccountsPage() {
   const portalNames = useMemo(() => portals.map((p) => p.name), [portals])
   const fold = useCollapsedPortals(portalNames)
   const statics = useMemo(() => staticProfiles(profiles), [profiles])
+
+  // A click on a sign-in notification: show this portal once, scrolled to and highlighted. A collapsed portal is
+  // open for this view only (the saved fold state is untouched); folding it by hand ends that.
+  const [shown, setShown] = useState<string | null>(null)
+  const [shownSeq, setShownSeq] = useState(0)
+  usePortalFocus((name) => {
+    setShown(name)
+    setShownSeq((n) => n + 1)
+  })
+  // Each request is shown once: later accounts updates (a sign-in, a renewal) do not scroll back or replay it.
+  const handledSeq = useRef(0)
+  useEffect(() => {
+    if (!shown || !state || handledSeq.current === shownSeq) return
+    const id = window.setTimeout(() => {
+      handledSeq.current = shownSeq
+      showPortalOnce(shown)
+    }, 60)
+    return () => window.clearTimeout(id)
+  }, [shown, shownSeq, state])
 
   const doRefresh = async () => {
     setRefreshing(true)
@@ -160,7 +180,19 @@ export function AccountsPage() {
         <LegacyPanel profiles={statics} readOnly={readOnly} />
 
         {portals.map((p) => (
-          <PortalSection key={p.name} portal={p} profiles={profiles.filter((x) => x.kind !== ProfileKind.ProfileKindStatic)} readOnly={readOnly} onDialog={setDialog} collapsed={fold.isCollapsed(p.name)} onToggle={() => fold.toggle(p.name)} />
+          <PortalSection
+            key={p.name}
+            portal={p}
+            profiles={profiles.filter((x) => x.kind !== ProfileKind.ProfileKindStatic)}
+            readOnly={readOnly}
+            onDialog={setDialog}
+            collapsed={fold.isCollapsed(p.name) && shown !== p.name}
+            onToggle={() => {
+              if (shown !== p.name) return fold.toggle(p.name)
+              setShown(null) // the view that was opened once ends: the saved fold state shows again
+              if (!fold.isCollapsed(p.name)) fold.toggle(p.name) // it was open anyway: folding is what was asked
+            }}
+          />
         ))}
       </div>
 

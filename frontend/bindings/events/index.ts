@@ -54,6 +54,16 @@ export const LoginProgress = "login:progress";
 export const MigrationProgress = "migration:progress";
 
 /**
+ * Name of the custom event "notify:state".
+ */
+export const NotifyState = "notify:state";
+
+/**
+ * Name of the custom event "notify:toast".
+ */
+export const NotifyToast = "notify:toast";
+
+/**
  * Name of the custom event "repos:changed".
  */
 export const ReposChanged = "repos:changed";
@@ -67,6 +77,11 @@ export const ReposScanProgress = "repos:scan-progress";
  * Name of the custom event "session:changed".
  */
 export const SessionChanged = "session:changed";
+
+/**
+ * Name of the custom event "session:ended".
+ */
+export const SessionEnded = "session:ended";
 
 /**
  * Name of the custom event "session:reminder".

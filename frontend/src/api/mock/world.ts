@@ -698,7 +698,7 @@ function baseSettings(): Settings {
     theme: initialUI.theme === 'dark' ? Theme.ThemeDark : initialUI.theme === 'light' ? Theme.ThemeLight : Theme.ThemeSystem,
     motion: MotionPref.MotionSystem,
     scanRoots: [SCAN_ROOT],
-    reminders: { expiryNotice: true, leadMinutes: 15, autoRenew: true },
+    reminders: { expiryNotice: true, leadMinutes: 15, autoRenew: true, endedNoticeOff: false },
     tray: { enabled: false, keepRunning: false },
     terminalApp: TerminalApp.TerminalAuto,
     backupRetention: 20,

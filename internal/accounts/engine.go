@@ -39,6 +39,24 @@ type Store interface {
 	AutoRenew() bool
 	ReminderLead() time.Duration
 	ExpiryNotice() bool
+	EndedNotice() bool // reminders.endedNoticeOff == false
+}
+
+// NoticeLog remembers which sign-in notices were sent (internal/notify keeps it in notifications.json) and is
+// told when a portal was signed in or out. A portal's record holds, per kind ("headsup", "ended"), the key of
+// the last notice sent for it: the sign-in time. It never fails; a log that cannot write keeps its records in
+// memory.
+type NoticeLog interface {
+	Last(portal, kind string) string
+	Mark(portal, kind, key string)
+	// SignInStarting is called when a sign-in of the portal begins, before the browser opens.
+	SignInStarting(portal string)
+	// SignedIn is called after a successful sign-in of the portal: the record starts over and the portal's
+	// delivered notice is taken back.
+	SignedIn(portal string)
+	// SignedOut is called after the person signed the portal out: nothing is sent for it, a delivered heads-up is
+	// taken back.
+	SignedOut(portal string)
 }
 
 // RepoStats is implemented by the repo side (wired in internal/app).
@@ -69,6 +87,7 @@ type Deps struct {
 	Emit        func(name string, data any)
 	Now         func() time.Time
 	OnWrite     func(path string, content []byte) // informs the file watcher of the app's own writes
+	Notices     NoticeLog                         // nil: the records live in memory
 }
 
 const (
@@ -91,8 +110,8 @@ type Engine struct {
 	stats       RepoStats
 	lastSig     map[string]string
 	lastRenewal map[string]time.Time
-	reminded    map[string]string
-	probes      map[string]string // portal -> LoginAt of the sign-in whose check renewal is pending (see probeDelay)
+	watch       map[string]*endWatch // portal -> what the ticker saw of its sign-in (see watchEnd)
+	probes      map[string]string    // portal -> LoginAt of the sign-in whose check renewal is pending (see probeDelay)
 }
 
 func New(d Deps) *Engine {
@@ -105,8 +124,11 @@ func New(d Deps) *Engine {
 	if d.OnWrite == nil {
 		d.OnWrite = func(string, []byte) {}
 	}
+	if d.Notices == nil {
+		d.Notices = newMemLog()
+	}
 	return &Engine{d: d, drafts: map[string]awsconfig.Session{}, migrating: map[string]bool{}, identified: map[string]bool{},
-		lastSig: map[string]string{}, lastRenewal: map[string]time.Time{}, reminded: map[string]string{}, probes: map[string]string{}}
+		lastSig: map[string]string{}, lastRenewal: map[string]time.Time{}, watch: map[string]*endWatch{}, probes: map[string]string{}}
 }
 
 // LockWrites runs fn while no other config write of this engine is in progress.

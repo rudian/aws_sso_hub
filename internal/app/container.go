@@ -23,6 +23,7 @@ import (
 	"github.com/rudian/codepass/internal/gitglobal"
 	"github.com/rudian/codepass/internal/gitx"
 	"github.com/rudian/codepass/internal/migrate"
+	"github.com/rudian/codepass/internal/notify"
 	"github.com/rudian/codepass/internal/paths"
 	"github.com/rudian/codepass/internal/projects"
 	"github.com/rudian/codepass/internal/repos"
@@ -50,6 +51,10 @@ type ContainerOptions struct {
 	ScanDelay         time.Duration // delay before the background scan, default 1 s
 	FetchInterval     time.Duration // background fetch of bound or opened repositories, default 15 min
 	Online            func() bool   // nil = a network interface is up (no traffic); background fetch skips while false
+	// NotifyBackend replaces the notification backend (a fake in tests); nil = chosen by the build and the
+	// environment (notify.UseReal). NotifyAlsoToast makes every notice a toast in the window too, as sandbox mode does.
+	NotifyBackend   notify.Backend
+	NotifyAlsoToast bool
 }
 
 // EndpointsFromEnv reads the AWSSSOHUB_*_ENDPOINT overrides. They are honoured in sandbox mode only.
@@ -85,9 +90,11 @@ type Container struct {
 	Global     *gitglobal.Engine
 	Update     *update.Controller // set by StartUpdates
 	Creds      credstore.Store
+	Notify     *notify.Service // system notifications (F1-22); the only code that talks to the OS about them
 
-	opts ContainerOptions
-	now  func() time.Time
+	opts    ContainerOptions
+	now     func() time.Time
+	notifyc *notifyCtl // the gate for clicks, the sign-in pages under way
 
 	// private opens sign-in pages in an isolated browser or a private window. nil in sandbox mode: a
 	// sandboxed app never launches a real browser. Tests may set it to a fake.
@@ -149,6 +156,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		return nil, err
 	}
 	c.Settings, c.FirstRun = st, first
+	c.initNotify(o) // before the accounts engine: the engine is given the notice log
 	if dropped := st.DroppedToolPaths(); len(dropped) > 0 && o.Logger != nil {
 		o.Logger.Warn("ignoring invalid tool paths in the settings file", "settings", dropped)
 	}
@@ -177,8 +185,9 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 
 	c.Accounts = accounts.New(accounts.Deps{
 		Paths: p, Sessions: c.SSO, Backup: bk, Store: st, Endpoints: awsEP,
-		OpenBrowser: rt.OpenURL, Emit: emit, Now: o.Now, OnWrite: c.files.note,
+		OpenBrowser: rt.OpenURL, Emit: emit, Now: o.Now, OnWrite: c.files.note, Notices: noticeLog{c},
 	})
+	c.wireNotify()
 	c.Transfer = transfer.New(transfer.Deps{
 		Paths: p, Backup: bk, Store: st, State: c.Accounts.State, Changed: c.Accounts.EmitState,
 		WriteLock: c.Accounts.LockWrites, Now: o.Now, OnWrite: c.files.note,

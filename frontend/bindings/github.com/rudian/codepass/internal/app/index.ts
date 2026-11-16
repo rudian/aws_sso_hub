@@ -5,6 +5,7 @@ import * as AccountService from "./accountservice.js";
 import * as GitGlobalService from "./gitglobalservice.js";
 import * as IdentityService from "./identityservice.js";
 import * as MigrationService from "./migrationservice.js";
+import * as NotifyService from "./notifyservice.js";
 import * as RepoService from "./reposervice.js";
 import * as SystemService from "./systemservice.js";
 import * as ToolService from "./toolservice.js";
@@ -14,6 +15,7 @@ export {
     GitGlobalService,
     IdentityService,
     MigrationService,
+    NotifyService,
     RepoService,
     SystemService,
     ToolService,

@@ -500,6 +500,25 @@ export enum ErrorCode {
      */
     $zero = "",
 
+    /**
+     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
+     *
+     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
+     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
+     */
+    ErrMovedHasData = "E_MOVED_HAS_DATA",
+
+    /**
+     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
+     * after 30 days, or the question was answered already).
+     */
+    ErrMovedGone = "E_MOVED_GONE",
+
+    /**
+     * ErrProjectNotFound: the project does not exist (any more). params: id
+     */
+    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
+
     ErrInternal = "E_INTERNAL",
     ErrCancelled = "E_CANCELLED",
     ErrNotImplemented = "E_NOT_IMPLEMENTED",
@@ -671,25 +690,6 @@ export enum ErrorCode {
      * params: reason (not-json | format | version | size | limit)
      */
     ErrImportFormat = "E_IMPORT_FORMAT",
-
-    /**
-     * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
-     *
-     * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
-     * own, so "yes, it moved" would delete that data. (Re-attach refuses; nothing changed.)
-     */
-    ErrMovedHasData = "E_MOVED_HAS_DATA",
-
-    /**
-     * ErrMovedGone: the moved-folder question is out of date (the old folder came back, the record was dropped
-     * after 30 days, or the question was answered already).
-     */
-    ErrMovedGone = "E_MOVED_GONE",
-
-    /**
-     * ErrProjectNotFound: the project does not exist (any more). params: id
-     */
-    ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
 };
 
 /**
@@ -1688,12 +1688,12 @@ export interface NavigateRequest {
     "page": string;
 
     /**
-     * "login"
+     * "login", "show" or "signed-in"
      */
     "action"?: string;
 
     /**
-     * portal name for "login"
+     * portal name for "login", "show" and "signed-in"
      */
     "arg"?: string;
 }
@@ -1705,6 +1705,99 @@ export interface NewProfileSpec {
     "role": string;
     "region": string;
 }
+
+/**
+ * NotifyAction says what the person pressed on a notification or its in-window toast.
+ */
+export enum NotifyAction {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * the notification itself
+     */
+    NotifyActionBody = "body",
+
+    /**
+     * its one button
+     */
+    NotifyActionButton = "button",
+};
+
+/**
+ * NotifyPermission is what the app knows about the system's permission to notify.
+ */
+export enum NotifyPermission {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    /**
+     * NotifyAllowed: the system accepts notifications (always on Windows, which cannot tell).
+     */
+    NotifyAllowed = "allowed",
+
+    /**
+     * NotifyNotAsked: the app has not asked yet (macOS only).
+     */
+    NotifyNotAsked = "notAsked",
+
+    /**
+     * NotifyOff: the app asked and the system says no (macOS only).
+     */
+    NotifyOff = "off",
+};
+
+/**
+ * NotifyState is the permission row of Settings.
+ */
+export interface NotifyState {
+    "permission": NotifyPermission;
+
+    /**
+     * Available is false when the system's notification service could not start (a binary without a bundle
+     * identifier): notices then appear as toasts in the window only.
+     */
+    "available": boolean;
+}
+
+/**
+ * NotifyToast is one notification drawn by the window. Title, Body and Button are already in the person's
+ * language and contain no secret (plan 4.15 "Text that never appears").
+ */
+export interface NotifyToast {
+    /**
+     * pass it back to NotifyService.RespondToast
+     */
+    "id": string;
+    "kind": string;
+    "title": string;
+    "body": string;
+    "button"?: string;
+    "tone": NotifyTone;
+
+    /**
+     * stays until dismissed
+     */
+    "sticky": boolean;
+}
+
+/**
+ * NotifyTone colours an in-window toast.
+ */
+export enum NotifyTone {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    NotifyToneInfo = "info",
+    NotifyToneWarn = "warn",
+    NotifyToneDanger = "danger",
+};
 
 export interface OwnerCandidate {
     "accountId": string;
@@ -2027,6 +2120,12 @@ export interface ReminderSettings {
      */
     "leadMinutes": number;
     "autoRenew": boolean;
+
+    /**
+     * EndedNoticeOff turns off the system notification sent when a sign-in has ended. It is stored as "off" so
+     * that the zero value (a settings file written before this field existed) means "notify" (plan 3.1, 4.15).
+     */
+    "endedNoticeOff": boolean;
 }
 
 export enum RemoteKind {

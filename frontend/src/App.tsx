@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { onEvent } from './api/events'
 import { setWindowTitle } from './api/platform'
-import { System, Tools } from './api/services'
-import { SessionState } from './api/models'
+import { Notify, System, Tools } from './api/services'
+import { NotifyAction, NotifyTone, SessionState } from './api/models'
 import { I18nProvider, systemLang, useI18n } from './i18n'
 import { GATE_RECHECK_EVENT } from './lib/gate'
 import { initialUI, takeOpen } from './lib/initialUI'
@@ -15,6 +15,7 @@ import { applyLang, applyMotion, applyPlatform, applyTheme, effectiveLang } from
 import { formatRemaining } from './lib/time'
 import { now as clockNow } from './lib/clock'
 import { AccountsPage } from './pages/accounts/AccountsPage'
+import { requestPortalFocus } from './pages/accounts/focus'
 import { GitGlobalPage } from './pages/git/GitGlobalPage'
 import { HealthPage } from './pages/health/HealthPage'
 import { MigrationPage } from './pages/migrate/MigrationPage'
@@ -75,8 +76,11 @@ const PAGES: Record<PageId, () => ReactNode> = {
 // Cmd/Ctrl+1..4: Projects, AI tasks, Pull requests, Accounts (design 4.3). AI tasks and Pull requests have no page yet.
 const SHORTCUT_PAGES: (PageId | null)[] = ['projects', null, null, 'accounts']
 
-/** App-level behaviour: first-run routing, ?open=login:, renewed toast, app:navigate, keyboard shortcuts. */
-function useAppEffects(gateOpen: boolean) {
+const TOAST_KIND = { [NotifyTone.NotifyToneDanger]: 'danger', [NotifyTone.NotifyToneWarn]: 'warn', [NotifyTone.NotifyToneInfo]: 'info' } as const
+
+/** App-level behaviour: first-run routing, ?open=login:, renewed toast, notification toasts, app:navigate, keyboard shortcuts. */
+function useAppEffects(gate: Gate) {
+  const gateOpen = gate === 'open'
   const info = useAppInfo()
   const { state: accounts } = useAccounts()
   const { openLogin, toast } = useActions()
@@ -113,16 +117,42 @@ function useAppEffects(gateOpen: boolean) {
     [toast],
   )
 
-  // tray / second instance
+  // A system notification that cannot be shown by the system (sandbox mode, notifications off) arrives as a toast with
+  // the same title, body and button. A press goes back to Go, which routes it like a press on the real notification.
+  useEffect(
+    () =>
+      onEvent('notify:toast', (n) => {
+        toast({
+          kind: TOAST_KIND[n.tone] ?? 'info',
+          title: n.title,
+          body: n.body,
+          action: n.button ? { label: n.button, onClick: () => void Notify.RespondToast(n.id, NotifyAction.NotifyActionButton).catch(() => undefined) } : undefined,
+        })
+      }),
+    [toast],
+  )
+
+  // The tray, a second instance and a click on a sign-in notification ask for a page.
   useEffect(
     () =>
       onEvent('app:navigate', (req) => {
         const page = (req.page as PageId) || 'accounts'
         setRoute({ page })
         if (req.action === 'login' && req.arg) void openLogin(req.arg)
+        // a notification: show this portal once; "signed-in" is a button that came too late
+        if ((req.action === 'show' || req.action === 'signed-in') && req.arg) requestPortalFocus(req.arg)
+        if (req.action === 'signed-in') toast({ kind: 'ok', title: tRef.current('notify.alreadySignedIn') })
       }),
-    [openLogin],
+    [openLogin, toast],
   )
+
+  // Tell Go when clicks on notifications may run: the accounts are loaded and the tools gate is open. A click that
+  // launched the app waits for this; a blocked gate drops it.
+  const accountsLoaded = !!accounts
+  useEffect(() => {
+    if (gate === 'blocked') void Notify.SetReady(false).catch(() => undefined)
+    else if (gate === 'open' && accountsLoaded) void Notify.SetReady(true).catch(() => undefined)
+  }, [gate, accountsLoaded])
 
   // keyboard
   useEffect(() => {
@@ -178,7 +208,7 @@ function useToolsGate(): Gate {
 function Shell() {
   const route = useRoute()
   const gate = useToolsGate()
-  useAppEffects(gate === 'open')
+  useAppEffects(gate)
   if (gate === 'checking') return <div className="app" />
   if (gate === 'blocked') {
     return (

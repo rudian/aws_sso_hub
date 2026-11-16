@@ -220,6 +220,7 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 	if !ok {
 		return api.LoginResult{}, api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", portal)
 	}
+	e.d.Notices.SignInStarting(portal)
 	isolated := false // the sign-in page opened in a fresh browser of its own
 	progress := func(p api.LoginProgress) {
 		p.Portal = portal
@@ -254,13 +255,14 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 		}
 	})
 	e.mu.Lock()
-	delete(e.reminded, portal)
+	delete(e.watch, portal) // a new sign-in: the ticker starts watching it from its first state
 	if !endsNow {
 		e.probes[portal] = fmtTime(now)
 	} else {
 		delete(e.probes, portal)
 	}
 	e.mu.Unlock()
+	e.d.Notices.SignedIn(portal)
 	e.publishSession(pd)
 	e.EmitState(ctx)
 	return api.LoginResult{Portal: portal, ExpiresAt: fmtTime(tok.ExpiresAt), Profiles: nonNil(pd.profiles)}, nil
@@ -317,8 +319,9 @@ func (e *Engine) Logout(ctx context.Context, portal string) (api.LogoutResult, e
 		*r = api.SessionRecord{SessionMinutes: r.SessionMinutes}
 	})
 	e.mu.Lock()
-	delete(e.reminded, portal)
+	delete(e.watch, portal)
 	e.mu.Unlock()
+	e.d.Notices.SignedOut(portal)
 	e.publishSession(pd)
 	e.EmitState(ctx)
 	return api.LogoutResult{Portal: portal, DeletedRoleCaches: n, ServerLogout: server}, nil
@@ -426,6 +429,9 @@ func (e *Engine) Tick(ctx context.Context) {
 			}
 			e.emit(api.EventSessionChanged, after)
 			e.setSig(pd.name, after)
+			if !pd.legacy {
+				e.watchEnd(pd.name, after, e.d.Now())
+			}
 			changed = true
 			continue
 		}
@@ -437,23 +443,39 @@ func (e *Engine) Tick(ctx context.Context) {
 			e.emit(api.EventSessionChanged, st)
 			changed = true
 		}
-		e.maybeRemind(pd.name, st, raw, now)
+		if !pd.legacy { // a sign-in is one sso-session: a legacy pseudo-portal has no notices
+			e.maybeRemind(pd.name, st, raw, now)
+			e.watchEnd(pd.name, st, now)
+		}
 	}
 	if changed {
 		e.EmitState(ctx)
 	}
 }
 
+// maybeRemind emits the heads-up (session:reminder) once per sign-in when the time left drops below the lead
+// time. The key of the last one sent is kept in the notice log, so a restart inside the lead time does not send
+// it twice. A sign-in that itself started inside the lead time (a session no longer than the lead time) gets no
+// heads-up: the person signed in a moment ago.
 func (e *Engine) maybeRemind(portal string, st api.SessionStatus, raw sso.Status, now time.Time) {
 	if !e.d.Store.ExpiryNotice() {
 		return
 	}
 	lead := e.d.Store.ReminderLead()
 	key := ""
+	short := false
 	if st.SessionKnown {
+		if !st.SessionEndExact && e.checkPending(portal, st.LoginAt) {
+			// Only the access token's hour is known; the check renewal will move the end. Decide afterwards, or
+			// a long session would be taken for a short one and lose its heads-up.
+			return
+		}
 		if t, err := time.Parse(time.RFC3339, st.SessionEndsAt); err == nil {
 			if left := t.Sub(now); left > 0 && left <= lead {
 				key = "L:" + st.LoginAt
+				if at, err := time.Parse(time.RFC3339, st.LoginAt); err == nil && t.Sub(at) <= lead {
+					short = true
+				}
 			}
 		}
 	} else if (raw.State == api.SessionActive || raw.State == api.SessionExpiring) && !raw.CanRefresh {
@@ -461,14 +483,145 @@ func (e *Engine) maybeRemind(portal string, st api.SessionStatus, raw sso.Status
 			key = "E:" + fmtTime(raw.ExpiresAt)
 		}
 	}
-	if key == "" {
+	if key == "" || e.d.Notices.Last(portal, kindHeadsUp) == key {
 		return
 	}
-	e.mu.Lock()
-	dup := e.reminded[portal] == key
-	e.reminded[portal] = key
-	e.mu.Unlock()
-	if !dup {
+	e.d.Notices.Mark(portal, kindHeadsUp, key)
+	if !short {
 		e.emit(api.EventSessionReminder, st)
 	}
+}
+
+// Record kinds of the notice log.
+const (
+	kindHeadsUp = "headsup"
+	kindEnded   = "ended"
+)
+
+// endWatch is what the ticker has seen of one portal's sign-in since the app started (or since the last
+// sign-in or sign-out).
+type endWatch struct {
+	live bool   // the sign-in was seen alive (active, refreshable or expiring)
+	key  string // the sign-in's time (LoginAt), or a stand-in when the app did not do the sign-in
+}
+
+func isLive(s api.SessionState) bool {
+	return s == api.SessionActive || s == api.SessionRefreshable || s == api.SessionExpiring
+}
+
+// watchEnd sends the "ended" notice (session:ended) once when a sign-in that was seen alive becomes expired.
+// It is silent for:
+//   - a portal that is already expired when the app first looks at it (the sign-in ended while the app was
+//     closed: the passes show it at once). It is marked as told;
+//   - a sign-out (state signed-out, never expired) and a network failure (the state stays as it was);
+//   - a sign-in that was replaced before it ended (a new sign-in starts a new watch).
+//
+// A sign-in that ended while the computer slept was seen alive by the last tick before the sleep, so the first
+// tick after waking sends one notice.
+func (e *Engine) watchEnd(portal string, st api.SessionStatus, now time.Time) {
+	e.mu.Lock()
+	w := e.watch[portal]
+	first := w == nil
+	if first {
+		w = &endWatch{}
+		e.watch[portal] = w
+	}
+	wasLive, key := w.live, w.key
+	switch {
+	case isLive(st.State):
+		if !w.live || (st.LoginAt != "" && st.LoginAt != w.key) {
+			w.key = st.LoginAt
+			if w.key == "" {
+				w.key = "S:" + fmtTime(now)
+			}
+		}
+		w.live = true
+	case st.State == api.SessionExpired:
+		w.live = false
+		if first || w.key == "" {
+			w.key = st.LoginAt
+			if w.key == "" {
+				w.key = "S:" + fmtTime(now)
+			}
+			key = w.key
+		}
+	case st.State == api.SessionSignedOut:
+		w.live = false
+	}
+	e.mu.Unlock()
+
+	if st.State != api.SessionExpired {
+		return
+	}
+	if first {
+		e.d.Notices.Mark(portal, kindEnded, key) // already over when the app started: told
+		return
+	}
+	if !wasLive || e.d.Notices.Last(portal, kindEnded) == key {
+		return
+	}
+	e.d.Notices.Mark(portal, kindEnded, key)
+	if e.d.Store.EndedNotice() {
+		if _, err := time.Parse(time.RFC3339, key); err == nil {
+			st.LoginAt = key
+		}
+		e.emit(api.EventSessionEnded, st)
+	}
+}
+
+// memLog is the notice log of an engine that was given none.
+type memLog struct {
+	mu sync.Mutex
+	m  map[string]map[string]string
+}
+
+func newMemLog() *memLog { return &memLog{m: map[string]map[string]string{}} }
+
+func (l *memLog) Last(portal, kind string) string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.m[portal][kind]
+}
+
+func (l *memLog) Mark(portal, kind, key string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.m[portal] == nil {
+		l.m[portal] = map[string]string{}
+	}
+	l.m[portal][kind] = key
+}
+
+func (l *memLog) SignInStarting(string)   {}
+func (l *memLog) SignedIn(portal string)  { l.reset(portal) }
+func (l *memLog) SignedOut(portal string) { l.reset(portal) }
+func (l *memLog) reset(portal string) {
+	l.mu.Lock()
+	delete(l.m, portal)
+	l.mu.Unlock()
+}
+
+// NoticeAccount is one account of a portal as a notification builder needs it. Only Name may reach a
+// notification text; AccountID and Role are passed so the builder can make sure they never do.
+type NoticeAccount struct{ Name, AccountID, Role string }
+
+// NoticeInfo returns what a sign-in notification names for a portal: its start URL (never shown) and its
+// accounts, one entry per profile in the order of the portal's profiles, with the account name the app knows
+// (empty when it knows none). ok is false for an unknown portal.
+func (e *Engine) NoticeInfo(portal string) (startURL string, accts []NoticeAccount, ok bool) {
+	snap, err := e.Snapshot()
+	if err != nil {
+		return "", nil, false
+	}
+	pd, found := e.portalDef(snap, portal)
+	if !found || pd.legacy { // a legacy pseudo-portal is named after its start URL: it has no notices
+		return "", nil, false
+	}
+	names := e.d.Store.AccountNames()
+	for _, n := range pd.profiles {
+		if p, has := snap.Profile(n); has {
+			accts = append(accts, NoticeAccount{Name: names[p.AccountID], AccountID: p.AccountID, Role: p.Role})
+		}
+	}
+	return pd.sess.StartURL, accts, true
 }
