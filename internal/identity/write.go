@@ -2,6 +2,7 @@ package identity
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -332,14 +333,71 @@ func (e *Engine) repoInfo(ctx context.Context, g *gitx.Git, rec projects.RepoRec
 	}
 	cfg, err := e.configPath(ctx, g, rec.Path)
 	if err != nil {
-		return ri, api.NewError(api.ErrRepoNotFound, "not a git repository").WithParam("path", e.d.Paths.Display(rec.Path)).WithDetail(api.AsAppError(err).Message)
+		return ri, e.repoReadError(rec, "", err)
 	}
 	entries, err := gitx.NewReader(g).ConfigList(ctx, rec.Path)
 	if err != nil {
-		return ri, err
+		return ri, e.repoReadError(rec, cfg, err)
 	}
 	ri.cfgPath, ri.local = cfg, localAuthor(absOrigins(entries, rec.Path), cfg)
 	return ri, nil
+}
+
+// repoReadError classifies a failed read of a repository's config. E_REPO_NOT_FOUND is only for "not a git
+// repository"; every other failure is E_GIT_FAILED (or E_FILE_IO when the error already says so) with the
+// config's display path, so the popover can say "cannot write this repository's config" (design 5.12).
+// Cancellation passes through unchanged.
+func (e *Engine) repoReadError(rec projects.RepoRecord, cfg string, cause error) error {
+	var ae *api.AppError
+	if !errors.As(cause, &ae) {
+		return cause // context cancellation and the like
+	}
+	if strings.Contains(strings.ToLower(ae.Detail+" "+ae.Message), "not a git repository") {
+		return api.NewError(api.ErrRepoNotFound, "not a git repository").WithParam("path", e.d.Paths.Display(rec.Path)).WithDetail(ae.Message)
+	}
+	file := e.failedFile(rec, cfg, ae.Detail+"\n"+ae.Message)
+	if ae.Code == api.ErrFileIO {
+		if f := ae.Params["file"]; f != "" {
+			file = e.d.Paths.Display(f)
+		}
+		out := api.NewError(api.ErrFileIO, "cannot read this repository's config")
+		if file != "" {
+			out = out.WithParam("file", file)
+		}
+		return out.WithDetail(ae.Message)
+	}
+	out := api.NewError(api.ErrGitFailed, "cannot read this repository's config")
+	if file != "" {
+		out = out.WithParam("file", file)
+	}
+	if ae.Detail != "" {
+		return out.WithDetail(ae.Detail)
+	}
+	return out.WithDetail(ae.Message)
+}
+
+// gitFileInMessage matches the file git names in a config error: "bad config line 1 in file /x/.gitconfig" and
+// "bad config variable 'a.b' in file '/x/config' at line 3".
+var gitFileInMessage = regexp.MustCompile(`(?m)\bin file '?([^'\n]+?)'?(?: at line \d+)?\s*$`)
+
+// failedFile is the display path of the file a failed config read is about: the file git names in its message
+// (it may be ~/.gitconfig, not the repository's own config), else the repository's config. It is "" when that
+// config is unknown and .git is a file (a linked worktree or a separate git dir).
+func (e *Engine) failedFile(rec projects.RepoRecord, cfg, msg string) string {
+	if m := gitFileInMessage.FindStringSubmatch(msg); m != nil {
+		f := strings.TrimSpace(m[1])
+		if !filepath.IsAbs(f) {
+			f = filepath.Join(rec.Path, f) // git names a repository's own config relative to where it ran
+		}
+		return e.d.Paths.Display(f)
+	}
+	if cfg != "" {
+		return e.d.Paths.Display(cfg)
+	}
+	if st, err := os.Stat(filepath.Join(rec.Path, ".git")); err == nil && st.IsDir() {
+		return e.d.Paths.Display(filepath.Join(rec.Path, ".git", "config"))
+	}
+	return ""
 }
 
 // errorItem is the plan item of a repository whose folder exists but whose config cannot be read: it is

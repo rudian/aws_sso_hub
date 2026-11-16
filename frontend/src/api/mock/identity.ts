@@ -1,5 +1,5 @@
 // Mock of IdentityService (author identity, plan 3.4 / design 5.12), typed against the generated identityservice module.
-// Scenarios: resetIdentityMock('default' | 'unset' | 'env' | 'empty').
+// Scenarios: resetIdentityMock('default' | 'unset' | 'env' | 'empty' | 'page' | 'readerr'); in the browser mock ?identity=<scenario> picks one ('page' is the data of the design's identity-page shot).
 import * as IdentityReal from '../../../bindings/github.com/rudian/codepass/internal/app/identityservice'
 import { ErrorCode, IdentitySourceKind, RepoAction, RepoIdentityMode } from '../models'
 import type { DiffLine, FilePreview, Author, IdentitySource, EffectiveIdentity, EnvVar, TerminalEnvOverride, RepoIdentity, IdentityOverview, RepoChangePlan, GlobalIdentityPreview, ProjectIdentityRequest, ProjectIdentityPreview, MoveIdentityPreview, RepoChangeOutcome, IdentityChangeResult } from '../models'
@@ -22,6 +22,7 @@ interface MRepo {
   override?: Author // what the app recorded as the repository's own
   conditional?: { rule: string; path: string; email: string } // an includeIf file sets the email
   missing?: boolean
+  unreadable?: boolean // git cannot read this repository's config (a corrupt file): reads report it, writes fail
   followsGlobal?: boolean // set to follow the global identity on purpose; project saves skip it
 }
 
@@ -53,9 +54,41 @@ const A = (name: string, email: string): Author => ({ name, email })
 const ALEX = A('Alex', 'alex@acme.example.com')
 const ALEX_G = A('Alex', 'alex@globex.example.com')
 
-export type IdentityScenario = 'default' | 'unset' | 'env' | 'empty'
+export type IdentityScenario = 'default' | 'unset' | 'env' | 'empty' | 'page' | 'readerr'
+
+const ALEX_PAGE = A('Alex', 'alex@example.com')
+const NOREPLY = A('alex-dev', 'alex-dev@users.noreply.example.com')
+
+/** The data of the design's identity screens (mockup "identity"): three projects, ten rows, nothing outside the app. */
+function buildPage(): MState {
+  const merchant = A('Alex Work', 'alex.work@acme.example.com')
+  return {
+    global: ALEX_PAGE,
+    globalHash: 1,
+    projects: [
+      { id: 'p_acme', name: 'acme', identity: ALEX },
+      { id: 'p_globex', name: 'globex' },
+      { id: 'p_umbrella', name: 'umbrella' },
+    ],
+    repos: [
+      { id: 'r_acme_api', name: 'acme_api', projectId: 'p_acme', local: ALEX },
+      { id: 'r_acme_agent_portal', name: 'acme_agent_portal', projectId: 'p_acme', local: ALEX },
+      { id: 'r_acme_cs_portal', name: 'acme_cs_portal', projectId: 'p_acme', local: ALEX },
+      { id: 'r_acme_merchant_portal_v4', name: 'acme_merchant_portal_v4', projectId: 'p_acme', local: merchant, override: merchant },
+      { id: 'r_globex_backend', name: 'globex_backend', projectId: 'p_globex' },
+      { id: 'r_globex_app', name: 'globex_app', projectId: 'p_globex', local: NOREPLY, override: NOREPLY },
+      { id: 'r_umbrella', name: 'umbrella', projectId: 'p_umbrella' },
+    ],
+    env: [],
+    hash: 1,
+    undo: new Map(),
+    tokens: new Map(),
+    nextToken: 1,
+  }
+}
 
 function build(scenario: IdentityScenario): MState {
+  if (scenario === 'page') return buildPage()
   const s: MState = {
     global: scenario === 'unset' ? undefined : ALEX,
     globalHash: 1,
@@ -81,10 +114,20 @@ function build(scenario: IdentityScenario): MState {
     nextToken: 1,
   }
   if (scenario === 'empty') s.repos = []
+  if (scenario === 'readerr') s.repos.find((r) => r.id === 'r_acme_cs_portal')!.unreadable = true
   return s
 }
 
-let st: MState = build('default')
+function urlScenario(): IdentityScenario {
+  try {
+    const v = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('identity') : null
+    return v === 'unset' || v === 'env' || v === 'empty' || v === 'page' || v === 'readerr' ? v : 'default'
+  } catch {
+    return 'default'
+  }
+}
+
+let st: MState = build(urlScenario())
 
 /** Reset the mock (tests and scenario query strings). */
 export function resetIdentityMock(scenario: IdentityScenario = 'default'): void {
@@ -150,10 +193,17 @@ function effectiveOf(r: MRepo): EffectiveIdentity {
   return out
 }
 
+const configOf = (r: MRepo) => `~/Documents/code/${r.name}/.git/config`
+
+function unreadableError(r: MRepo) {
+  return { code: ErrorCode.ErrGitFailed, message: 'cannot read this repository\'s config', params: { file: configOf(r) } }
+}
+
 function rowOf(r: MRepo): RepoIdentity {
   const row: RepoIdentity = { repoId: r.id, name: r.name, path: `${CODE}/${r.name}`, missing: !!r.missing, effective: effectiveOf(r), setting: settingOf(r), followsGlobal: !!r.followsGlobal }
   if (r.projectId) row.projectId = r.projectId
   if (r.override) row.override = clone(r.override)
+  if (r.unreadable) row.readError = unreadableError(r)
   return row
 }
 
@@ -350,6 +400,7 @@ export const mockIdentityService: IdentityServiceShape = {
     run(READ, () => {
       const r = st.repos.find((x) => x.id === req.repoId)
       if (!r) throw fail(ErrorCode.ErrInvalidInput, 'unknown repository', { field: 'repoId' })
+      if (r.unreadable) throw fail(ErrorCode.ErrGitFailed, 'cannot read this repository\'s config', { file: configOf(r) })
       const p = project(r.projectId)
       let plan: RepoChangePlan
       if (req.mode === RepoIdentityMode.RepoModeOwn) {
@@ -369,6 +420,7 @@ export const mockIdentityService: IdentityServiceShape = {
     run(WRITE, () => {
       const r = st.repos.find((x) => x.id === req.repoId)
       if (!r) throw fail(ErrorCode.ErrInvalidInput, 'unknown repository', { field: 'repoId' })
+      if (r.unreadable) throw fail(ErrorCode.ErrGitFailed, 'cannot read this repository\'s config', { file: configOf(r) })
       const p = project(r.projectId)
       if (planHash !== `mock-plan-r-${r.id}-${st.hash}-${req.mode}-${req.identity?.email ?? '-'}`) stale(r.name)
       const res = result()

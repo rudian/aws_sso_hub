@@ -1,0 +1,49 @@
+/* Author identity on the Git settings page (design 5.12). Source: docs/design/codepass-mockup/mockup.css, "identity". */
+.ident-hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-6); align-items: center; }
+.ident-fields { display: grid; grid-template-columns: 1fr 1.3fr auto; gap: var(--sp-3); align-items: end; }
+.ident-fields .btn { align-self: end; }
+.card--warn { border-color: var(--warn-line); box-shadow: 0 0 0 1px var(--warn-line); }
+.ladder { display: flex; align-items: center; gap: 6px; font-size: var(--fs-12); color: var(--text-3); white-space: nowrap; margin: 0; padding: 0; list-style: none; }
+.ladder li { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); font-weight: var(--fw-medium); }
+.ladder svg { width: 12px; height: 12px; }
+.ident-table { --cols: minmax(230px, 1.2fr) minmax(280px, 1.6fr) 200px 96px; }
+.ident-table .row { min-height: 44px; }
+.ident-table .row.is-proj { background: var(--surface-2); }
+.ident-table .row.is-group { min-height: 32px; color: var(--text-3); font-size: var(--fs-12); }
+.ident-table .row.is-proj .row__primary { display: flex; align-items: center; gap: 8px; font-weight: var(--fw-semibold); min-width: 0; }
+.ident-table .row.is-proj .row__primary svg { width: 16px; height: 16px; color: var(--text-2); flex: none; }
+.ident-table .row.is-child .row__cell:first-child { padding-left: 26px; gap: 10px; }
+.ident-table .row__cell { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.ident-table .row__actions { justify-content: flex-end; }
+.ident-table .row__cell:first-child .repo-name { font-size: var(--fs-13); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ident-table .prov { color: var(--text-3); display: inline-flex; flex: none; }
+.ident-table .prov svg { width: 16px; height: 16px; }
+.ident { font-size: var(--fs-13); color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ident span { color: var(--text-3); font-family: var(--font-mono); font-size: 12px; }
+.ident.is-inherit { color: var(--text-3); }
+.ident.is-warn { color: var(--warn); }
+.ident.is-danger { color: var(--danger); }
+.src-tag--warn { background: var(--warn-soft); color: var(--warn); }
+.ident-table .src-tag { max-width: 100%; height: auto; min-height: 18px; padding-top: 1px; padding-bottom: 1px; white-space: normal; line-height: 16px; }
+.affect { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border-subtle); border-radius: var(--r-md); overflow: hidden; }
+.affect li { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: var(--fs-13); border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; }
+.affect li:last-child { border-bottom: 0; }
+.affect li.is-sunken { background: var(--surface-2); }
+.affect li.is-error { background: var(--danger-soft); color: var(--danger); }
+.affect li .affect__err { flex-basis: 100%; font-size: var(--fs-12); }
+.affect .spacer { flex: 1; }
+.affect .was { font: 11.5px/1 var(--font-mono); color: var(--text-3); text-decoration: line-through; }
+.affect .prov { color: var(--text-3); display: inline-flex; }
+.affect .prov svg { width: 15px; height: 15px; }
+.affect .link { background: none; border: 0; padding: 0; color: var(--info); font-size: var(--fs-12); cursor: pointer; }
+.affect .link:hover { text-decoration: underline; }
+.ident-pop { width: 340px; padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.ident-pop__title { font-size: var(--fs-13); font-weight: var(--fw-semibold); }
+.ident-pop .opt { padding: 10px 12px; cursor: default; }
+.ident-pop .opt:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ident-pop__foot { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+.ident-pop__err { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-12); color: var(--danger); }
+.ident-pop__err b { font-weight: var(--fw-semibold); }
+.ident-pop__err .mono { color: var(--text-3); word-break: break-all; }
+.ident-sheet-fields { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ident-retry { flex: none; }

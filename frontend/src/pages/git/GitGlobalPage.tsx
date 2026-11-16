@@ -9,6 +9,7 @@ import { useAsync } from '../../lib/useAsync'
 import { GlobalBanner } from '../../shell/GlobalBanner'
 import { useRepos } from '../../state/repos'
 import { DefaultCard } from './DefaultCard'
+import { IdentitySection } from './IdentitySection'
 import { SavedCard } from './SavedCard'
 import { UrlRulesCard } from './UrlRulesCard'
 
@@ -48,12 +49,13 @@ export function GitGlobalPage() {
     <div className="page">
       <header className="page__header">
         <div>
-          <h1 className="page__title">{t('git.title')}</h1>
-          <p className="page__subtitle">{t('git.subtitle')}</p>
+          <h1 className="page__title">{t('identity.title')}</h1>
+          <p className="page__subtitle">{t('identity.subtitle')}</p>
         </div>
       </header>
       <GlobalBanner />
       <div className="page__body">
+        <IdentitySection />
         {git.error && <ErrorBanner error={git.error} onRetry={() => void git.reload()} />}
         {!s && git.loading && (
           <div className="stack" aria-busy="true">
