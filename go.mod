@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.44.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6
 	github.com/aws/smithy-go v1.28.8
+	github.com/creack/pty v1.1.24
 	github.com/wailsapp/wails/v3 v3.1.0
 	golang.org/x/mod v0.41.0
 )
