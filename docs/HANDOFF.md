@@ -2,7 +2,7 @@
 
 更新：2026-11-17（第八版，里程碑 2 的 B 组合并后）。状态：**进行中**。里程碑 1 的任务全部合并，关卡只剩用户的事（测试频道、手动检查）。里程碑 2：A2-01 和 B 组的 7 个任务已合并（还没接到界面上）；**C 组正在跑：A2-08 和 F1-SG 一起跑，之后单独跑 A2-W**。用户的第三批需求（git）已写进计划，放在里程碑 4。
 
-**2026-11-17 用户决定：程序和界面全部改用 Rust，界面库用 gpui + gpui-component（需求不变）。C 组合并后，不再做 Go 的新组。** 现在：C 组在跑；gpui 小样在测速度（临时目录里，不进仓库，结果会放进 `docs/research/`）；第四批需求（AWS 登录后自动拉取）已写进计划（G4-14）。下一步见第 1 节第 5 条。
+**2026-11-17 用户决定：程序和界面全部改用 Rust，界面库用 gpui + gpui-component（需求不变）。C 组合并后，不再做 Go 的新组。** 现在：C 组已合并（A2-08、F1-SG），这是最后一组 Go；gpui 小样做完了，报告在 `docs/research/rust-gui-spike.md`，等用户亲手试中文输入和读屏；第四批需求（AWS 登录后自动拉取）已写进计划（G4-14）。下一步见第 1 节第 5 条。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 
@@ -35,8 +35,8 @@
    - `docs/plan/codepass/tasks.md`：「How the work runs」、「Owner decisions (FINAL)」和它下面的两批 owner requirements、open questions、「Follow-ups」；
    - 同一文件里程碑 1 的「Gate」、里程碑 2 最后的 A2-CL 条目、「Follow-ups」最后的 Group H（FU-CLa1–4、FU-CLb1–7）；里程碑 8 先略读（它排在里程碑 3 后面）；
    - `reviews/groupH-wiring.md`（F1-CL 留给关卡和里程碑 2 的话）；`reviews/groupE-wiring.md` 和 `reviews/groupG-wiring.md` 的 deviations（关卡要请用户确认）。
-4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 80 个文件、996 个测试（里程碑 2 的 B 组之后）。
-5. **然后直接开工**：先看 C 组合并了没有：`git log --oneline` 里有没有 `codepass(A2-08)`、`codepass(F1-SG)`。没合并的，用 `reviews/m2C-args.md` 重新跑。**不要再跑 Go 的新组**：A2-W 和 D 组取消，用户 2026-11-17 决定改用 Rust + gpui。接下来按顺序：(1) gpui 小样的结果（测速度、中文输入、读屏、截图、Windows 编译、授权）；(2) Fable 把界面设计改成原生版（需求不变）；(3) Opus 写改造设计，用户批准；(4) Opus 重排 `tasks.md`：先把已做完的部分用 Rust 重做，再接着做剩下的任务，全部用 Rust；(5) Sonnet 一组一组做。Go 代码先留着当参考，Rust 版追上后再删。细节在第 5 节 4f、4g。用户的新 prompt 就是开工的许可，不用再问。
+4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 81 个文件、1005 个测试（里程碑 2 的 C 组之后）。
+5. **然后直接开工**：C 组已合并（2026-11-17）。**不要再跑 Go 的新组**：A2-W 和 D 组取消，用户 2026-11-17 决定改用 Rust + gpui。接下来按顺序：(1) gpui 小样（报告在 `docs/research/rust-gui-spike.md`；用户亲手试中文输入和读屏，结果记下来；小样的代码在旧 session 的临时目录里，没有就照报告重做）；(2) Fable 把界面设计改成原生版（需求不变）；(3) Opus 写改造设计，用户批准；(4) Opus 重排 `tasks.md`：先把已做完的部分用 Rust 重做，再接着做剩下的任务，全部用 Rust；(5) Sonnet 一组一组做。Go 代码先留着当参考，Rust 版追上后再删。细节在第 5 节 4f、4g。用户的新 prompt 就是开工的许可，不用再问。
 
 ## 2. 用户定的工作方式（每个 session 都照做）
 
@@ -146,6 +146,8 @@
    - 37 条 follow-up（FU-A2-02a 到 FU-A2-07f，FU-GF2a、FU-GF2b）：大部分给 A2-CL，5 条给 A2-08，3 条给 A2-W，1 条给 C3-07，2 条给新任务 F1-SG。说明在 `reviews/m2B-wiring.md`（很长，A2-08 和 A2-W 都要读）和 `reviews/m2B-args.md`（`portBase` 用过 9940）。
    - 手动检查：新加 E 组（E1–E10），等 A2-W、A2-09 做完再做。
 4e. **新任务 F1-SG**（2026-11-17）：A2-04 的审查发现，`go test ./...` 会启动用户自己的登录 zsh，读到 `~/.zshenv`、`~/.zprofile`、`~/.zlogin`（`internal/execx` 的 `EnvPATH` 在 macOS 上跑 `$SHELL -l -c`，只有少数测试关掉了它）。这违反安全红线。F1-SG 加一个测试里的守卫（像 `awsguard`），在 C 组和 A2-08 一起跑。
+4h. **里程碑 2 的 C 组 ✅ 已完成**（2026-11-17，最后一组 Go）：`63a150c` A2-08 任务的生命周期，`70e3c41` F1-SG 测试不再启动用户的 shell，`72cd499` 合并时在 `terminal.Open` 补了 shell 守卫。F1-SG 修 2 轮、A2-08 修 3 轮后通过；gate：81 个文件、1005 个测试。bindings 还是没重新生成（A2-W 不做了）。6 条小问题（FU-A2-08a、b，FU-SGa 到 d）留给 Rust 版。说明在 `reviews/m2C-wiring.md`，Rust 移植时和 `m2B-wiring.md` 一起读。
+4i. **gpui 小样**（2026-11-17）：能编译、能跑。终端每秒 141 MB、列表和打字都顺、空闲 CPU 0.01%；启动 0.32 秒、打开 5 万行文件 0.43 秒、内存 110 到 243 MB，比定的目标差一点（测的时候电脑很忙）。能离屏截图（`Window::render_to_image`，不用录屏权限）；有 AccessKit 读屏代码；中文显示正常；授权没问题。风险：组件库现在叫 GPUI Kit（0.10），每周都有不兼容的更新，依赖 `gpui-pre`（一个人维护的 Zed gpui 快照）；要 Rust 1.100；Windows 版要在 Windows 上编译（要 `fxc.exe`）；终端的选字、输入、改大小要自己做。中文输入和 VoiceOver 要用户亲手试。
 4f. **用户的第四批需求（2026-11-17）**：AWS 登录成功后，自动对绑定在这个门户上的仓库做一次「拉取全部」，设置里有开关，默认开。Fable 设计，写进 plan 4.6a 第 4 部分、4.15，design 5.2b「Automatic run」、5.14、第 6 节；新任务 G4-14（里程碑 4 的 D 组，约 0.5 周）。两件事按推荐定了，已告诉用户：自动拉取不跑仓库自己的脚本（有脚本的仓库，检出分支留给用户点一下）；只在登录后拉，打开 app 不拉。
 4g. **改用 Rust（2026-11-17 用户决定）**：程序和界面全部用 Rust，目标是速度最快、界面精美好用，产品需求一条不改。界面库选 gpui + gpui-component（用户选的 A）：代码编辑器和终端是最吃性能的两块，gpui 有现成的、也最快；Slint 要从零做这两块。风险：gpui 正式版的读屏还没做完（里程碑 7 要用，到时官方没做好就自己用 AccessKit 补），gpui 还没到 1.0（锁定版本）。分工：Fable 管产品和界面设计，Opus 排任务、审代码，Sonnet 写代码。已做完的大约 31% 要用 Rust 重做；需求、设计、研究、测试清单都保留。里程碑 1 的手动检查和测试频道，等 Rust 版做到那一步再做。
 5. 然后按顺序：里程碑 2（AI 终端，A2-xx；最后是 A2-CL）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
@@ -248,6 +250,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 - 分支：本地只留 `codepass`、`main` 和 `spike/*`。`worktree-wf_*` 和 `task/F1-*` 在 2026-11-16 删掉了（task 分支的备份见第 4 节）。workflow 合并、push 成功后会自动删 task 分支。
 - 查别的 repo 时用 `git --no-optional-locks status`：普通的 `git status` 会顺手改写那个 repo 的 `.git/index`。
 - Wails 3.1.0 没法拖住系统注销，所以注销或重启时不弹框，直接全部停止并退出。这一点已经写进 plan 和 design。
+- **zsh 不会把 `$变量` 拆成多个参数。** `F="a b"; git add $F` 会把整串当成一个文件名，结果没暂存，还留下没提交的改动。文件名要直接写出来。
 - **测试不能启动用户自己的 shell。** B 组的审查发现 `go test ./...` 会经过 `internal/execx` 启动用户的登录 zsh（读 `~/.zshenv` 等）。F1-SG 修。以后的任务：凡是要开 shell 的测试，都要把 HOME 和 ZDOTDIR 指到临时文件夹。
 - **workflow 在跑的时候，主目录里不要留没提交的改动。** 合并那一步一看到不干净就会停（I 组第一次合并就这样停了）。要改文档，就在同一条命令里改完、马上 commit。停了的话：先 commit，再把脚本里合并那段 prompt 改一个字，用 `resumeFromRunId` 重跑，前面的 agent 都会直接用缓存。
 - 开发服务器（端口 9245）已经停了。
@@ -258,7 +261,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 |---|---|
 | 0 Spikes | ✅ 完成 |
 | 1 基础（项目、安装、身份、更新） | 24/24 个任务全部合并；关卡的设计检查做完，F1-GF 已合并；测试频道和手动检查等用户 |
-| 2 AI 终端和防睡眠 | A2-01 和 B 组（7 个任务加 F1-GF2）已合并，还没接到界面；C 组（A2-08、F1-SG，然后 A2-W）在跑 |
+| 2 AI 终端和防睡眠 | Go 版：A2-01、B 组、C 组已合并，还没接到界面；Go 到此为止，改用 Rust 重做 |
 | 3 Worktree 任务、改动和提交 | 未开始 |
 | 8 票队列、AI 账号、用量（排在 3 后面） | 未开始 |
 | 4 Git 客户端 | 未开始 |
@@ -267,7 +270,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 7 Windows、打磨、发布 | 未开始 |
 
 **整体约 31%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1）、F1-GF（1）、F1-GF2（1）、F1-SG（1）和第三批 git（G4-11 3 分、G4-12 3 分、G4-13 2 分），再加第四批的 G4-14（2 分），现在一共 254 分，已经完成 79 分（里程碑 2 的 B 组之后），约 31%。改用 Rust 后，第 9 节的数字要按新任务表重算。
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1）、F1-GF（1）、F1-GF2（1）、F1-SG（1）和第三批 git（G4-11 3 分、G4-12 3 分、G4-13 2 分），再加第四批的 G4-14（2 分），现在一共 254 分，已经完成 83 分（Go 版，里程碑 2 的 C 组之后），约 33%。改用 Rust 后，第 9 节的数字要按新任务表重算。
 - 按计划的周数算：原来约 35 周，现在约 47 周（里程碑 8 约 8 周；第三批 git 让里程碑 4 多了约 1.5 周，第四批又多了约 0.5 周），完成约 20%。
 
 ## 10. 建议用的技能（Skill）
