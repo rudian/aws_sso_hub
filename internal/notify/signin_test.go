@@ -24,22 +24,22 @@ func TestSignInTexts(t *testing.T) {
 		title, body string
 	}{
 		{"zh heads-up, three accounts, user", "zh-CN", SignInInfo{Portal: "acme", User: "alex", Accounts: accts("acme-prod", "globex", "initech"), LeadMinutes: 15},
-			false, "登录快过期了：acme", "alex · acme-prod 等 3 个账户。大约 15 分钟后过期。"},
+			false, "登录快过期了：acme", "alex · acme-prod 等 3 个账号。大约 15 分钟后过期。"},
 		{"en heads-up, three accounts, user", "en", SignInInfo{Portal: "acme", User: "alex", Accounts: accts("acme-prod", "globex", "initech"), LeadMinutes: 15},
 			false, "Sign-in expires soon: acme", "alex · acme-prod and 2 more. Expires in about 15 minutes."},
 		{"zh ended, three accounts, user", "zh-CN", SignInInfo{Portal: "acme", User: "alex", Accounts: accts("acme-prod", "globex", "initech")},
-			true, "登录已过期：acme", "alex · acme-prod 等 3 个账户。重新登录后才能继续用。"},
+			true, "登录已过期：acme", "alex · acme-prod 等 3 个账号。重新登录后才能继续用。"},
 		{"en ended, three accounts, user", "en", SignInInfo{Portal: "acme", User: "alex", Accounts: accts("acme-prod", "globex", "initech")},
-			true, "Sign-in expired: acme", "alex · acme-prod and 2 more. Sign in again to keep using them."},
+			true, "Sign-in expired: acme", "alex · acme-prod and 2 more. Sign in again to continue."},
 		{"one account, unknown user (zh)", "zh-CN", SignInInfo{Portal: "acme", Accounts: accts("acme-prod")}, true, "登录已过期：acme", "acme-prod。重新登录后才能继续用。"},
-		{"one account, unknown user (en)", "en", SignInInfo{Portal: "acme", Accounts: accts("acme-prod")}, true, "Sign-in expired: acme", "acme-prod. Sign in again to keep using them."},
+		{"one account, unknown user (en)", "en", SignInInfo{Portal: "acme", Accounts: accts("acme-prod")}, true, "Sign-in expired: acme", "acme-prod. Sign in again to continue."},
 		{"two accounts (zh)", "zh-CN", SignInInfo{Portal: "acme", User: "alex", Accounts: accts("acme-prod", "globex"), LeadMinutes: 30}, false, "登录快过期了：acme", "alex · acme-prod、globex。大约 30 分钟后过期。"},
 		{"two accounts (en)", "en", SignInInfo{Portal: "acme", User: "alex", Accounts: accts("acme-prod", "globex"), LeadMinutes: 30}, false, "Sign-in expires soon: acme", "alex · acme-prod and globex. Expires in about 30 minutes."},
 		{"one hour (zh)", "zh-CN", SignInInfo{Portal: "acme", Accounts: accts("acme-prod"), LeadMinutes: 60}, false, "登录快过期了：acme", "acme-prod。大约 1 小时后过期。"},
 		{"one hour (en)", "en", SignInInfo{Portal: "acme", Accounts: accts("acme-prod"), LeadMinutes: 60}, false, "Sign-in expires soon: acme", "acme-prod. Expires in about 1 hour."},
-		{"no account yet: only the second sentence (en)", "en", SignInInfo{Portal: "acme", User: "alex"}, true, "Sign-in expired: acme", "Sign in again to keep using them."},
+		{"no account yet: only the second sentence (en)", "en", SignInInfo{Portal: "acme", User: "alex"}, true, "Sign-in expired: acme", "Sign in again to continue."},
 		{"no account yet: only the second sentence (zh)", "zh-CN", SignInInfo{Portal: "acme", User: "alex", LeadMinutes: 15}, false, "登录快过期了：acme", "大约 15 分钟后过期。"},
-		{"the same account name twice counts once", "en", SignInInfo{Portal: "acme", Accounts: accts("acme-prod", "acme-prod", "globex")}, true, "Sign-in expired: acme", "acme-prod and globex. Sign in again to keep using them."},
+		{"the same account name twice counts once", "en", SignInInfo{Portal: "acme", Accounts: accts("acme-prod", "acme-prod", "globex")}, true, "Sign-in expired: acme", "acme-prod and globex. Sign in again to continue."},
 	}
 	for _, c := range cases {
 		build := SignInHeadsUp

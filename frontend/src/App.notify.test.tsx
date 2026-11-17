@@ -55,13 +55,13 @@ describe('notifications in the window', () => {
     await until(() => !!document.querySelector('.app'))
     const respond = vi.spyOn(Notify, 'RespondToast')
     act(() =>
-      mockEmit('notify:toast', { id: 'signin:acme#1', kind: 'signin.ended', title: 'Sign-in expired: acme', body: 'acme-prod. Sign in again to keep using them.', button: 'Sign in again', tone: NotifyTone.NotifyToneDanger, sticky: true }),
+      mockEmit('notify:toast', { id: 'signin:acme#1', kind: 'signin.ended', title: 'Sign-in expired: acme', body: 'acme-prod. Sign in again to continue.', button: 'Sign in again', tone: NotifyTone.NotifyToneDanger, sticky: true }),
     )
     await until(() => toasts().length > 0)
     const t = toasts()[0]
     expect(t.classList.contains('toast--danger')).toBe(true)
     expect(t.textContent).toContain('Sign-in expired: acme')
-    expect(t.textContent).toContain('acme-prod. Sign in again to keep using them.')
+    expect(t.textContent).toContain('acme-prod. Sign in again to continue.')
     const btn = [...t.querySelectorAll('button')].find((b) => b.textContent === 'Sign in again')
     await act(async () => btn?.click())
     expect(respond).toHaveBeenCalledWith('signin:acme#1', 'button')

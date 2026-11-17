@@ -6,7 +6,7 @@ export const zh = {
   'notify.signin.headsup.title': '登录快过期了：{portal}',
   'notify.signin.ended.title': '登录已过期：{portal}',
   'notify.signin.names.two': '{a}、{b}',
-  'notify.signin.names.many': '{first} 等 {n} 个账户',
+  'notify.signin.names.many': '{first} 等 {n} 个账号',
   'notify.signin.headsup.when': '大约 {n} 分钟后过期。',
   'notify.signin.headsup.when.hour': '大约 1 小时后过期。',
   'notify.signin.ended.rest': '重新登录后才能继续用。',
@@ -35,7 +35,7 @@ export const en = {
   'notify.signin.names.many': '{first} and {more} more',
   'notify.signin.headsup.when': 'Expires in about {n} minutes.',
   'notify.signin.headsup.when.hour': 'Expires in about 1 hour.',
-  'notify.signin.ended.rest': 'Sign in again to keep using them.',
+  'notify.signin.ended.rest': 'Sign in again to continue.',
   'notify.alreadySignedIn': 'Already signed in',
 
   'settings.notify.title': 'Sign-in reminders',

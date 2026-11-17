@@ -15,6 +15,7 @@ import { useAppInfo } from '../state/appInfo'
 import { useEnv } from '../state/env'
 import { useRepos } from '../state/repos'
 import { useUpdateIndicator } from '../pages/update/useUpdate'
+import { actionCount } from '../pages/projects/model'
 import { Keyring } from './Keyring'
 
 interface NavDef {
@@ -54,9 +55,11 @@ export function Sidebar() {
       report.git.status !== ToolStatus.ToolOK ||
       (report.files ?? []).some((f) => !f.readable || !f.writable || !!f.issue))
 
+  const toFix = actionCount(repos?.repos, accounts?.profiles ?? [], accounts?.portals ?? [])
+
   const count = (def: NavDef) => {
     if (def.page === 'accounts' && (accounts?.staticCount ?? 0) > 0) return <span className="nav__count nav__count--warn">{t('nav.count.toMigrate', { n: accounts?.staticCount ?? 0 })}</span>
-    if (def.page === 'projects' && (repos?.counts.toFix ?? 0) > 0) return <span className="nav__count nav__count--warn">{t('nav.count.toFix', { n: repos?.counts.toFix ?? 0 })}</span>
+    if (def.page === 'projects' && toFix > 0) return <span className="nav__count nav__count--warn">{t('nav.count.toFix', { n: toFix })}</span>
     if (def.page === 'health' && envBad) return <span className="nav__count"><Dot kind="warn" /></span>
     return null
   }

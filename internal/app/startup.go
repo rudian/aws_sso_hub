@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/rudian/codepass/internal/paths"
 	"github.com/rudian/codepass/internal/projects"
@@ -70,13 +71,19 @@ type storeFileError struct {
 func (e *storeFileError) Error() string { return e.File + ": " + e.Err.Error() }
 func (e *storeFileError) Unwrap() error { return e.Err }
 
+// releasesAddress is ReleasesURL as people read it: without "https://" and "/latest".
+func releasesAddress() string {
+	return strings.TrimSuffix(strings.TrimPrefix(ReleasesURL, "https://"), "/latest")
+}
+
 // newerVersionMessage keeps the schema numbers out of the dialog (they are in the log).
 func newerVersionMessage(_ *store.NewerVersionError) string {
-	return "你的项目数据是由更新版本的 Codepass 写入的。这个版本没有打开，也没有改动它。请打开较新的 Codepass，或从发布页下载最新版本。\n\n" +
-		"Your project data was written by a newer Codepass. This copy did not open and changed nothing. Open the newer Codepass, or download the latest version from the releases page."
+	addr := releasesAddress()
+	return "你的项目数据是由更新版本的 Codepass 写入的。这个版本不会打开它，也没有改动它。请打开较新的 Codepass，或到 " + addr + " 下载最新版本。\n\n" +
+		"Your project data was written by a newer Codepass. This copy will not open it and changed nothing. Open the newer Codepass, or download the latest version from " + addr + "."
 }
 
 func damagedMessage(movedTo string) string {
-	return "项目数据已损坏，已另存为 " + movedTo + "，现在从空白开始。\n\n" +
-		"Your project data was damaged; it was kept as " + movedTo + " and Codepass started with an empty list."
+	return "项目分组的数据坏了，已另存为 " + movedTo + "。仓库本身没有动，分组要重新建。\n\n" +
+		"Your project list was damaged and was kept as " + movedTo + ". Your repositories are untouched; the projects start empty."
 }

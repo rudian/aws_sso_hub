@@ -6,7 +6,7 @@ import { detectOwner } from '../../api/mock/repos'
 import { accountsState, emptyBinding, mkRepo, reposState } from '../../api/mock/world'
 import type { World } from '../../api/mock/world'
 import { makeT } from '../../i18n'
-import { bindAllPlan, bindableProfiles, bulkSummary, defaultFilter, filterRepos, profileLabel, profileUsable, rowKind, splitMiddle, suggestedProfile, testText } from './model'
+import { bindAllPlan, bindableProfiles, bulkSummary, defaultFilter, filterRepos, fitMiddle, profileLabel, profileUsable, rowKind, splitMiddle, suggestedProfile, testText } from './model'
 
 function repos(w: World): Repo[] {
   return reposState(w).repos ?? []
@@ -223,5 +223,23 @@ describe('profileLabel', () => {
     const p = (accountsState(buildScenario('mid')).profiles ?? [])[0]
     expect(profileLabel({ ...p, name: 'acme', accountId: '111122223333' }, 'not identified')).toBe('acme · 111122223333')
     expect(profileLabel({ ...p, name: 'globex', accountId: undefined }, 'not identified')).toBe('globex · not identified')
+  })
+})
+
+describe('fitMiddle', () => {
+  const chars = (s: string) => s.length
+  it('keeps the whole path when it fits', () => {
+    expect(fitMiddle('~/Documents/code/acme_agent_portal', 34, chars)).toBe('~/Documents/code/acme_agent_portal')
+    expect(fitMiddle('~/Documents/code/acme_agent_portal', 40, chars)).toBe('~/Documents/code/acme_agent_portal')
+  })
+  it('cuts the middle with the ellipsis against the tail and fills the width', () => {
+    const r = fitMiddle('~/Documents/code/acme_agent_portal', 30, chars)
+    expect(r).toBe('~/Documents…/acme_agent_portal')
+    expect(r).not.toMatch(/… /)
+    expect(fitMiddle('~/Documents/code/acme_agent_portal', 33, chars)).toBe('~/Documents/co…/acme_agent_portal')
+  })
+  it('never loses the tail', () => {
+    expect(fitMiddle('~/Documents/code/acme_agent_portal', 5, chars)).toBe('…/acme_agent_portal')
+    expect(fitMiddle('short', 3, chars)).toBe('short')
   })
 })

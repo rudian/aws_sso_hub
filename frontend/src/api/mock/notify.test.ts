@@ -21,14 +21,14 @@ async function call<T>(p: Promise<T>): Promise<T> {
 
 describe('the notification texts of design 6', () => {
   it('heads-up, three accounts', () => {
-    expect(signInNoticeText('headsup', 'acme', ['acme-prod', 'globex', 'initech'], 15, 'zh-CN')).toEqual({ title: '登录快过期了：acme', body: 'acme-prod 等 3 个账户。大约 15 分钟后过期。' })
+    expect(signInNoticeText('headsup', 'acme', ['acme-prod', 'globex', 'initech'], 15, 'zh-CN')).toEqual({ title: '登录快过期了：acme', body: 'acme-prod 等 3 个账号。大约 15 分钟后过期。' })
     expect(signInNoticeText('headsup', 'acme', ['acme-prod', 'globex', 'initech'], 15, 'en')).toEqual({ title: 'Sign-in expires soon: acme', body: 'acme-prod and 2 more. Expires in about 15 minutes.' })
   })
   it('ended, one and two accounts and none', () => {
     expect(signInNoticeText('ended', 'acme', ['acme-prod'], 15, 'zh-CN')).toEqual({ title: '登录已过期：acme', body: 'acme-prod。重新登录后才能继续用。' })
     expect(signInNoticeText('ended', 'acme', ['acme-prod', 'globex'], 15, 'zh-CN').body).toBe('acme-prod、globex。重新登录后才能继续用。')
-    expect(signInNoticeText('ended', 'acme', ['acme-prod', 'globex'], 15, 'en').body).toBe('acme-prod and globex. Sign in again to keep using them.')
-    expect(signInNoticeText('ended', 'acme', [], 15, 'en').body).toBe('Sign in again to keep using them.')
+    expect(signInNoticeText('ended', 'acme', ['acme-prod', 'globex'], 15, 'en').body).toBe('acme-prod and globex. Sign in again to continue.')
+    expect(signInNoticeText('ended', 'acme', [], 15, 'en').body).toBe('Sign in again to continue.')
   })
   it('the lead time in words, always "about"', () => {
     expect(signInNoticeText('headsup', 'acme', [], 30, 'en').body).toBe('Expires in about 30 minutes.')

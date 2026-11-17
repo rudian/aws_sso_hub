@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BackupKind, BackupReason } from '../../api/models'
 import type { BackupEntry } from '../../api/models'
 import { makeT, zhAll } from '../../i18n'
-import { backupReasonText, formatBytes, newestBackup } from './util'
+import { backupReasonText, formatBytes, newestBackup, settingsSubtitle } from './util'
 
 const entry = (reason: BackupReason, params: Record<string, string> = {}, createdAt = '2026-11-04T10:00:00Z'): BackupEntry => ({
   id: createdAt + reason,
@@ -45,5 +45,19 @@ describe('helpers', () => {
     const b = entry(BackupReason.ReasonUnbind, {}, '2026-11-04T11:00:00Z')
     expect(newestBackup([a, b])).toBe(b)
     expect(newestBackup(null)).toBeNull()
+  })
+})
+
+describe('settingsSubtitle (D28)', () => {
+  it('names the version and the platform on macOS and Windows, in both languages', () => {
+    const zh = makeT('zh-CN')
+    const en = makeT('en')
+    expect(settingsSubtitle('1.0.0', 'darwin', zh)).toBe('Codepass 1.0.0 · macOS 15 或更高，Apple 芯片')
+    expect(settingsSubtitle('1.0.0', 'darwin', en)).toBe('Codepass 1.0.0 · macOS 15 or later, Apple silicon')
+    expect(settingsSubtitle('1.0.0', 'windows', zh)).toBe('Codepass 1.0.0 · Windows 10 或 11，x64')
+    expect(settingsSubtitle('1.0.0', 'windows', en)).toBe('Codepass 1.0.0 · Windows 10 or 11, x64')
+  })
+  it('shows only the platform while the version is not known', () => {
+    expect(settingsSubtitle(undefined, 'darwin', makeT('en'))).toBe('macOS 15 or later, Apple silicon')
   })
 })

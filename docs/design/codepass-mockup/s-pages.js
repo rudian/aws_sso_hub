@@ -155,7 +155,7 @@ SCREENS.update = () => {
       </div>
       <div class="banner banner--warn" style="margin-top:var(--sp-5);padding:12px 14px">${I('bot', 'banner__icon')}<div class="banner__body"><div class="banner__title">${L('2 个 AI 任务还在运行', '2 AI tasks are still running')}</div>${L('重新打开应用会结束它们。分支和改动都会保留，之后可以从原来的会话继续。', 'Reopening the app ends them. Their branches and changes stay, and each task can resume its session afterwards.')}</div></div>
     </div>
-    <div class="modal__footer"><button class="link-button" style="margin-right:auto;font-size:13px">${L('改为在浏览器中下载', 'Download in the browser instead')}</button><button class="btn">${L('现在就重新打开', 'Reopen now')}</button><button class="btn btn--primary">${L('等没有任务在运行时再重新打开', 'Reopen when no task is running')}</button></div>
+    <div class="modal__footer"><button class="link-button" style="margin-right:auto;font-size:13px">${L('改为在浏览器中下载', 'Download in the browser instead')}</button><button class="btn" disabled>${L('现在就重新打开', 'Reopen now')}</button><button class="btn btn--primary">${L('等没有任务在运行时再重新打开', 'Reopen when no task is running')}</button></div>
   </div></div>`;
   return shell('projects', projectsBody(banner), STATE === 'banner' ? '' : modal);
 };

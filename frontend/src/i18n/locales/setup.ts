@@ -55,8 +55,8 @@ export const zh = {
   'setup.slow': '还在下载，网络较慢时会久一些',
 
   'setup.log.label': '安装记录',
-  'setup.log.expand': '展开记录',
-  'setup.log.collapse': '收起记录',
+  'setup.log.expand': '展开日志',
+  'setup.log.collapse': '收起日志',
 
   'setup.foot.idle': '大约需要 3 到 6 分钟，取决于网速。',
   'setup.foot.running': '可以随时取消，当前这一步结束后停止，已装好的会保留。',

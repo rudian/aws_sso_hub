@@ -636,6 +636,19 @@ describe('CloneModal stale previews', () => {
   })
 })
 
+describe('CloneModal home folder (D32)', () => {
+  const nameInput = (repo: string) => document.querySelector<HTMLInputElement>(`input[aria-label="Local folder name for ${repo}"]`) as HTMLInputElement
+  it('shows the home folder as ~ in the "Clones into" line', async () => {
+    await mount({ initialProfile: 'acme', defaultParent: '/Users/alex/Documents/code', home: '/Users/alex' })
+    await click(rowCheck('acme_api'))
+    await settle()
+    await setInput(nameInput('acme_api'), 'api-main')
+    await settle()
+    expect(text()).toContain('Clones into ~/Documents/code/api-main')
+    expect(text()).not.toContain('/Users/alex')
+  })
+})
+
 describe('folderNameReason', () => {
   const cases: [string, string][] = [
     ['api-main', ''], ['acme_api', ''], ['a.b', ''], ['.hidden', ''], ['con-sole', ''], ['console', ''], ['nulled', ''],

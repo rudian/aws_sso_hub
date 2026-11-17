@@ -32,3 +32,9 @@ export function newestBackup(entries: BackupEntry[] | null | undefined): BackupE
 export function platformName(platform: string): string {
   return platform === 'darwin' ? 'macOS' : platform === 'windows' ? 'Windows' : platform
 }
+
+/** The Settings subtitle: "Codepass 1.0.0 · macOS 15 or later, Apple silicon". */
+export function settingsSubtitle(version: string | undefined, platform: string, t: T): string {
+  const where = platform === 'darwin' ? t('settings.platform.darwin') : platform === 'windows' ? t('settings.platform.windows') : platformName(platform)
+  return version ? t('settings.subtitle', { version, platform: where }) : where
+}

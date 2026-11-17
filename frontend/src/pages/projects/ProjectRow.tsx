@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ArrowLeftRight, ArrowUpRight, Check, ChevronDown, Copy, Ellipsis, EyeOff, Eye, FolderGit2, FolderInput, FolderOpen, GitBranch, GitCompare, GripVertical, LogIn, Plug, Terminal, Trash2, Unlink, UserPen, X } from 'lucide-react'
-import { memo } from 'react'
+import { memo, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent, ReactNode } from 'react'
 import { BindingSource, OwnerStatus, ProfileKind, RemoteKind, SessionState, TestStatus } from '../../api/models'
 import type { OwnerCandidate, Portal, Profile, Repo } from '../../api/models'
@@ -10,7 +10,7 @@ import { RepoName } from '../../components/RepoName'
 import { useI18n } from '../../i18n'
 import { isMac } from '../../lib/platform'
 import { formatRelative, formatRemainingLength } from '../../lib/time'
-import { canBind, portalOf, rowKind, sessionNeedsLogin, splitMiddle, suggestedProfile, testText } from '../repos/model'
+import { canBind, portalOf, fitMiddle, rowKind, sessionNeedsLogin, suggestedProfile, testText } from '../repos/model'
 import type { RowKind } from '../repos/model'
 import { MovedAsk } from './MovedAsk'
 import { isCodeCommit, providerKind } from './model'
@@ -103,11 +103,31 @@ function DotHint({ kind, title, detail, tone }: { kind: 'ok' | 'warn' | 'danger'
 }
 
 function MiddleText({ value, className }: { value: string; className?: string }) {
-  const { head, tail } = splitMiddle(value)
+  const ref = useRef<HTMLSpanElement>(null)
+  const [shown, setShown] = useState(value)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let canvas: HTMLCanvasElement | undefined
+    const fit = () => {
+      const avail = el.clientWidth
+      if (avail <= 0) return setShown(value)
+      const cs = getComputedStyle(el)
+      canvas ??= document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return setShown(value)
+      ctx.font = cs.font || `${cs.fontSize} ${cs.fontFamily}`
+      setShown(fitMiddle(value, avail, (s) => ctx.measureText(s).width))
+    }
+    fit()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [value])
   return (
-    <span className={clsx('midtrunc', className)} title={value}>
-      {head && <span className="midtrunc__head">{head}</span>}
-      <span className="midtrunc__tail">{tail}</span>
+    <span ref={ref} className={clsx('midtrunc', className)} title={value}>
+      {shown}
     </span>
   )
 }

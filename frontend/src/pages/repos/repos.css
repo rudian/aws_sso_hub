@@ -21,11 +21,9 @@
 .toolbar { flex-wrap: wrap; row-gap: var(--sp-2); }
 .toolbar .search { flex: 1 1 200px; max-width: 320px; width: auto; min-width: 160px; }
 
-/* Middle ellipsis: the head gives way first; the tail (usually the last path segment) is kept whole as long as
-   there is room and only then gets its own end ellipsis, so a narrow column never clips without an indicator. */
-.midtrunc { display: flex; min-width: 0; max-width: 100%; overflow: hidden; }
-.midtrunc__head { flex: 0 1000 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
-.midtrunc__tail { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+/* Middle ellipsis: MiddleText (ProjectRow) shortens the middle only when the whole path does not fit, and keeps the
+   ellipsis against the tail. This is the fallback: a path that still does not fit is cut with an end ellipsis. */
+.midtrunc { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
 
 .hint__label { display: block; }
 .hint__detail { display: block; }

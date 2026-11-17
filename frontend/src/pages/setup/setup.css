@@ -49,8 +49,8 @@
 .setup__fail { margin: var(--sp-4) var(--sp-5); }
 .setup__proxy { margin-top: 4px; font-size: var(--fs-12); color: var(--text-2); }
 
-.setup__logwrap { position: relative; border-top: 1px solid var(--border-subtle); background: var(--term-bg); }
-.setup__log { margin: 0; background: var(--term-bg); color: var(--term-fg); font: 12px/1.6 var(--font-mono); padding: var(--sp-3) var(--sp-5); max-height: 132px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.setup__logwrap { position: relative; border-top: 1px solid var(--border-subtle); background: var(--term-bg); padding: var(--sp-3) 0; } /* the top and bottom padding sit outside the scrolling pre, so the first visible line never touches the edge */
+.setup__log { margin: 0; background: var(--term-bg); color: var(--term-fg); font: 12px/1.6 var(--font-mono); padding: 0 var(--sp-5); max-height: 132px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .setup__log.is-expanded { max-height: 320px; overflow: auto; }
 .setup__log:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .setup__line--dim { color: var(--term-dim); }
@@ -75,3 +75,10 @@
 
 /* a running run keeps the primary button dark (the shared .btn:disabled would grey it) */
 .setup__primary.is-loading:disabled { opacity: 1; }
+
+/* A step without a percent shows the moving bar; with Motion "Reduced" (or the OS asking for less) it stands still:
+   a full, faint bar instead of a segment that would read as 35%. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="full"]) .tool-row__progress .progress--indeterminate .progress__bar { animation: none !important; transform: none; width: 100%; opacity: .4; }
+}
+:root[data-motion="reduce"] .tool-row__progress .progress--indeterminate .progress__bar { animation: none !important; transform: none; width: 100%; opacity: .4; }

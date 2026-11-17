@@ -169,6 +169,15 @@ describe('SetupPage run', () => {
     expect(onRecheck).toHaveBeenCalledTimes(1)
   })
 
+  it('a step without a percent shows an indeterminate bar (D14)', async () => {
+    await start('missing')
+    act(() => primary().click())
+    await flush(1900)
+    await flush(0)
+    const bar = rowOf('homebrew').querySelector('[role="progressbar"]') as HTMLElement
+    expect(bar.classList.contains('progress--indeterminate')).toBe(true)
+  })
+
   it('a download shows its bytes as a progress bar with aria-valuenow', async () => {
     await start('missing')
     act(() => primary().click())
@@ -240,6 +249,37 @@ describe('SetupPage failure', () => {
     expect(button('Copy log')).toBeDefined()
     expect(button('I’ll install them myself')).toBeDefined()
     expect(text()).not.toContain('Open Codepass')
+  })
+
+  it('the footer is one text for every failure cause, the not-administrator one included (D17)', async () => {
+    for (const [scn, cause] of [['proxy', 'network'], ['noadmin', 'not_admin'], ['missing', 'installer_failed'], ['missing', 'disk_full']] as const) {
+      await start(scn, 'darwin', cause, 'git:install')
+      act(() => primary().click())
+      await flush(8000)
+      expect(host.querySelector('.banner--danger'), `${scn}/${cause}`).not.toBeNull()
+      expect(host.querySelector('.setup__foottext')?.textContent, `${scn}/${cause}`).toBe('What is already installed is untouched.')
+      act(() => root.render(createElement('div')))
+    }
+  })
+
+  it('after a network failure, "I\u2019ll install them myself" turns the footer into Check again', async () => {
+    await start('proxy', 'darwin', 'network', 'git:install')
+    act(() => primary().click())
+    await flush(8000)
+    act(() => button('I\u2019ll install them myself')!.click())
+    await flush(300)
+    expect(host.querySelector('.setup__foottext')?.textContent).toBe('When you are done, press Check again.')
+  })
+
+  it('after prefix_exists, Check again with tools still missing says what is not found yet in the footer', async () => {
+    await start('missing', 'darwin', 'prefix_exists', 'homebrew:install')
+    act(() => primary().click())
+    await flush(8000)
+    expect(host.querySelector('.banner--danger')?.textContent).toContain('Repair or remove it yourself, then check again.')
+    expect(primary().textContent).toBe('Check again')
+    act(() => primary().click())
+    await flush(500)
+    expect(host.querySelector('.setup__foottext')?.textContent).toMatch(/^Not found yet: /)
   })
 
   it('Try again continues from the failed step: the rows that are installed are not run again', async () => {

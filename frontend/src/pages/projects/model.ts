@@ -1,9 +1,10 @@
 // Pure helpers for the Projects page (design 5.2): grouping, filters, search, suggestions, the found chooser and
 // the identity side of a move. No React in here, so the rules are tested on their own.
 import { RepoAction, RepoProvider } from '../../api/models'
-import type { MoveIdentityPreview, ProjectInfo, ProjectSuggestion, Repo, ReposState } from '../../api/models'
+import type { MoveIdentityPreview, Portal, Profile, ProjectInfo, ProjectSuggestion, Repo, ReposState } from '../../api/models'
 import type { ProviderKind } from '../../components'
 import { rankRepo, searchRepos } from '../../lib/repoSearch'
+import { portalOf, rowKind, sessionNeedsLogin } from '../repos/model'
 
 export type ProjectFilter = 'all' | 'todo' | 'changes'
 /** 'all', or one provider; 'hidden' lists the hidden repositories instead of the listed ones. */
@@ -29,6 +30,9 @@ export interface GroupOptions {
   source: SourceFilter
   query: string
   showHidden: boolean
+  /** Accounts, for the rows whose sign-in expired; without them only the binding counts. */
+  profiles?: Profile[]
+  portals?: Portal[]
 }
 
 export function hasChanges(r: Repo): boolean {
@@ -42,6 +46,51 @@ export function isCodeCommit(r: Repo): boolean {
 /** A repository is "to fix" for CodeCommit rows (the binding is wrong or missing); other providers never are. */
 export function needsFix(r: Repo): boolean {
   return isCodeCommit(r) && r.toFix
+}
+
+/**
+ * A row that needs an action: the binding is wrong or missing, or it is bound to a portal whose sign-in expired
+ * (the row shows "Sign-in expired; pushes will fail" with its Sign in action). One rule for the "To fix" filter, its
+ * number and the sidebar count.
+ */
+export function needsAction(r: Repo, profiles: Profile[], portals: Portal[]): boolean {
+  if (!isCodeCommit(r)) return false
+  if (r.toFix) return true
+  if (rowKind(r) !== 'bound' || !r.binding.profileKnown) return false
+  const profile = profiles.find((p) => p.name === r.binding.profile)
+  const portal = portalOf(profile, portals)
+  return !!portal && sessionNeedsLogin(portal.session.state)
+}
+
+export function actionCount(repos: Repo[] | null | undefined, profiles: Profile[], portals: Portal[]): number {
+  return (repos ?? []).filter((r) => needsAction(r, profiles, portals)).length
+}
+
+/** The home folder implied by a scan root and its display form ("/Users/alex/Documents/code" and "~/Documents/code"); '' when unknown. */
+export function homeFromRoot(root: string | undefined, display: string | undefined): string {
+  if (!root || !display || !display.startsWith('~')) return ''
+  const rest = display.slice(1)
+  const flat = (v: string) => v.replace(/\\/g, '/')
+  if (!flat(root).endsWith(flat(rest))) return ''
+  return root.slice(0, root.length - rest.length).replace(/[\\/]+$/, '')
+}
+
+/** The home folder from the first scan root whose display form starts with "~"; '' when none does. */
+export function homeFromRoots(roots: readonly string[] | null | undefined, displays: readonly string[] | null | undefined): string {
+  for (let i = 0; i < (roots?.length ?? 0); i++) {
+    const h = homeFromRoot(roots?.[i], displays?.[i])
+    if (h) return h
+  }
+  return ''
+}
+
+/** A path with the home folder shown as "~", as the Projects rows show it; other paths stay as they are. */
+export function tildePath(path: string, home: string): string {
+  if (!home) return path
+  const h = home.replace(/[\\/]+$/, '')
+  if (path === h) return '~'
+  const next = path.charAt(h.length)
+  return path.startsWith(h) && (next === '/' || next === '\\') ? `~${path.slice(h.length)}` : path
 }
 
 /** Search matches the folder name, the remote name, the CodeCommit name and the path. */
@@ -63,7 +112,7 @@ export function providerKind(r: Repo): ProviderKind | null {
 }
 
 function passes(r: Repo, o: GroupOptions): boolean {
-  if (o.filter === 'todo' && !needsFix(r)) return false
+  if (o.filter === 'todo' && !needsAction(r, o.profiles ?? [], o.portals ?? [])) return false
   if (o.filter === 'changes' && !hasChanges(r)) return false
   if (o.source !== 'all' && r.provider !== o.source) return false
   return true

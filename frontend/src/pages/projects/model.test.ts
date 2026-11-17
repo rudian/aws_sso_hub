@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { RepoAction, RepoProvider } from '../../api/models'
-import type { MoveIdentityPreview, ProjectInfo, Repo, ReposState } from '../../api/models'
-import { activeSuggestion, changesCount, defaultFoundSelection, displayOrder, groupRepos, hasChanges, moveTargets, needsFix, needsMoveConfirm, peekProfiles, prefixMatches, recentlyActive, repoMatches, splitMove } from './model'
+import { BindingSource, ProfileKind, RepoAction, RepoProvider, SessionState } from '../../api/models'
+import type { MoveIdentityPreview, Portal, Profile, ProjectInfo, Repo, ReposState } from '../../api/models'
+import { actionCount, activeSuggestion, changesCount, defaultFoundSelection, displayOrder, groupRepos, hasChanges, homeFromRoot, homeFromRoots, moveTargets, needsAction, needsFix, needsMoveConfirm, peekProfiles, prefixMatches, recentlyActive, repoMatches, splitMove, tildePath } from './model'
 import type { GroupOptions, MovePreviewItem } from './model'
 
 const NOW = Date.parse('2026-11-04T04:00:00Z')
@@ -174,5 +174,56 @@ describe('moving', () => {
     const order = ['a', 'b', 'c', 'd']
     expect(moveTargets('b', new Set(['d', 'b']), order)).toEqual(['b', 'd'])
     expect(moveTargets('c', new Set(['d', 'b']), order)).toEqual(['c'])
+  })
+})
+
+describe('needsAction (To fix, its number and the sidebar count)', () => {
+  const profiles = [{ name: 'acme', kind: ProfileKind.ProfileKindSSO, portal: 'acme-portal' }] as unknown as Profile[]
+  const portal = (state: SessionState) => [{ name: 'acme-portal', session: { state } }] as unknown as Portal[]
+  const bound = (over: Partial<Repo> = {}) =>
+    repo('acme_api', { binding: { source: BindingSource.BindingLocal, profile: 'acme', profileKnown: true, needsRepair: false, legacyPlain: false }, ...over } as Partial<Repo>)
+
+  it('counts a row whose binding is wrong or missing', () => {
+    expect(needsAction(repo('x', { toFix: true }), [], [])).toBe(true)
+  })
+  it('counts a bound row whose portal sign-in expired, signed out or failed', () => {
+    for (const st of [SessionState.SessionExpired, SessionState.SessionSignedOut, SessionState.SessionError]) expect(needsAction(bound(), profiles, portal(st))).toBe(true)
+  })
+  it('does not count a bound row whose sign-in is usable or unknown', () => {
+    expect(needsAction(bound(), profiles, portal(SessionState.SessionActive))).toBe(false)
+    expect(needsAction(bound(), profiles, portal(SessionState.SessionExpiring))).toBe(false)
+    expect(needsAction(bound(), profiles, [])).toBe(false)
+  })
+  it('never counts a row of another provider', () => {
+    expect(needsAction(bound({ provider: RepoProvider.ProviderGitHub }), profiles, portal(SessionState.SessionExpired))).toBe(false)
+  })
+  it('actionCount and the To fix filter use the same rule', () => {
+    const list = [bound(), repo('b', { toFix: true }), repo('c')]
+    const ports = portal(SessionState.SessionExpired)
+    expect(actionCount(list, profiles, ports)).toBe(2)
+    expect(actionCount(null, profiles, ports)).toBe(0)
+    const sections = groupRepos(state(list, []), opts({ filter: 'todo', profiles, portals: ports }))
+    expect(sections.flatMap((x) => x.repos).length).toBe(2)
+  })
+})
+
+describe('home folder as ~ (D32)', () => {
+  it('derives the home folder from a scan root and its display form', () => {
+    expect(homeFromRoot('/Users/alex/Documents/code', '~/Documents/code')).toBe('/Users/alex')
+    expect(homeFromRoot('C:\\Users\\alex\\code', '~\\code')).toBe('C:\\Users\\alex')
+    expect(homeFromRoot('/work', '/work')).toBe('')
+    expect(homeFromRoot(undefined, '~/x')).toBe('')
+  })
+  it('finds the home folder from the first root that is under it', () => {
+    expect(homeFromRoots(['/work', '/Users/alex/code'], ['/work', '~/code'])).toBe('/Users/alex')
+    expect(homeFromRoots(['/work'], ['/work'])).toBe('')
+    expect(homeFromRoots(undefined, undefined)).toBe('')
+  })
+  it('shortens only paths inside the home folder', () => {
+    expect(tildePath('/Users/alex/Documents/code/api-main', '/Users/alex')).toBe('~/Documents/code/api-main')
+    expect(tildePath('/Users/alex', '/Users/alex')).toBe('~')
+    expect(tildePath('/work/x', '/Users/alex')).toBe('/work/x')
+    expect(tildePath('/work/x', '')).toBe('/work/x')
+    expect(tildePath('C:\\Users\\alex\\code\\a', 'C:\\Users\\alex')).toBe('~\\code\\a')
   })
 })

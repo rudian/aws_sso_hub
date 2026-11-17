@@ -1,5 +1,5 @@
 /* Own class names: the global .repo-name rule belongs to the Repos table cell and stacks its children. */
 .repo-nm { display: inline; min-width: 0; }
-.remote-name { font-weight: var(--fw-regular); font-size: 11px; color: var(--text-3); padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm); margin-left: 4px; white-space: nowrap; }
-.repo-nm__hit { font-weight: 800; color: var(--text); }
-.remote-name .repo-nm__hit { font-weight: var(--fw-semibold); color: var(--text-2); }
+.remote-name { font-weight: var(--fw-regular); font-size: 11px; color: var(--text-3); padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm); margin-left: 4px; white-space: nowrap; max-width: 100%; }
+.repo-nm__hit { font-weight: var(--fw-bold, 700); color: var(--text); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--info) 70%, transparent); background: color-mix(in srgb, var(--info) 16%, transparent); border-radius: 2px; }
+.remote-name .repo-nm__hit { font-weight: var(--fw-semibold); color: var(--text-2); text-decoration-thickness: 1px; }

@@ -46,4 +46,32 @@ describe('RepoName', () => {
     expect(render('en', { localName: 'acme_api', query: '' }).querySelector('.repo-nm__hit')).toBeNull()
     expect(render('en', { localName: 'acme_api', query: 'zzz' }).querySelector('.repo-nm__hit')).toBeNull()
   })
+
+  it('keeps the local name and the remote tag as separate elements (D36)', () => {
+    const cell = document.createElement('div')
+    cell.className = 'repo-cell__name'
+    document.body.appendChild(cell)
+    act(() => createRoot(cell).render(createElement(I18nProvider, { lang: 'en' }, createElement(RepoName, { localName: 'dashboard-main', remoteName: 'initech_dash' }))))
+    expect(cell.querySelector('.repo-nm > .repo-nm__local')?.textContent).toBe('dashboard-main')
+    expect(cell.querySelector('.repo-nm > .remote-name')?.textContent).toBe('remote initech_dash')
+  })
+  it('pins the D36 and D37 style contract in the source', async () => {
+    // vitest serves css as an empty module and the frontend has no node types, so the sheets are read from disk (tests run from frontend/).
+    const { readFileSync } = (await import(/* @vite-ignore */ 'node:' + 'fs')) as { readFileSync(path: string, enc: string): string }
+    const repoNameCss = readFileSync('src/components/RepoName.css', 'utf8')
+    const projectsCss = readFileSync('src/pages/projects/projects.css', 'utf8')
+    const repoName = repoNameCss
+    const projects = projectsCss
+    const rule = (css: string, sel: string) => css.split('\n').find((l) => l.startsWith(sel)) ?? ''
+    // D37: a matched letter is marked by more than weight (underline and tint).
+    const hit = rule(repoName, '.repo-nm__hit')
+    expect(hit).toMatch(/text-decoration:\s*underline/)
+    expect(hit).toMatch(/background:/)
+    // D36: the name cell wraps its pieces; the tag is never ellipsized, it wraps its own text at worst.
+    expect(rule(projects, '.repo-cell__name .repo-nm {')).toMatch(/flex-wrap:\s*wrap/)
+    const tag = rule(projects, '.repo-cell__name .remote-name')
+    expect(tag).not.toMatch(/text-overflow:\s*ellipsis/)
+    expect(tag).toMatch(/overflow-wrap:\s*anywhere/)
+    expect(repoName).not.toMatch(/\.remote-name[^}]*text-overflow:\s*ellipsis/)
+  })
 })

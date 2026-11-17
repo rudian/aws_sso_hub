@@ -15,6 +15,7 @@ import { useSettings } from '../../state/settings'
 import { useActions } from '../../shell/AppActions'
 import { useReportError } from '../repos/hooks'
 import { bindableProfiles, profileLabel, profileUsable } from '../repos/model'
+import { tildePath } from './model'
 import './CloneModal.css'
 
 export interface CloneModalProps {
@@ -22,6 +23,8 @@ export interface CloneModalProps {
   initialProfile?: string
   /** First scan folder (absolute): the default destination. */
   defaultParent: string
+  /** The user's home folder (absolute), so the destination line shows it as ~; unknown = paths shown whole. */
+  home?: string
   cliReady: boolean
   onClose: () => void
 }
@@ -100,7 +103,7 @@ function QueueList({ items, className, onOpen }: { items: QueueItem[]; className
 }
 
 /** Clone from CodeCommit: account, repositories, destination in one view, then git's progress inside the modal. */
-export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }: CloneModalProps) {
+export function CloneModal({ initialProfile, defaultParent, home = '', cliReady, onClose }: CloneModalProps) {
   const { t, lang } = useI18n()
   const { state: accounts } = useAccounts()
   const { openLogin } = useActions()
@@ -724,7 +727,7 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
                 return (
                   <>
                     {before}
-                    <span className="mono">{path}</span>
+                    <span className="mono">{tildePath(path, home)}</span>
                     {after}
                   </>
                 )
@@ -764,7 +767,7 @@ export function CloneModal({ initialProfile, defaultParent, cliReady, onClose }:
         : ''
 
   return (
-    <Modal open size="lg" title={t('clone.title')} dismissible={phase !== 'cloning'} onClose={onClose} footer={footer}>
+    <Modal open size="lg" className="clone-modal" title={t('clone.title')} dismissible={phase !== 'cloning'} onClose={onClose} footer={footer}>
       <div className="sr-only" role="status">
         {announce}
       </div>

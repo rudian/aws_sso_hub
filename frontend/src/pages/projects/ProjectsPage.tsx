@@ -37,7 +37,7 @@ import { ProjectRow } from './ProjectRow'
 import type { ProjectRowCallbacks } from './ProjectRow'
 import { ProjectSection } from './ProjectSection'
 import type { ProviderKind } from '../../components'
-import { HIDDEN_SECTION, UNGROUPED, activeSuggestion, changesCount, displayOrder, groupRepos, isCodeCommit, moveTargets, movable, providerKind } from './model'
+import { HIDDEN_SECTION, UNGROUPED, actionCount, activeSuggestion, changesCount, displayOrder, groupRepos, homeFromRoots, isCodeCommit, moveTargets, movable, providerKind } from './model'
 import type { ProjectFilter, SourceFilter } from './model'
 import { useProjectOps } from './ops'
 import '../repos/repos.css'
@@ -128,7 +128,8 @@ export function ProjectsPage() {
   const allRepos = useMemo(() => state?.repos ?? [], [state])
   const profiles = accounts?.profiles ?? []
   const cliReady = state?.awsCliReady ?? true
-  const counts = state?.counts ?? { all: 0, toFix: 0, bound: 0, found: 0, hidden: 0 }
+  const baseCounts = state?.counts ?? { all: 0, toFix: 0, bound: 0, found: 0, hidden: 0 }
+  const counts = useMemo(() => ({ ...baseCounts, toFix: actionCount(state?.repos, profiles, accounts?.portals ?? []) }), [baseCounts, state, profiles, accounts?.portals])
   const isScanning = !!scanning || !!state?.scanning
   const projects = useMemo(() => state?.projects ?? [], [state])
   const ops = useProjectOps({ state, identities: identities.byProject, reload, announce })
@@ -138,7 +139,7 @@ export function ProjectsPage() {
     if (showHidden && counts.hidden === 0) setShowHidden(false)
   }, [showHidden, counts.hidden])
 
-  const sections = useMemo(() => groupRepos(state, { filter, source, query, showHidden }, t('projects.ungrouped')), [state, filter, source, query, showHidden, t])
+  const sections = useMemo(() => groupRepos(state, { filter, source, query, showHidden, profiles, portals: accounts?.portals ?? [] }, t('projects.ungrouped')), [state, filter, source, query, showHidden, profiles, accounts?.portals, t])
   const searching = query.trim() !== ''
   // Sections the user folds while searching: in memory only, dropped when the search ends (never saved)
   const [searchCollapsed, setSearchCollapsed] = useState<Map<string, boolean>>(new Map())
@@ -1278,7 +1279,7 @@ export function ProjectsPage() {
         />
       )}
       {bulk?.mode === 'suggestions' && <BulkBindModal mode="suggestions" repos={plan.items.map((i) => find(i.repoId)).filter((r): r is Repo => !!r)} items={plan.items} skipped={plan.ambiguous} onClose={() => setBulk(null)} />}
-      {cloneOpen && <CloneModal initialProfile={route.profile} defaultParent={state?.roots?.[0] ?? ''} cliReady={cliReady} onClose={() => setCloneOpen(false)} />}
+      {cloneOpen && <CloneModal initialProfile={route.profile} defaultParent={state?.roots?.[0] ?? ''} home={homeFromRoots(state?.roots, state?.rootsDisplay)} cliReady={cliReady} onClose={() => setCloneOpen(false)} />}
     </div>
   )
 }

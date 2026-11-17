@@ -91,7 +91,7 @@ func SignInEnded(lang string, in SignInInfo) (title, body string) {
 		return title, in.names(lang) + "重新登录后才能继续用。"
 	}
 	title = join("Sign-in expired", ": ", name)
-	return title, in.names(lang) + "Sign in again to keep using them."
+	return title, in.names(lang) + "Sign in again to continue."
 }
 
 // SignInData is the notice's data map: the kind, the portal name and the sign-in time. The portal name is
@@ -146,7 +146,7 @@ func (in SignInInfo) names(lang string) string {
 	case len(names) == 2:
 		accts = names[0] + " and " + names[1]
 	case zh:
-		accts = fmt.Sprintf("%s 等 %d 个账户", names[0], len(names))
+		accts = fmt.Sprintf("%s 等 %d 个账号", names[0], len(names))
 	default:
 		accts = fmt.Sprintf("%s and %d more", names[0], len(names)-1)
 	}

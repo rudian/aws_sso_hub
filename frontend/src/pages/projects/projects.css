@@ -27,7 +27,7 @@ body.is-dragging-row, body.is-dragging-row * { cursor: grabbing !important; user
 .proj__empty { padding: var(--sp-4); border: 1px dashed var(--border-strong); border-radius: var(--r-lg); font-size: var(--fs-13); color: var(--text-3); text-align: center; }
 
 /* The table: 6 columns (select, repository, account, branch, status, actions). */
-.proj-table { --cols: 20px minmax(220px, 1.5fr) minmax(150px, .9fr) minmax(190px, 1.1fr) minmax(170px, 1fr) 140px; overflow: visible; }
+.proj-table { --cols: 20px minmax(220px, 1.5fr) minmax(150px, .9fr) minmax(190px, 1fr) minmax(170px, 1.2fr) 140px; overflow: visible; }
 .proj-table .row { min-height: 50px; cursor: default; position: relative; }
 .proj-table .row[role="row"] { outline-offset: -2px; }
 .proj-table .row:focus-visible { outline: 2px solid var(--focus); }
@@ -41,7 +41,10 @@ body.is-dragging-row, body.is-dragging-row * { cursor: grabbing !important; user
 .repo-cell__text { min-width: 0; display: flex; flex-direction: column; gap: 0; flex: 1; }
 .repo-cell__name { display: flex; align-items: center; min-width: 0; }
 .repo-cell__text .row__secondary { font-family: var(--font-mono); font-size: 11.5px; }
-.remote-name { font-weight: var(--fw-regular); font-size: 11px; color: var(--text-3); padding: 1px 6px; border: 1px solid var(--border); border-radius: var(--r-sm); margin-left: 4px; white-space: nowrap; }
+.repo-cell__name .repo-nm { display: flex; flex-wrap: wrap; align-items: center; column-gap: 4px; row-gap: 2px; max-width: 100%; }
+/* The local name gives way first (end ellipsis, alone on its line); the remote-name tag is never cut: it drops to its own line when it does not fit beside the name. */
+.repo-cell__name .repo-nm__local { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repo-cell__name .remote-name { margin-left: 0; flex: none; white-space: normal; overflow-wrap: anywhere; }
 
 .proj-acct { flex-direction: column; align-items: flex-start; gap: 4px; }
 .proj-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; border-radius: var(--r-md); max-width: 100%; min-width: 0; cursor: default; }
@@ -54,6 +57,7 @@ body.is-dragging-row, body.is-dragging-row * { cursor: grabbing !important; user
 .sync .up { color: var(--info); }
 .sync .chg { color: var(--warn); }
 .proj-status { display: flex; align-items: flex-start; gap: 8px; }
+.proj-status .hint { min-width: 0; }
 .proj-status .dot { margin-top: 5px; flex: none; }
 .proj-status .hint__label { font-weight: var(--fw-regular); }
 

@@ -327,7 +327,7 @@ export function SetupPage() {
   else if (verifying) footText = t('setup.foot.verifying')
   else if (stillBlocked) footText = t('setup.foot.stillBlocked', { names: stillBlocked })
   else if (selfInstall && kind !== 'continue') footText = t('setup.foot.self')
-  else if (phase === 'failed' && ready > 0) footText = t('setup.foot.failed')
+  else if (phase === 'failed') footText = t('setup.foot.failed') // one text for every cause (D17)
   else if (cancelledRun) footText = t('setup.foot.cancelled')
   else if (unverified) footText = t('setup.foot.unverified', { names: blockedNames })
   else if (kind === 'continue') footText = t('setup.foot.detected')

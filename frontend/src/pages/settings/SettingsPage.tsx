@@ -33,7 +33,7 @@ import { TerminalAppSelect } from '../terminal/TerminalAppSelect'
 import { NotifyStatusCard, NotifyWindowsHelp, useNotifyState } from './NotifyRows'
 import { RestoreModal } from './RestoreModal'
 import { UpdatesCard } from './UpdatesCard'
-import { REPO_URL, backupReasonText, formatBytes, newestBackup, platformName } from './util'
+import { REPO_URL, backupReasonText, formatBytes, newestBackup, platformName, settingsSubtitle } from './util'
 import './settings.css'
 
 function Row({ label, desc, children, stack, id }: { label: ReactNode; desc?: ReactNode; children?: ReactNode; stack?: boolean; id?: string }) {
@@ -198,6 +198,7 @@ export function SettingsPage() {
       <header className="page__header">
         <div>
           <h1 className="page__title">{t('settings.title')}</h1>
+          <p className="page__subtitle">{settingsSubtitle(info?.version, platform, t)}</p>
         </div>
       </header>
       <GlobalBanner />

@@ -54,3 +54,6 @@
 .clone-row__err { font-size: var(--fs-12); color: var(--danger); overflow-wrap: anywhere; }
 .clone-into { font-size: var(--fs-12); color: var(--text-2); overflow-wrap: anywhere; }
 .clone-into .mono { color: inherit; }
+
+/* Room between the title and the first field, as in the other dialogs; the body scrolls when the window is short (980x660). */
+.clone-modal .modal__body { padding-top: var(--sp-10); }

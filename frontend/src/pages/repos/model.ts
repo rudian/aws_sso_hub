@@ -194,3 +194,21 @@ export function splitMiddle(value: string, tail = 18): { head: string; tail: str
   if (cut > 0 && value.length - cut <= tail + 6) return { head: value.slice(0, cut), tail: value.slice(cut) }
   return { head: value.slice(0, value.length - tail), tail: value.slice(value.length - tail) }
 }
+
+/**
+ * The value with its middle replaced by an ellipsis, only when the whole value does not fit `avail` (in the units of
+ * `measure`). The tail from `splitMiddle` is kept whole and the ellipsis sits right against it: no space between them.
+ */
+export function fitMiddle(value: string, avail: number, measure: (s: string) => number): string {
+  if (avail <= 0 || measure(value) <= avail) return value
+  const { head, tail } = splitMiddle(value)
+  if (!head) return value
+  let lo = 0
+  let hi = head.length - 1
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2)
+    if (measure(head.slice(0, mid) + '…' + tail) <= avail) lo = mid
+    else hi = mid - 1
+  }
+  return head.slice(0, lo) + '…' + tail
+}
