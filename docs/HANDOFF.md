@@ -1,6 +1,6 @@
 # Codepass 交接文档
 
-更新：2026-11-17（第七版，I 组合并后）。状态：**进行中**。里程碑 1 的任务全部合并；关卡的设计检查做完了，19 处修复也合并了（F1-GF）。里程碑 2 开始了：A2-01 已合并，**B 组（8 个任务）正在跑**。用户的第三批需求（git：从任意分支建新分支、↑↓ 数字、「拉取全部」）已写进计划，放在里程碑 4。
+更新：2026-11-17（第八版，里程碑 2 的 B 组合并后）。状态：**进行中**。里程碑 1 的任务全部合并，关卡只剩用户的事（测试频道、手动检查）。里程碑 2：A2-01 和 B 组的 7 个任务已合并（还没接到界面上）；**C 组正在跑：A2-08 和 F1-SG 一起跑，之后单独跑 A2-W**。用户的第三批需求（git）已写进计划，放在里程碑 4。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 
@@ -15,7 +15,7 @@
   - F1-22 合并完成（`f3fc3e2`，登录快过期、已过期的系统通知）；
   - F1-CL 合并完成，按文件拆成两个并行任务：`0ab5df7` F1-CLa（Go、脚本、文档）、`86e82d4` F1-CLb（前端，包括用户要的项目页搜索）；
   - 删掉了多余的本地分支；workflow 以后合并、push 成功后自动删 task 分支。
-- **进度**：约 **24%**（第 9 节）。里程碑 0 完成。里程碑 1 的任务全部合并，只剩关卡。
+- **进度**：约 **31%**（第 9 节）。里程碑 0 完成。里程碑 1 的任务全部合并，关卡只剩用户的事。里程碑 2 做了一半（A2-01 和 B 组已合并）。
 - **代码**：在 `codepass` 分支，已经 push。`main`（0.0.2）已经用 `--no-ff` 合并进来，`git log codepass..main` 是空的。
 - **顺序**：里程碑 1 关卡 → 里程碑 2（最后一组是新加的 A2-CL，清掉 F1-CL 留下的 11 条小问题）→ 3 → **8** → 4 → 5 → 6 → 7。
 
@@ -33,8 +33,8 @@
    - `docs/plan/codepass/tasks.md`：「How the work runs」、「Owner decisions (FINAL)」和它下面的两批 owner requirements、open questions、「Follow-ups」；
    - 同一文件里程碑 1 的「Gate」、里程碑 2 最后的 A2-CL 条目、「Follow-ups」最后的 Group H（FU-CLa1–4、FU-CLb1–7）；里程碑 8 先略读（它排在里程碑 3 后面）；
    - `reviews/groupH-wiring.md`（F1-CL 留给关卡和里程碑 2 的话）；`reviews/groupE-wiring.md` 和 `reviews/groupG-wiring.md` 的 deviations（关卡要请用户确认）。
-4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 64 个文件、863 个测试（I 组之后；B 组合并后会更多）。
-5. **然后直接开工**：先看里程碑 2 的 B 组合并了没有（`git log --oneline` 里有没有 `codepass(A2-02)` 等 8 个）。没合并的，用 `reviews/m2B-args.md` 里的说明重新跑没合并的那些（worktree 和 task 分支还在的话，workflow 会接着用）。都合并了，就从 C 组开始（A2-08，然后 A2-W）。关卡里只剩用户的事（第 5 节第 4 条）。第 6 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
+4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 80 个文件、996 个测试（里程碑 2 的 B 组之后）。
+5. **然后直接开工**：先看 C 组合并了没有：`git log --oneline` 里有没有 `codepass(A2-08)`、`codepass(F1-SG)`，再看 `codepass(A2-W)`。没合并的，用 `reviews/m2C-args.md`（A2-08、F1-SG）或 A2-W 自己的说明重新跑（worktree 和 task 分支还在的话，workflow 会接着用）。都合并了，就从 D 组开始（A2-09、A2-10、A2-11、A2-12、A2-14、A2-15，并行）。关卡里只剩用户的事（第 5 节第 4 条）。第 6 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
 
 ## 2. 用户定的工作方式（每个 session 都照做）
 
@@ -137,9 +137,13 @@
      - 测试频道：私有仓库、测试签名钥匙、只读令牌、`gh auth login`（`docs/release.md`「The test channel」）。有了它，orchestrator 才能出签名、公证过的 rc 版本。
      - 手动检查：C 组（C1–C28）、A9、A16、A17、B1–B3、B5、B9、B15–B19。
    - **2026-11-17 进度**：截图和设计对比做完了（37 张，Fable 对比，用户在页面上定了）。31 处照现在的样子接受，19 处由 F1-GF 修（I 组）。每一条和决定都在 `reviews/m1-gate-review.md`。用户说的两件事：(1) 登录到期发通知、通知上有「重新登录」按钮，这是 F1-22，已经做好；只改「自动续期登录」下面那句说明。(2) 一个门户下可以有多个账号和角色（同一个账号的不同角色，或者不同的账号），已经做好，新加手动检查 C28。D27（设置页两列）放进 A2-CL。剩下要用户来的：测试频道和手动检查；查出来的问题放进 A2-CL。
-4a. **I 组 ✅ 已完成**（2026-11-17）：`4a7e6b5` F1-GF（关卡的 19 处修复）、`90f1772` A2-01（终端里程序的启动和停止，`internal/pty`）。各 2 轮修复后通过；gate：64 个文件、863 个测试。留下 7 条 follow-up：FU-GFa（项目页窗口 1200 宽时「更多」按钮被挡住，**F1-GF2**，放进 B 组）、FU-GFb、FU-GFc、FU-01c（A2-CL）、FU-01a、FU-01b（A2-13：崩溃后留下的程序，下次启动时列出来）。说明在 `reviews/groupI-wiring.md`、`reviews/groupI-args.md`（`portBase` 用过 9880）。手动检查：B8 改写了，新加 C29。
+4a. **I 组 ✅ 已完成**（2026-11-17）：`4a7e6b5` F1-GF（关卡的 19 处修复）、`90f1772` A2-01（终端里程序的启动和停止，`internal/pty`）。各 2 轮修复后通过；gate：64 个文件、863 个测试。留下 7 条 follow-up：FU-GFa（项目页窗口 1200 宽时「更多」按钮被挡住，**F1-GF2**，放进 B 组）、FU-GFb、FU-GFc、FU-A2-01c（A2-CL）、FU-A2-01a、FU-A2-01b（A2-13：崩溃后留下的程序，下次启动时列出来）。说明在 `reviews/groupI-wiring.md`、`reviews/groupI-args.md`（`portBase` 用过 9880）。手动检查：B8 改写了，新加 C29。
 4b. **用户的第三批需求（git，2026-11-17）**：Fable 设计，写进 plan 4.6a、design 4.2、5.2、5.2b、5.8，调研在 `docs/research/git-pull-all.md`。新任务 G4-11、G4-12、G4-13；G4-01、02、06、07 各加了一点。里程碑 4 多了约 1.5 周。
-4c. **里程碑 2 的 B 组**（2026-11-17 开跑）：A2-02、A2-03、A2-04、A2-05、A2-13、A2-06、A2-07，加上 F1-GF2。传给 workflow 的说明在 `reviews/m2B-args.md`（`portBase` 9940）。这一组的例外：A2-06 可以改 `App.tsx`（加工作区路由）和 `ProjectsPage.tsx` 的 `openRepo`；A2-07 可以改 `frontend/package.json`（加 xterm）；A2-13 可以改 `internal/pty/pty_unix.go`（FU-01a）。A2-02 和 A2-07 用同一个终端接口（照 spike 的 `ReadReply`），写在 args 里。
+4c. **里程碑 2 的 B 组**（2026-11-17 开跑）：A2-02、A2-03、A2-04、A2-05、A2-13、A2-06、A2-07，加上 F1-GF2。传给 workflow 的说明在 `reviews/m2B-args.md`（`portBase` 9940）。这一组的例外：A2-06 可以改 `App.tsx`（加工作区路由）和 `ProjectsPage.tsx` 的 `openRepo`；A2-07 可以改 `frontend/package.json`（加 xterm）；A2-13 可以改 `internal/pty/pty_unix.go`（FU-A2-01a）。A2-02 和 A2-07 用同一个终端接口（照 spike 的 `ReadReply`），写在 args 里。
+4d. **里程碑 2 的 B 组 ✅ 已完成**（2026-11-17）：`1d3153b` A2-02 终端会话和数据通道、`ebb8783` A2-03 防睡眠、`a157d4c` A2-04 AI 工具、`cfbad11` A2-05 任务状态信号、`4be855f` A2-13 留下的程序和强制停止、`9048069` F1-GF2 项目页各种窗口宽度、`eb361cf` A2-06 工作区外框、`7f53899` A2-07 终端组件。全部通过（1 到 3 轮修复）；gate：80 个文件、996 个测试。**bindings 故意没重新生成**：新服务还没在 `main.go` 注册，生成器会删掉 A2-04 的文件。A2-W 注册完再生成。
+   - 37 条 follow-up（FU-A2-02a 到 FU-A2-07f，FU-GF2a、FU-GF2b）：大部分给 A2-CL，5 条给 A2-08，3 条给 A2-W，1 条给 C3-07，2 条给新任务 F1-SG。说明在 `reviews/m2B-wiring.md`（很长，A2-08 和 A2-W 都要读）和 `reviews/m2B-args.md`（`portBase` 用过 9940）。
+   - 手动检查：新加 E 组（E1–E10），等 A2-W、A2-09 做完再做。
+4e. **新任务 F1-SG**（2026-11-17）：A2-04 的审查发现，`go test ./...` 会启动用户自己的登录 zsh，读到 `~/.zshenv`、`~/.zprofile`、`~/.zlogin`（`internal/execx` 的 `EnvPATH` 在 macOS 上跑 `$SHELL -l -c`，只有少数测试关掉了它）。这违反安全红线。F1-SG 加一个测试里的守卫（像 `awsguard`），在 C 组和 A2-08 一起跑。
 5. 然后按顺序：里程碑 2（AI 终端，A2-xx；最后是 A2-CL）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
 
 **这些事必须由用户本人来做或在场，不要自己做：**
@@ -180,7 +184,7 @@ args 的格式：
 **每组结束后，orchestrator 要做这几件事：**
 1. 把结果存到 `reviews/<组>-final.json`（只在本机），接线笔记写到 `reviews/<组>-wiring.md`，传给 workflow 的说明写到 `reviews/<组>-args.md`。这两个 `.md` 要 commit：commit 前把里面的 home 路径换成 `~`，并跑 scrub。
 2. 自己跑 `bash docs/plan/codepass/orchestration/gate.sh`。全部通过才能继续。
-3. 把 follow-up 登记到 `tasks.md` 的「Follow-ups」，编号格式 FU-<任务号><字母>（F1-CL 的是 FU-CLa1、FU-CLb1 这样），分给后面的任务或这个里程碑的清理任务（里程碑 2 是 A2-CL）；并行拆分的组合并后，自己查一遍两边的接缝（比如 Go 改了、mock 没跟上；新的错误码前端没处理）；需要时改相关任务的 Build 和 Owns；新的手动检查用中文写进 `manual-checks.md`。
+3. 把 follow-up 登记到 `tasks.md` 的「Follow-ups」，编号格式 FU-<任务号><字母>（F1-CL 的是 FU-CLa1、FU-CLb1 这样；**里程碑 2 起加上里程碑前缀，比如 FU-A2-02a**，因为 FU-02a 这种编号已经被里程碑 1 用掉了），分给后面的任务或这个里程碑的清理任务（里程碑 2 是 A2-CL）；并行拆分的组合并后，自己查一遍两边的接缝（比如 Go 改了、mock 没跟上；新的错误码前端没处理）；需要时改相关任务的 Build 和 Owns；新的手动检查用中文写进 `manual-checks.md`。
 4. 用中文 ELI5 告诉用户结果。
 5. 关掉还在跑的 subagent。
 
@@ -240,6 +244,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 - 分支：本地只留 `codepass`、`main` 和 `spike/*`。`worktree-wf_*` 和 `task/F1-*` 在 2026-11-16 删掉了（task 分支的备份见第 4 节）。workflow 合并、push 成功后会自动删 task 分支。
 - 查别的 repo 时用 `git --no-optional-locks status`：普通的 `git status` 会顺手改写那个 repo 的 `.git/index`。
 - Wails 3.1.0 没法拖住系统注销，所以注销或重启时不弹框，直接全部停止并退出。这一点已经写进 plan 和 design。
+- **测试不能启动用户自己的 shell。** B 组的审查发现 `go test ./...` 会经过 `internal/execx` 启动用户的登录 zsh（读 `~/.zshenv` 等）。F1-SG 修。以后的任务：凡是要开 shell 的测试，都要把 HOME 和 ZDOTDIR 指到临时文件夹。
 - **workflow 在跑的时候，主目录里不要留没提交的改动。** 合并那一步一看到不干净就会停（I 组第一次合并就这样停了）。要改文档，就在同一条命令里改完、马上 commit。停了的话：先 commit，再把脚本里合并那段 prompt 改一个字，用 `resumeFromRunId` 重跑，前面的 agent 都会直接用缓存。
 - 开发服务器（端口 9245）已经停了。
 
@@ -249,7 +254,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 |---|---|
 | 0 Spikes | ✅ 完成 |
 | 1 基础（项目、安装、身份、更新） | 24/24 个任务全部合并；关卡的设计检查做完，F1-GF 已合并；测试频道和手动检查等用户 |
-| 2 AI 终端和防睡眠 | A2-01 已合并；B 组（7 个任务加 F1-GF2）在跑 |
+| 2 AI 终端和防睡眠 | A2-01 和 B 组（7 个任务加 F1-GF2）已合并，还没接到界面；C 组（A2-08、F1-SG，然后 A2-W）在跑 |
 | 3 Worktree 任务、改动和提交 | 未开始 |
 | 8 票队列、AI 账号、用量（排在 3 后面） | 未开始 |
 | 4 Git 客户端 | 未开始 |
@@ -257,8 +262,8 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 6 GitHub 和 Bitbucket | 未开始 |
 | 7 Windows、打磨、发布 | 未开始 |
 
-**整体约 24%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1）、F1-GF（1）、F1-GF2（1）和第三批 git（G4-11 3 分、G4-12 3 分、G4-13 2 分），现在一共 251 分，已经完成 61 分（I 组之后），约 24%。
+**整体约 31%。**
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1）、F1-GF（1）、F1-GF2（1）、F1-SG（1）和第三批 git（G4-11 3 分、G4-12 3 分、G4-13 2 分），现在一共 252 分，已经完成 79 分（里程碑 2 的 B 组之后），约 31%。
 - 按计划的周数算：原来约 35 周，现在约 46.5 周（里程碑 8 约 8 周；第三批 git 让里程碑 4 多了约 1.5 周），完成约 20%。
 
 ## 10. 建议用的技能（Skill）
