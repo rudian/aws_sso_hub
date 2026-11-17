@@ -1,6 +1,6 @@
 # Codepass 交接文档
 
-更新：2026-11-17（第五版，F1-CL 合并后）。状态：**进行中**。里程碑 1 的任务全部合并（最后三个是 F1-21、F1-22、F1-CL）；下一步是**里程碑 1 关卡**。
+更新：2026-11-17（第六版，关卡设计检查之后）。状态：**进行中**。里程碑 1 的任务全部合并；关卡的设计检查做完了（用户定了：D41 照用户说的改，其余全部按推荐）。用户 2026-11-17 说「继续做剩余的任务」：里程碑 2 现在开始。**I 组**正在跑：F1-GF（关卡的 19 处修复）和 A2-01（里程碑 2 的第一个任务）一起跑。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 
@@ -34,7 +34,7 @@
    - 同一文件里程碑 1 的「Gate」、里程碑 2 最后的 A2-CL 条目、「Follow-ups」最后的 Group H（FU-CLa1–4、FU-CLb1–7）；里程碑 8 先略读（它排在里程碑 3 后面）；
    - `reviews/groupH-wiring.md`（F1-CL 留给关卡和里程碑 2 的话）；`reviews/groupE-wiring.md` 和 `reviews/groupG-wiring.md` 的 deviations（关卡要请用户确认）。
 4. **跑一次 gate**：`bash docs/plan/codepass/orchestration/gate.sh`。期望每一项都是 0，前端测试是 63 个文件、841 个测试。
-5. **然后直接开工**：下一步是里程碑 1 关卡（第 5 节第 4 条写了谁做什么）。关卡做完以后，从还没合并的第一个任务开始（里程碑 2 的 A2-01）。第 6 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
+5. **然后直接开工**：先看 I 组合并了没有（`git log --oneline` 里有没有 `codepass(F1-GF)` 和 `codepass(A2-01)`）。没合并的，用 `reviews/groupI-args.md` 里的说明重新跑（worktree 和 task 分支还在的话，workflow 会接着用）。合并了就从还没合并的第一个任务开始（里程碑 2 的 B 组：A2-02 等）。关卡里只剩用户的事（第 5 节第 4 条）。第 6 节有 args 的写法。用户的新 prompt 就是开工的许可，不用再问。
 
 ## 2. 用户定的工作方式（每个 session 都照做）
 
@@ -103,7 +103,7 @@
 | `docs/plan/codepass/tasks.md` | **唯一的任务清单**。每个任务有 Build / Owns / Deps / Accept / Tests / Review。还有用户决定、两批需求、open questions、Follow-ups（FU-xx）和每组的合并记录。 |
 | `docs/plan/codepass/product-plan.md` | 产品方案，文中引用为 "plan N.N"。新的：4.15 系统通知、4.16 AI 账号和用量、4.17 票队列。 |
 | `docs/plan/codepass/ui-design.md` | 设计规范，文中引用为 "design N.N"。新的：第 6 节「System notifications」表、5.14 的提醒设置、里程碑 8 的新页面。 |
-| `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A、B（含 B19）、C（C1–C27）、D（里程碑 8） |
+| `docs/plan/codepass/manual-checks.md` | 用户要亲手做的检查（中文）：A、B（含 B19）、C（C1–C28）、D（里程碑 8） |
 | `docs/plan/codepass/reviews/` | 每组的接线笔记 `group*-wiring.md`、传给 workflow 的说明 `group*-args.md`（原始结果 `*.json` 只在本机） |
 | `docs/plan/codepass/orchestration/` | `codepass-group-v2.js`（每组用的 workflow 脚本）和 `gate.sh` |
 | `docs/plan/codepass/shoturl.sh` | 截图工具（headless Chrome，支持 `file://`） |
@@ -132,7 +132,8 @@
      - 整理一份偏差清单给用户确认：E 组的偏差（`reviews/groupE-wiring.md`）、FU-17e、F1-22 的设置行和通知文字、F1-CL 的搜索和 Health、启动弹窗的措辞。
    - **要用户来**：
      - 测试频道：私有仓库、测试签名钥匙、只读令牌、`gh auth login`（`docs/release.md`「The test channel」）。有了它，orchestrator 才能出签名、公证过的 rc 版本。
-     - 手动检查：C 组（C1–C27）、A9、A16、A17、B1–B3、B5、B9、B15–B19。
+     - 手动检查：C 组（C1–C28）、A9、A16、A17、B1–B3、B5、B9、B15–B19。
+   - **2026-11-17 进度**：截图和设计对比做完了（37 张，Fable 对比，用户在页面上定了）。31 处照现在的样子接受，19 处由 F1-GF 修（I 组）。每一条和决定都在 `reviews/m1-gate-review.md`。用户说的两件事：(1) 登录到期发通知、通知上有「重新登录」按钮，这是 F1-22，已经做好；只改「自动续期登录」下面那句说明。(2) 一个门户下可以有多个账号和角色（同一个账号的不同角色，或者不同的账号），已经做好，新加手动检查 C28。D27（设置页两列）放进 A2-CL。剩下要用户来的：测试频道和手动检查；查出来的问题放进 A2-CL。
 5. 然后按顺序：里程碑 2（AI 终端，A2-xx；最后是 A2-CL）→ 3（C3-xx）→ **8（T8-xx：票队列、AI 账号、用量）** → 4 → 5（含 E5-11 PHP）→ 6 → 7。
 
 **这些事必须由用户本人来做或在场，不要自己做：**
@@ -240,8 +241,8 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 里程碑 | 状态 |
 |---|---|
 | 0 Spikes | ✅ 完成 |
-| 1 基础（项目、安装、身份、更新） | 24/24 个任务全部合并；关卡还没过 |
-| 2 AI 终端和防睡眠 | 未开始 |
+| 1 基础（项目、安装、身份、更新） | 24/24 个任务全部合并；关卡的设计检查做完了，F1-GF（19 处修复）在 I 组跑；测试频道和手动检查等用户 |
+| 2 AI 终端和防睡眠 | 开始了：A2-01 在 I 组跑 |
 | 3 Worktree 任务、改动和提交 | 未开始 |
 | 8 票队列、AI 账号、用量（排在 3 后面） | 未开始 |
 | 4 Git 客户端 | 未开始 |
@@ -250,7 +251,7 @@ CODEPASS_SCRUB_LIST=~/.codepass-dev/scrub-list.txt bash scripts/scrub-check.sh -
 | 7 Windows、打磨、发布 | 未开始 |
 
 **整体约 24%。**
-- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1），现在一共 241 分，已经完成 58 分（F1-CL 之后），约 24%。
+- 按任务大小算：S 记 1 分、M 记 2 分、L 记 3 分。原来一共 204 分；第二批加了 F1-21（2）、F1-22（2）、E5-11（2）、A2-16（1）和里程碑 8（29：12 个任务，含选账号、换账号不丢对话、条款规则），2026-11-17 又加了 A2-CL（1）和 F1-GF（1），现在一共 242 分，已经完成 58 分（F1-CL 之后），约 24%。
 - 按计划的周数算：原来约 35 周，现在约 45 周（里程碑 8 约 8 周），完成约 20%。
 
 ## 10. 建议用的技能（Skill）
