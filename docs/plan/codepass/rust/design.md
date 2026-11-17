@@ -12,7 +12,7 @@ A **planner's call** is a choice the owner may change. Everything else follows f
 - The UI thread never waits. Services run on one tokio runtime and on dedicated threads and publish state; views read state at most once per frame.
 - The Go code (51,577 lines, 1,334 Go test functions), the frontend tests (1,005) and the reviewed edge cases are the executable specification. A spec map ties every Go test to a Rust test or to a written reason for dropping it.
 - New milestones: **R0** foundation (18 points), **R1** port of the AWS SSO Hub core and milestone 1 (57), **R2** port of milestone 2's Go work, then the rest of milestone 2 (40), then **3, 8, 4, 5, 6, 7** as planned (162). Total about **277 points, about 48 plan-weeks**. The re-platform itself costs about 101 points (about 14 weeks).
-- Owner decisions of 2026-11-17 (section 13): Windows builds and tests run on GitHub Actions; Chinese input passed the owner's own test on the spike; VoiceOver and Apple's Metal toolchain are settled in R0-09.
+- Owner decisions of 2026-11-17 (section 13): Windows builds and tests run on GitHub Actions; Chinese input and VoiceOver passed the owner's own test on the spike; Apple's Metal toolchain is settled in R0-09.
 
 ## 1. Intent
 
@@ -427,7 +427,7 @@ Run order: **R0, R1, R2, 3, 8, 4, 5, 6, 7**. Sizes: S = 1 point, M = 2, L = 3 (t
 
 | Milestone | Content | Points | Weeks | Gate adds |
 |---|---|---|---|---|
-| **R0 Foundation** | workspace, toolchain, gate, core crates, UI kit, shell, mock mode, shots, perf harness, packaging, Windows host, risk probes | 18 | 3 | the owner's hands-on VoiceOver test (Chinese input already passed on the spike, section 13) |
+| **R0 Foundation** | workspace, toolchain, gate, core crates, UI kit, shell, mock mode, shots, perf harness, packaging, Windows host, risk probes | 18 | 3 | none extra (Chinese input and VoiceOver passed on the spike, section 13) |
 | **R1 Port 1** | everything AWS SSO Hub 0.0.2 does, plus milestone 1 | 57 | 7 | milestone 1's gate on the Rust build: shots, test channel rc, checks C1 to C28, A9, A16, A17, B1 to B3, B5, B9, B15 to B19; the Rust build replaces AWS SSO Hub on the owner's Mac |
 | **R2 Milestone 2** | port of A2-01 to A2-08, A2-13 and the frame, then A2-W, A2-09 to A2-16, A2-CL; the Go and React code is deleted inside it (11.6) | 40 | 6 | milestone 2's gate (tasks.md), manual group E |
 | 3, 8, 4, 5, 6, 7 | as in tasks.md, same tasks, sizes and order | 31, 29, 34, 25, 28, 15 | 5, 8, 7, 5, 4, 3 | as in tasks.md |
@@ -440,7 +440,7 @@ The Go plan still had 176 points to do (a recount of the sizes in tasks.md; HAND
 - **A (alone).** R0-01 Workspace, toolchain, gate (S): everything in 4.1 and 4.3; every crate created empty with its owner named; `cargo xtask gate`; the Rust variant of the workflow script. Accept: the gate passes on the empty workspace; build times recorded.
 - **B (parallel).** R0-02 `cp-core` (M). R0-03 `cp-store` and the `settings.json` model with the 0.0.1 and 0.0.2 fixtures (M). R0-04 `cp-i18n` with the conversion of the 21 namespaces (M). R0-05 `cp-ui-kit` (L). R0-06 `cp-platform` base: single instance, IPC, opener, reveal, process table, Time Machine exclusion (M).
 - **C (alone).** R0-07 App shell and wiring (L): the start order, `cp-app` traits, the window and shell, menus, close and quit hooks, key contexts, mock mode with the ported world, shots and `shotdiff`, perf harness.
-- **D (parallel).** R0-08 Build and package (M): `xtask bundle`, `xtask relkit`, `release.sh --dry-run` on Rust, the GitHub Actions Windows workflow, `winbuild`, `wincheck`, worktree target seeding. R0-09 Risk probes (S): the owner's VoiceOver run on the R0 shell (Chinese input already passed on the spike, 2026-11-17); a 120 Hz run if a ProMotion display is at hand; gpui's notification API (permission state, a click that launches the app); precompiled versus run-time shaders at start.
+- **D (parallel).** R0-08 Build and package (M): `xtask bundle`, `xtask relkit`, `release.sh --dry-run` on Rust, the GitHub Actions Windows workflow, `winbuild`, `wincheck`, worktree target seeding. R0-09 Risk probes (S): (Chinese input and VoiceOver already passed on the spike, 2026-11-17) a 120 Hz run if a ProMotion display is at hand; gpui's notification API (permission state, a click that launches the app); precompiled versus run-time shaders at start.
 
 ### 11.3 R1 groups
 
@@ -516,7 +516,7 @@ Milestones 3, 8, 4, 5, 6 and 7 keep their task IDs, sizes, acceptance and order.
 | Risk | Mitigation |
 |---|---|
 | GPUI Kit and gpui-pre: breaking 0.x releases every one to three weeks, both published by one person; Zed's own `gpui` crate is 13 months old | Exact pins; upgrades only in planned tasks (section 8); `cp-ui-kit` and `cp-term-view` hold most Kit calls; full source available under Apache-2.0, so a stop means vendoring into `third_party/`, not a rewrite |
-| Screen readers are unproven in practice (spike b); Chinese input passed the owner's own test on the spike (2026-11-17) | The owner's VoiceOver run in R0-09 (fallback in section 13, item 3); terminal IME built in R2-08; `announce` service (UI map 3); accessibility pass in M7 |
+| Screen readers beyond a first VoiceOver run are unproven (spike b); Chinese input and VoiceOver passed the owner's own test on the spike (2026-11-17) | Fallback in section 13, item 3; terminal IME built in R2-08; `announce` service (UI map 3); accessibility pass in M7 |
 | The terminal is hand-built (selection, links, search, IME, mouse, screen-reader text) | Two tasks (R2-08, R2-10) and acceptance copied from A2-07 and design 5.6; `alacritty_terminal` for emulation; the fair-lock design of 4.4 |
 | The editor: GPUI Kit's editor maturity for split view, multiple cursors, 3 MB files, peek, blame | A probe at the start of M5 before E5-04; the remaining features built in `cp-editor`; never Zed's GPL editor |
 | Windows needs a Windows machine to build (`fxc.exe`) | GitHub Actions runner (section 13, item 1); `wincheck` per group; Windows build and smoke per milestone |
@@ -536,7 +536,7 @@ The three questions of the draft and the builder check's questions, as answered 
 
 1. **Windows builds and tests: GitHub Actions** (`windows-latest`), chosen by the owner over a Windows VM on the Mac (7.5).
 2. **Apple's Metal toolchain:** settled in R0-09 with the measured start-time gain. The planner's recommendation stands: install it only if the start is at least 50 ms faster. Until then shaders compile at start.
-3. **Chinese input:** the owner typed Chinese with the system input method in the spike's single-line field, multi-line field and code editor: it works (2026-11-17). **VoiceOver** is still to be tested, in R0-09. If it, or anything else in gpui's input or accessibility, fails: planner's default is a fix in `third_party/` (up to two weeks); the owner is asked only if that is not enough.
+3. **Chinese input:** the owner typed Chinese with the system input method in the spike's single-line field, multi-line field and code editor: it works (2026-11-17). **VoiceOver** read the spike's buttons and fields (owner, 2026-11-17); the full screen-reader pass stays in milestone 7, and Narrator on Windows is tested there. If anything in gpui's input or accessibility fails later: planner's default is a fix in `third_party/` (up to two weeks); the owner is asked only if that is not enough.
 4. **Disk:** the owner agreed to clear rebuildable caches; 25 GB freed, 54 GB free (4.3).
 5. **UI map question 1 (scale and tilt):** option A, drop them and keep fade, movement and shadow (designer's recommendation; the owner was told and did not object). UI map question 2: the menu-bar and tray item exists today, so it stays on both platforms (5.1, row `app`).
 6. **Urgent fixes once the owner uses the Rust build daily:** a `release/1.0` branch from the R1 gate (section 10, last paragraph; planner's call).
