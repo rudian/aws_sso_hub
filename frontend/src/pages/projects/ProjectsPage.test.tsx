@@ -8,6 +8,7 @@ import { RepoAction } from '../../api/models'
 import { mkOtherRepo } from '../../api/mock/repos'
 import { getWorld, resetWorld } from '../../api/mock/world'
 import { I18nProvider } from '../../i18n'
+import { getRoute, setRoute } from '../../lib/route'
 import { ActionsProvider } from '../../shell/AppActions'
 import { AccountsProvider } from '../../state/accounts'
 import { ReposProvider } from '../../state/repos'
@@ -61,6 +62,7 @@ beforeEach(() => {
   vi.spyOn(globalThis, 'setTimeout').mockImplementation(scaled)
   if (window.setTimeout !== globalThis.setTimeout) vi.spyOn(window, 'setTimeout').mockImplementation(scaled)
   resetWorld('done')
+  setRoute({ page: 'projects' })
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)
@@ -122,9 +124,7 @@ describe('Projects page', () => {
     expect(other?.tabIndex).toBe(-1)
   })
 
-  it('Enter opens the repository and marks it opened; Space selects the row', async () => {
-    const mark = vi.spyOn(Repos, 'MarkOpened')
-    vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
+  it('Enter opens the repository (its workspace records the opening); Space selects the row', async () => {
     await mount()
     const r = row('acme_api')
     r.focus()
@@ -134,7 +134,8 @@ describe('Projects page', () => {
     await key(r, ' ')
     expect(r.getAttribute('aria-selected')).toBe('false')
     await key(r, 'Enter')
-    expect(mark).toHaveBeenCalledWith(r.getAttribute('data-repo-id'))
+    // opening goes to the workspace (design 4.2)
+    expect(getRoute()).toEqual({ page: 'workspace', repo: r.getAttribute('data-repo-id') })
   })
 
   it('M opens the move menu, a pick moves the row, announces it and returns focus to the row', async () => {
@@ -622,16 +623,20 @@ describe('Projects page motion', () => {
     for (let i = 0; i < 205; i++) w.repos.push(mkOtherRepo(`/Users/alex/Documents/code/bulk_${String(i).padStart(3, '0')}`, `https://github.com/someone/bulk_${i}.git`))
     const animate = vi.fn(() => ({}))
     ;(Element.prototype as unknown as { animate: unknown }).animate = animate
-    await mount()
-    stubRects()
-    const r = row('initech_site')
-    r.focus()
-    await key(r, 'm')
-    await click(buttonByText(/^acme$/, document.querySelector('[role="menu"]') as HTMLElement))
-    await waitFor(() => rowsIn('p_acme').includes('initech_site'), 8000)
-    expect(animate).not.toHaveBeenCalled()
-    delete (Element.prototype as unknown as { animate?: unknown }).animate
-  })
+    try {
+      await mount()
+      stubRects()
+      const r = row('initech_site')
+      r.focus()
+      await key(r, 'm')
+      await click(buttonByText(/^acme$/, document.querySelector('[role="menu"]') as HTMLElement))
+      await waitFor(() => rowsIn('p_acme').includes('initech_site'), 8000)
+      expect(animate).not.toHaveBeenCalled()
+    } finally {
+      // a failed run must not leave the stub behind for the tests after it
+      delete (Element.prototype as unknown as { animate?: unknown }).animate
+    }
+  }, 30000)
 })
 
 describe('Projects page: find a repository by typing (design 5.2)', () => {
@@ -658,8 +663,6 @@ describe('Projects page: find a repository by typing (design 5.2)', () => {
   })
 
   it('Down and Up move the selection, Enter opens it (and so does Cmd/Ctrl+Enter)', async () => {
-    const mark = vi.spyOn(Repos, 'MarkOpened')
-    const open = vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
     await mount()
     await type('acme_a')
     await pressKey('ArrowDown')
@@ -671,21 +674,19 @@ describe('Projects page: find a repository by typing (design 5.2)', () => {
     await pressKey('ArrowDown')
     await pressKey('Enter')
     const id = row('acme_api').getAttribute('data-repo-id')
-    expect(mark).toHaveBeenCalledWith(id)
-    expect(open).toHaveBeenCalledWith(id)
-    open.mockClear()
+    expect(getRoute()).toEqual({ page: 'workspace', repo: id })
+    setRoute({ page: 'projects' })
     await act(async () => {
       input().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, ctrlKey: true, bubbles: true, cancelable: true }))
     })
-    expect(open).toHaveBeenCalledTimes(1)
+    expect(getRoute()).toEqual({ page: 'workspace', repo: id })
   })
 
   it('Enter opens the best match until another is selected', async () => {
-    const open = vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
     await mount()
     await type('agent')
     await pressKey('Enter')
-    expect(open).toHaveBeenCalledWith(row('acme_agent_portal').getAttribute('data-repo-id'))
+    expect(getRoute()).toEqual({ page: 'workspace', repo: row('acme_agent_portal').getAttribute('data-repo-id') })
   })
 
   it('Esc clears the text; a second Esc leaves the field', async () => {
@@ -709,7 +710,6 @@ describe('Projects page: find a repository by typing (design 5.2)', () => {
   })
 
   it('IME composition: Enter and arrows do not act, and Esc keeps the text', async () => {
-    const open = vi.spyOn(Repos, 'OpenFolder').mockResolvedValue(undefined as never)
     await mount()
     await type('acme_a')
     const fire = (init: KeyboardEventInit & { keyCode?: number }) =>
@@ -722,7 +722,7 @@ describe('Projects page: find a repository by typing (design 5.2)', () => {
     await fire({ key: 'Enter', keyCode: 229 })
     await fire({ key: 'ArrowDown', isComposing: true })
     await fire({ key: 'Escape', isComposing: true })
-    expect(open).not.toHaveBeenCalled()
+    expect(getRoute().page).toBe('projects')
     expect(selected()).toBe('acme_agent_portal')
     expect(input().value).toBe('acme_a')
   })

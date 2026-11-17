@@ -4,7 +4,7 @@ import { RepoAction, RepoProvider } from '../../api/models'
 import type { MoveIdentityPreview, Portal, Profile, ProjectInfo, ProjectSuggestion, Repo, ReposState } from '../../api/models'
 import type { ProviderKind } from '../../components'
 import { rankRepo, searchRepos } from '../../lib/repoSearch'
-import { portalOf, rowKind, sessionNeedsLogin } from '../repos/model'
+import { canBind, portalOf, rowKind, sessionNeedsLogin } from '../repos/model'
 
 export type ProjectFilter = 'all' | 'todo' | 'changes'
 /** 'all', or one provider; 'hidden' lists the hidden repositories instead of the listed ones. */
@@ -41,6 +41,16 @@ export function hasChanges(r: Repo): boolean {
 
 export function isCodeCommit(r: Repo): boolean {
   return r.provider === RepoProvider.ProviderCodeCommit
+}
+
+/**
+ * True where the account chip opens the bind popover: a CodeCommit repository that can be bound and whose owner is
+ * neither being looked up nor ambiguous. Elsewhere the chip is a plain chip (the Projects row and the workspace header share this).
+ */
+export function chipBindable(r: Repo): boolean {
+  if (!isCodeCommit(r) || !canBind(r)) return false
+  const k = rowKind(r)
+  return k !== 'checking' && k !== 'ambiguous'
 }
 
 /** A repository is "to fix" for CodeCommit rows (the binding is wrong or missing); other providers never are. */

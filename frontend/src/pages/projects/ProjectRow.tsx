@@ -13,7 +13,7 @@ import { formatRelative, formatRemainingLength } from '../../lib/time'
 import { canBind, portalOf, fitMiddle, rowKind, sessionNeedsLogin, suggestedProfile, testText } from '../repos/model'
 import type { RowKind } from '../repos/model'
 import { MovedAsk } from './MovedAsk'
-import { isCodeCommit, providerKind } from './model'
+import { chipBindable, isCodeCommit, providerKind } from './model'
 
 export interface ProjectRowCallbacks {
   select(id: string, checked: boolean): void
@@ -219,7 +219,7 @@ function RepoRowImpl({ repo, selected, tabStop, hiddenList, sectionId, profiles,
     }
   }
   // The chip opens the bind popover (design 5.2); it stays a plain chip where binding does not apply.
-  if (cc && canBind(repo) && kind !== 'checking' && kind !== 'ambiguous') {
+  if (chipBindable(repo)) {
     account = (
       <button type="button" className="proj-chip" data-grid-control="" aria-label={t('projects.acct.change', { name: repo.localName })} onClick={(e) => cb.choose(repo, b.profile, e.currentTarget)}>
         {account}

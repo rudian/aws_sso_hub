@@ -27,6 +27,7 @@ import { SetupPage } from './pages/setup/SetupPage'
 import { TerminalPage } from './pages/terminal/TerminalPage'
 import { TutorialPage } from './pages/tutorial/TutorialPage'
 import { UpdatePage } from './pages/update/UpdatePage'
+import { WorkspacePage } from './workspace/WorkspacePage'
 import { AccountsProvider, useAccounts } from './state/accounts'
 import { AppInfoProvider, useAppInfo } from './state/appInfo'
 import { EnvProvider } from './state/env'
@@ -72,6 +73,7 @@ const PAGES: Record<PageId, () => ReactNode> = {
   tutorial: () => <TutorialPage />,
   settings: () => <SettingsPage />,
   onboarding: () => <OnboardingPage />,
+  workspace: () => <WorkspacePage />,
 }
 
 // Cmd/Ctrl+1..4: Projects, AI tasks, Pull requests, Accounts (design 4.3). AI tasks and Pull requests have no page yet.
@@ -232,6 +234,12 @@ function Shell() {
   const route = useRoute()
   const gate = useToolsGate()
   useAppEffects(gate)
+  // Leaving the workspace: the rail widens back to the sidebar (design 3). The class only matters on the render after the switch.
+  const prevPage = useRef(route.page)
+  const fromWs = prevPage.current === 'workspace' && route.page !== 'workspace'
+  useEffect(() => {
+    prevPage.current = route.page
+  }, [route.page])
   if (gate === 'checking') {
     // The window is never an empty grid: the title bar's drag strip and the brand, until the check answers
     return (
@@ -252,8 +260,19 @@ function Shell() {
       </div>
     )
   }
+  if (route.page === 'workspace') {
+    // The workspace has its own frame (header, rail, tabs, status bar): no sidebar
+    return (
+      <>
+        <AppCommands />
+        <main id="main" key="workspace">
+          {PAGES.workspace()}
+        </main>
+      </>
+    )
+  }
   return (
-    <div className="app">
+    <div className={fromWs ? 'app app--from-ws' : 'app'}>
       <Sidebar />
       <AppCommands />
       <main className="app__main page-enter" id="main" key={route.page}>

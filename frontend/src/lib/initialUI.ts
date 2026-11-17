@@ -12,6 +12,11 @@ export interface InitialUI {
   step?: string
   section?: string
   filter?: string
+  /** ?page=workspace&repo=<id or folder name>&tab=<code|changes|history|branches|prs|ai>: the workspace (design 4.2). */
+  repo?: string
+  tab?: string
+  /** ?panel=terminal|problems|find: the workspace's bottom panel starts open on that tab (screenshots of design 4.2). */
+  panel?: string
   open?: string
   /** ?search=<text>: the text in the Projects search field (screenshots of design 5.2). */
   search?: string
@@ -29,7 +34,7 @@ export interface InitialUI {
 }
 
 const SCENARIOS: ScenarioId[] = ['fresh', 'mid', 'done', 'empty', 'edge']
-const PAGES: PageId[] = ['accounts', 'migrate', 'projects', 'repos', 'setup', 'update', 'git', 'terminal', 'health', 'tutorial', 'settings', 'onboarding']
+const PAGES: PageId[] = ['accounts', 'migrate', 'projects', 'repos', 'setup', 'update', 'git', 'terminal', 'health', 'tutorial', 'settings', 'onboarding', 'workspace']
 const LOGIN_MODES: MockLoginMode[] = ['success', 'waiting', 'device', 'denied', 'timeout', 'port', 'network']
 const SESSIONS: SessionOverride[] = ['unknown', 'overrun', 'ending']
 
@@ -56,6 +61,9 @@ export function parseInitialUI(search: string, enabled: boolean): InitialUI {
     step: q.get('step') ?? undefined,
     section: q.get('section') ?? undefined,
     filter: q.get('filter') ?? undefined,
+    repo: q.get('repo') ?? undefined,
+    tab: q.get('tab') ?? undefined,
+    panel: q.get('panel') ?? undefined,
     open: q.get('open') ?? undefined,
     search: q.get('search') ?? undefined,
     addPortalStep: step123(q.get('addPortalStep')),

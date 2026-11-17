@@ -1,0 +1,89 @@
+/* The workspace frame (design 4.2, 4.3; mockup.css `.ws*`). Tokens (--rail-w, --ws-head-h, --ws-tabs-h, --status-h, --dur-*, --ease-*) are in styles/tokens.css. */
+
+.ws { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); grid-template-rows: var(--ws-head-h) minmax(0, 1fr) var(--status-h); height: 100vh; min-width: 980px; min-height: 660px; overflow: hidden; background: var(--bg); animation: ws-narrow var(--dur-panel) var(--ease-move) both; }
+.ws.ws--still { animation: none; }
+/* Enter: the sidebar narrows 232 -> 52px (the rail's icons fade in) and the header slides down 8px. */
+@keyframes ws-narrow { from { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); } }
+@keyframes ws-head-in { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes ws-rail-in { from { opacity: 0; } }
+/* Leave (set by the shell on the Projects page that follows): the rail widens to the sidebar. */
+/* The from track list must have the same track types as `.app` (tokens.css: `var(--sidebar-w) 1fr`), or the columns interpolate wrongly. */
+@keyframes ws-widen { from { grid-template-columns: var(--rail-w) 1fr; } }
+.app.app--from-ws { animation: ws-widen var(--dur-panel) var(--ease-move) both; }
+/* The sidebar is clipped while it widens and its content fades in at full width, so no label wraps in the narrow track. */
+.app--from-ws .app__sidebar { overflow: hidden; }
+.app--from-ws .app__sidebar > * { min-width: var(--sidebar-w); animation: fade-in var(--dur-panel) var(--ease-enter) both; }
+.ws__head { animation: ws-head-in var(--dur-panel) var(--ease-move) both; }
+.ws__rail > * { animation: ws-rail-in var(--dur-panel) var(--ease-enter) both; }
+
+.ws__head { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3) 0 84px; background: var(--bg-sidebar); border-bottom: 1px solid var(--border); position: relative; -webkit-app-region: drag; --wails-draggable: drag; min-width: 0; }
+:root[data-platform="windows"] .ws__head { padding-left: var(--sp-3); }
+.ws__head button, .ws__head a, .ws__head .menu { -webkit-app-region: no-drag; --wails-draggable: no-drag; }
+.ws__head .traffic { position: absolute; left: 0; top: 3px; }
+.ws__head.is-task::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--info); }
+.ws__crumb { display: flex; align-items: center; gap: 6px; font-size: var(--fs-13); color: var(--text-3); min-width: 0; }
+.ws__crumb > span, .ws__repo { white-space: nowrap; }
+.ws__repo { color: var(--text); font-size: var(--fs-14); font-weight: var(--fw-semibold); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ws__crumb svg { width: 13px; height: 13px; }
+.ws__acct { display: inline-flex; align-items: center; border: 0; background: none; padding: 0; border-radius: var(--r-md); cursor: pointer; }
+span.ws__acct { cursor: default; }
+.ws__acct:hover { filter: brightness(.97); }
+
+.tree-switch { display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 8px 0 9px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border-strong); font-size: var(--fs-12); color: var(--text-2); white-space: nowrap; cursor: pointer; max-width: 320px; min-width: 0; }
+.tree-switch > span { overflow: hidden; text-overflow: ellipsis; }
+.tree-switch b { font: var(--fw-medium) 12px/1 var(--font-mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.tree-switch svg { width: 13px; height: 13px; color: var(--text-3); }
+.tree-switch.is-task { background: var(--info-soft); border-color: var(--info-line); color: var(--info); }
+.tree-switch.is-task svg, .tree-switch.is-task b { color: var(--info); }
+
+.ws__rail { background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--sp-3) 0; min-height: 0; }
+.rail__btn { position: relative; width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center; color: var(--text-2); border: 0; background: none; cursor: pointer; }
+.rail__btn:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+.rail__btn.is-active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+.rail__btn[aria-disabled="true"] { opacity: .55; cursor: default; }
+.rail__btn svg { width: 18px; height: 18px; }
+.rail__btn .pip { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--bg-sidebar); }
+.rail__sep { width: 24px; height: 1px; background: var(--border); margin: 6px 0; }
+.rail__spacer { flex: 1; }
+
+.ws__main { min-width: 0; min-height: 0; display: grid; grid-template-rows: var(--ws-tabs-h) minmax(0, 1fr) auto; }
+.ws__tabs { display: flex; align-items: center; gap: var(--sp-5); padding: 0 var(--sp-4); border-bottom: 1px solid var(--border); background: var(--bg); min-width: 0; }
+.ws__tablist { display: flex; align-items: center; gap: var(--sp-5); min-width: 0; }
+.ws__tabs .tab { height: var(--ws-tabs-h); font-size: var(--fs-13); white-space: nowrap; }
+.ws__tabs .tab svg { width: 15px; height: 15px; opacity: .8; }
+.ws__quick { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; height: 26px; width: 264px; flex: 0 1 264px; min-width: 0; padding: 0 8px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--border); font-size: var(--fs-12); color: var(--text-3); cursor: default; white-space: nowrap; }
+.ws__quick > span:not(.keys) { overflow: hidden; text-overflow: ellipsis; }
+.ws__quick svg { width: 13px; height: 13px; }
+.ws__quick .keys { margin-left: auto; display: inline-flex; gap: 3px; }
+.ws__quick .kbd { height: 18px; }
+.ws__body { min-height: 0; min-width: 0; overflow: auto; display: grid; animation: page-in var(--dur-page) var(--ease-enter) both; }
+.ws__body > .empty { align-self: center; justify-self: center; }
+
+.ws__status { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-3); background: var(--bg-sidebar); border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-3); white-space: nowrap; min-width: 0; }
+.ws__status .st { display: inline-flex; align-items: center; gap: 5px; }
+.ws__status .st--btn { border: 0; background: none; padding: 0 4px; height: calc(var(--status-h) - 4px); border-radius: var(--r-xs); color: inherit; font: inherit; cursor: pointer; }
+.ws__status .st--btn:hover, .ws__status .st--btn.is-on { background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); }
+.ws__status svg { width: 13px; height: 13px; }
+.ws__status .st--ok { color: var(--ok); } .ws__status .st--warn { color: var(--warn); } .ws__status .st--danger { color: var(--danger); }
+.ws__status .kbd { height: 16px; font-size: 10.5px; }
+
+/* bottom panel: .bpanel is in styles/components.css; the grip is the resize handle on its top edge */
+.bpanel { position: relative; min-height: 0; max-height: 60vh; }
+.bpanel__grip { position: absolute; left: 0; right: 0; top: -3px; height: 6px; cursor: ns-resize; z-index: 1; }
+.bpanel__grip:hover, .bpanel__grip:focus-visible { background: color-mix(in srgb, var(--focus) 35%, transparent); }
+.bpanel__tablist { display: flex; align-items: center; gap: var(--sp-4); height: 100%; }
+.bpanel__tab { border: 0; background: none; padding: 0; height: 100%; font: inherit; color: inherit; cursor: pointer; }
+.bpanel__tab:hover { color: var(--text); }
+.bpanel__tab.is-active { color: var(--text); font-weight: var(--fw-semibold); }
+.bpanel__body { display: grid; }
+.ws-empty { align-self: start; padding: var(--sp-4); font-size: var(--fs-13); color: var(--text-3); max-width: 60ch; }
+
+.ws-gone { height: 100vh; display: grid; place-items: center; background: var(--bg); }
+
+/* repository settings sheet */
+.ws-set { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ws-set__h { font-size: var(--fs-13); font-weight: var(--fw-semibold); }
+.ws-set__row { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.ws-set__val { font-size: var(--fs-13); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-set__muted { font-size: var(--fs-12); color: var(--text-3); }
+.ws-set__code { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); }

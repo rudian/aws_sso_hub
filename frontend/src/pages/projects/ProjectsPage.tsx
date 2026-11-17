@@ -21,6 +21,7 @@ import { useActions } from '../../shell/AppActions'
 import { useAccounts } from '../../state/accounts'
 import { useProjectIdentities } from '../../state/projects'
 import { useRepos } from '../../state/repos'
+import { openWorkspace } from '../../workspace/open'
 import { BindPopover } from '../repos/BindPopover'
 import { BulkBindModal } from '../repos/BulkBindModal'
 import { HttpsModal } from '../repos/HttpsModal'
@@ -440,14 +441,8 @@ export function ProjectsPage() {
     [allRepos, openLogin, report],
   )
 
-  /** Opening a repository starts its background fetch. The workspace itself arrives with milestone 2; until then the folder opens. */
-  const openRepo = useCallback(
-    (repo: Repo) => {
-      void Repos.MarkOpened(repo.id).catch(report)
-      void Repos.OpenFolder(repo.id).catch(report)
-    },
-    [report],
-  )
+  /** Opening a repository goes to its workspace (design 4.2), which records the opening and starts the background fetch. */
+  const openRepo = useCallback((repo: Repo) => openWorkspace(repo.id), [])
 
   // The search field's selection: the best match until the arrow keys pick another row (design 5.2).
   const matchIds = useMemo(
@@ -485,7 +480,7 @@ export function ProjectsPage() {
       const next = e.key === 'ArrowDown' ? Math.min(at + 1, matchIds.length - 1) : Math.max(at - 1, 0)
       setSearchPick(matchIds[next])
     } else if (e.key === 'Enter') {
-      // Enter and Cmd/Ctrl+Enter: Cmd/Ctrl+Enter will open the new-task sheet with milestone 2; until then it opens the repository like Enter
+      // Enter and Cmd/Ctrl+Enter: both open the workspace; Cmd/Ctrl+Enter will open the new-task sheet there (A2-09)
       const repo = searchSel ? find(searchSel) : undefined
       if (!repo) return
       e.preventDefault()
