@@ -14,6 +14,11 @@ import "../github.com/wailsapp/wails/v3/internal/eventcreate.js";
 export const AccountsChanged = "accounts:changed";
 
 /**
+ * Name of the custom event "aitools:install".
+ */
+export const AitoolsInstall = "aitools:install";
+
+/**
  * Name of the custom event "app:command".
  */
 export const AppCommand = "app:command";

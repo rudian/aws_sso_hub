@@ -13,6 +13,7 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "accounts:changed": api$0.AccountsState;
+            "aitools:install": api$0.AIInstallState;
             "app:command": string;
             "app:navigate": api$0.NavigateRequest;
             "app:second-instance": string[] | null;
