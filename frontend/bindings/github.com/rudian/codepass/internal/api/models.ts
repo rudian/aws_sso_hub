@@ -673,12 +673,6 @@ export enum ErrorCode {
     ErrImportFormat = "E_IMPORT_FORMAT",
 
     /**
-     * ErrConfigShared: a per-repository identity change would write a config file that another repository (a linked
-     * worktree) with an identity of its own reads too. Nothing was written. params: file
-     */
-    ErrConfigShared = "E_CONFIG_SHARED",
-
-    /**
      * Error codes of the repository list (stable, see ErrorCode). F1-14 explains them.
      *
      * ErrMovedHasData: the folder found at the new place already has a project, hidden flag or identity of its
@@ -696,6 +690,12 @@ export enum ErrorCode {
      * ErrProjectNotFound: the project does not exist (any more). params: id
      */
     ErrProjectNotFound = "E_PROJECT_NOT_FOUND",
+
+    /**
+     * ErrConfigShared: a per-repository identity change would write a config file that another repository (a linked
+     * worktree) with an identity of its own reads too. Nothing was written. params: file
+     */
+    ErrConfigShared = "E_CONFIG_SHARED",
 };
 
 /**
