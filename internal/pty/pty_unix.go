@@ -183,8 +183,10 @@ type killer struct {
 	startAt   int64
 	haveStart bool
 
-	mu    sync.Mutex
+	mu    sync.Mutex // guards ended and every process listing; never held across a wait (FU-01a)
 	ended bool
+
+	killMu sync.Mutex // serializes kill(): one stop at a time, and Members() never waits for it
 }
 
 func newKiller(sid int, grace time.Duration) *killer {
@@ -303,10 +305,16 @@ func (k *killer) identityChanged() bool {
 // kill signals every process whose terminal session is this one: SIGTERM (and SIGCONT, for jobs that are
 // stopped) to each process group they lead, a wait of the grace period, then SIGKILL until none is left. A
 // process that calls setsid itself has left the session and is not touched (A2-13 tracks those).
+//
+// kill holds killMu for the whole stop, but k.mu only around the ended check and each single listing, so a
+// concurrent members() waits for one listing at most, never for the grace period (FU-01a).
 func (k *killer) kill() error {
+	k.killMu.Lock()
+	defer k.killMu.Unlock()
 	k.mu.Lock()
-	defer k.mu.Unlock()
-	if k.ended {
+	ended := k.ended
+	k.mu.Unlock()
+	if ended {
 		return nil
 	}
 	if k.sid <= 1 {
@@ -315,11 +323,21 @@ func (k *killer) kill() error {
 	if mine, err := unix.Getsid(0); err == nil && mine == k.sid {
 		return fmt.Errorf("pty: refusing to stop the caller's own session")
 	}
-	if k.identityChanged() {
+	k.mu.Lock()
+	changed := k.identityChanged()
+	if changed {
 		k.ended = true // the number was reused: our session is long gone
+	}
+	k.mu.Unlock()
+	if changed {
 		return nil
 	}
 	list := func() ([]int, error) {
+		k.mu.Lock()
+		defer k.mu.Unlock()
+		if k.ended { // a concurrent members() or the watcher saw the session empty: act no more
+			return nil, nil
+		}
 		m, err := k.listOnce()
 		if err != nil { // one retry
 			time.Sleep(20 * time.Millisecond)
@@ -372,7 +390,13 @@ func (k *killer) kill() error {
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	if left, _ := k.listOnce(); len(left) > 0 {
+	k.mu.Lock()
+	var left []int
+	if !k.ended {
+		left, _ = k.listOnce()
+	}
+	k.mu.Unlock()
+	if len(left) > 0 {
 		return fmt.Errorf("pty: %d process(es) survived SIGKILL in session %d", len(left), k.sid)
 	}
 	return nil
