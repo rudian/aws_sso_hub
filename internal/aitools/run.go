@@ -6,6 +6,8 @@ import (
 	"errors"
 	"os/exec"
 	"time"
+
+	"github.com/rudian/codepass/internal/shellguard"
 )
 
 // RunFunc runs one program to its end and returns stdout and stderr together (capped). A non-zero exit is not
@@ -34,6 +36,9 @@ func (c *capBuf) Write(p []byte) (int, error) {
 func RealRun(ctx context.Context, argv []string, dir string, env []string) ([]byte, int, error) {
 	if len(argv) == 0 {
 		return nil, -1, errors.New("aitools: empty command")
+	}
+	if err := shellguard.Check(argv[0], argv[1:], env); err != nil {
+		return nil, -1, err // a test binary never starts the owner's login shell
 	}
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = dir

@@ -29,6 +29,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/rudian/codepass/internal/shellguard"
 )
 
 const procThreadAttributeJobList = 0x0002000D // not defined in x/sys/windows
@@ -51,6 +53,9 @@ type winSession struct {
 func Start(o Options) (Session, error) {
 	if len(o.Argv) == 0 {
 		return nil, errors.New("pty: empty argv")
+	}
+	if err := shellguard.CheckTerminal(o.Argv[0], o.Argv[1:], o.Env); err != nil {
+		return nil, err // a test binary never starts the owner's login shell
 	}
 	argv := append([]string(nil), o.Argv...)
 	// Resolve the program like os/exec: a failed search is an error (no CreateProcess search of the app's

@@ -3,6 +3,8 @@ package aitools
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -125,6 +127,19 @@ func TestWindowsNodeBesideNothingIsResolved(t *testing.T) {
 func TestWindowsWithoutLookupKeepsBareNameOffWindows(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("host lookup is the real one on Windows")
+	}
+	// A fake codex sits on the app's PATH. A host lookup (execx.LookPath) would find it and put its full path
+	// in argv[0]; with no Lookup the bare name must stay. (FU-A2-04b)
+	dir := t.TempDir()
+	fake := filepath.Join(dir, "codex")
+	if err := os.WriteFile(fake, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	execx.Configure(execx.Options{PreferredDirs: []string{dir}, DisableLoginShell: true})
+	t.Cleanup(func() { execx.Configure(execx.Options{DisableLoginShell: true}) })
+	if p, err := execx.LookPath("codex"); err != nil || p != fake {
+		t.Fatalf("the fake tool is not on the lookup path: %q %v", p, err)
 	}
 	argv, err := WindowsCommand(Codex, "codex", []string{"x"}, "", ShimEnv{})
 	if err != nil || !reflect.DeepEqual(argv, []string{"codex", "x"}) {

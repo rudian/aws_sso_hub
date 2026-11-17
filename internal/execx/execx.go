@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rudian/codepass/internal/shellguard"
 )
 
 // Options configures PATH handling. Configure is called once at startup.
@@ -119,6 +121,9 @@ func loginShellPATH(interactiveShell bool, timeout time.Duration) string {
 		args = []string{"-i", "-l", "-c"}
 	}
 	args = append(args, `printf "`+pathMarker+`%s`+pathMarker+`" "$PATH"`)
+	if shellguard.Check(sh, args, nil) != nil {
+		return "" // a test binary with a non-temp HOME: refused and recorded, the shell never starts
+	}
 	cmd := exec.CommandContext(ctx, sh, args...)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -146,7 +151,7 @@ func buildPATHLocked() string {
 	} else {
 		parts = append(parts, platformPreferredDirs()...)
 	}
-	if runtime.GOOS == "darwin" && !opts.DisableLoginShell {
+	if runtime.GOOS == "darwin" && loginShellEnabledLocked() {
 		if shellPath == "" {
 			shellPath = loginShellPATH(false, 3*time.Second)
 		}
@@ -173,7 +178,7 @@ func EnvPATH() string {
 func retryInteractive() bool {
 	mu.Lock()
 	defer mu.Unlock()
-	if runtime.GOOS != "darwin" || opts.DisableLoginShell || interactive {
+	if runtime.GOOS != "darwin" || !loginShellEnabledLocked() || interactive {
 		return false
 	}
 	interactive = true
@@ -293,6 +298,9 @@ func Command(ctx context.Context, name string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = ChildEnv()
 	cmd.WaitDelay = waitDelay
+	if err := shellguard.Would(name, args, cmd.Env); err != nil {
+		cmd.Err = err // Start returns it; Run decides again on the final environment and records
+	}
 	hideWindow(cmd)
 	return cmd
 }
@@ -316,6 +324,9 @@ func startCmd(name string, args []string, dir string, extraEnv []string, newCons
 	cmd := exec.Command(name, args...)
 	cmd.Env = append(ChildEnv(), extraEnv...)
 	cmd.Dir = dir
+	if err := shellguard.Check(name, args, cmd.Env); err != nil {
+		cmd.Err = err
+	}
 	if newConsole {
 		showNewConsole(cmd)
 	}
@@ -331,6 +342,13 @@ type Result struct {
 // Run executes cmd with stdin and returns its captured output. The error is non-nil only when the process
 // could not start or was killed (context ended); a non-zero exit code is reported in Result.
 func Run(cmd *exec.Cmd, stdin []byte) (Result, error) {
+	// The caller may have replaced cmd.Env after Command: the final environment decides.
+	if errors.Is(cmd.Err, shellguard.ErrRefused) {
+		cmd.Err = nil
+	}
+	if err := shellguard.Check(cmd.Path, cmd.Args[min(1, len(cmd.Args)):], cmd.Env); err != nil {
+		return Result{ExitCode: -1}, err
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

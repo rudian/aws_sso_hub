@@ -14,6 +14,8 @@ import (
 
 	cpty "github.com/creack/pty"
 	"golang.org/x/sys/unix"
+
+	"github.com/rudian/codepass/internal/shellguard"
 )
 
 type unixSession struct {
@@ -39,6 +41,9 @@ func Start(o Options) (Session, error) {
 	c.Env = o.Env
 	if c.Env == nil {
 		c.Env = os.Environ()
+	}
+	if err := shellguard.CheckTerminal(o.Argv[0], o.Argv[1:], c.Env); err != nil {
+		return nil, err // a test binary never starts the owner's login shell
 	}
 	cols, rows := o.Cols, o.Rows
 	if cols == 0 {
