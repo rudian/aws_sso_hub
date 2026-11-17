@@ -116,10 +116,17 @@ body.is-dragging-row, body.is-dragging-row * { cursor: grabbing !important; user
 .proj-confirm__diff { display: flex; flex-direction: column; align-items: flex-end; font-size: var(--fs-12); color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
 .proj-confirm__diff s { color: var(--text-3); }
 
-@media (max-width: 1180px) {
-  .proj-table { --cols: 20px minmax(150px, 1.3fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(130px, 1fr) 140px; }
+/* Narrower windows. The wide template needs a row of about 1002px, which is a window of about 1310px (232px sidebar, 64px page padding, 10px scrollbar, 2px table border); up to 1320px one tighter template takes over. Its minimums add up to 654px with gaps and row padding, so it fits the 980px minimum window (row width 672px), and above that its fr tracks simply grow. Only the column gap is set (not gap), so the moved-folder question under a row keeps its row gap. The actions column holds the row's fix button and More. */
+@media (max-width: 1320px) {
+  .proj-table { --cols: 20px minmax(120px, 1.3fr) minmax(96px, 1fr) minmax(104px, 1fr) minmax(104px, 1fr) 128px; }
+  .proj-table .table__head, .proj-table .row { column-gap: 10px; }
   .proj-table .hint__detail { display: none; }
 }
+
+/* Buttons in the status and actions cells give way (wrap) instead of spilling into the next column. */
+.proj-table .row__cell > .hint { min-width: 0; }
+.proj-table .row__cell .btn { min-width: 0; max-width: 100%; height: auto; min-height: var(--control-h-sm); white-space: normal; text-align: start; line-height: 1.25; padding-top: 4px; padding-bottom: 4px; overflow-wrap: anywhere; }
+.proj-table .row__actions > .icon-btn { flex: none; }
 
 /* Find a repository by typing (design 5.2): the selected match has the ink bar of the session switcher. */
 .proj-row.is-search-sel { background: color-mix(in srgb, var(--focus) 9%, var(--surface)); box-shadow: inset 3px 0 0 var(--ink, var(--text)); }
