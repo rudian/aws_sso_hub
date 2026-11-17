@@ -140,6 +140,10 @@ All syntax and git colours are at least 4.5:1 on `--editor-bg` in both themes (s
 
 New class families (stable names): `.ws*` (frame), `.rail__btn`, `.tree-switch`, `.splitbtn`, `.pane*`, `.tree`, `.fl` (file list), `.ed*` (editor), `.ln` (code line), `.hover-card`, `.peek`, `.ac` (completion), `.outline`, `.bpanel` (bottom panel), `.found`, `.diff`, `.hunk`, `.dl` (diff line), `.composer`, `.src-tag`, `.taskbar`, `.task`, `.state`, `.task-head`, `.term*`, `.sheet*`, `.opt`, `.tool-pick`, `.commit`, `.ref`, `.who`, `.refs`, `.cmp`, `.cf*` (conflict), `.opbar`, `.pr-*`, `.checks`, `.tl` (timeline), `.mergebox`, `.prov`, `.tool`, `.proj*`, `.suggest`, `.ai-badge`, `.awake`, `.setup*`, `.tool-row`, `.keyline`, `.pubkey`, `.howto`, `.verify`, `.ident*`, `.ladder`, `.affect`, `.update-banner`, `.ver`, `.usteps`, `.set-row`.
 
+Added by the third batch (owner, 2026-11-17): `.sync-n` (count pill), `.pullall*` (Pull all bar, start popover and results sheet), `.base-pick` (the "Based on" picker).
+
+**Count pills (`.sync-n`)** use no new token. A pill is the existing `.badge` shape at 18px height, mono digits, arrow then number, 4px between two pills. `↑n` (not pushed) is the neutral badge: ink text on `--surface-sunken`. `↓n` (not pulled) is the info badge: `--info` text on the info tint, because it is news from outside. "未发布 / Not published" is a neutral pill with a dashed border; "远程分支已删除 / Remote branch deleted" is the warn badge. Colour is never the only sign: the arrow and the number are always there. Both pairs of text and tint meet 4.5:1 in both themes (same method as the identity palette; the task that builds it measures and records the values).
+
 Reused unchanged: `.app`, `.nav`, `.keyring`, `.btn*`, `.icon-btn`, `.card`, `.pass`, `.portal*`, `.acct-*`, `.badge`, `.dot`, `.banner`, `.field`, `.input`, `.select`, `.checkbox`, `.radio`, `.switch`, `.modal*`, `.menu`, `.toast`, `.progress`, `.spinner`, `.empty`, `.table`, `.row`, `.tabs`, `.segmented`, `.stepper`, `.kbd`.
 
 ---
@@ -167,6 +171,9 @@ The owner asked for tasteful animation. `ui-spec.md` section 9 said "no entrance
 | Terminal session start | the terminal fades in after the first byte, never an empty flash | 120ms |
 | Success (verify key, install done, merge done) | existing check draw | 420ms |
 | Conflict block resolved | block bar turns from warn to ok; chosen lines flash the add colour once | 240ms |
+| Count pill changes (`↑2` to `↑3`, a pill appears or goes) | the number cross-fades in place; a new pill fades in; no bounce, no slide | 160ms |
+| Pull all, a repository row finishes | the row's spinner cross-fades to its result text; the bar's progress eases forward | 160ms; bar 240ms |
+| Pull all ends with nothing that needs a look | the existing check draw, once, on the bar | 420ms |
 
 Rules:
 
@@ -175,6 +182,7 @@ Rules:
 - Ambient loops are limited to three: the running pulse, the waiting breath, the login handoff dot. Each exists only while its state lasts.
 - `prefers-reduced-motion: reduce` or Settings > Appearance > Motion = Reduced: every transition and animation drops to about 1ms (the existing global rule), spinners keep a slow turn, the waiting breath becomes a steady warn dot, drag keeps the ring but no lift. Motion = Full overrides the OS; Motion = System follows it.
 - The terminal and the editor never animate their text.
+- Pull all adds no ambient loop: its spinners exist only while a repository is being worked on, and with reduced motion they keep the slow turn and the bar moves in steps.
 
 ---
 
@@ -235,7 +243,8 @@ Rules:
 
 - **Header** (`.ws__head`, 46px, full width, drag region). On macOS the first 84px are reserved for the traffic lights; on Windows the system title bar sits above and the reserve is dropped. Contents: back button (to Projects), project > provider mark + repository name, the **working-tree switcher**, spacer, the **sync button**, the account chip (opens the bind popover, as today), the gear (repository settings sheet).
 - **Working-tree switcher** (`.tree-switch`). A menu with "主工作区 · `<branch>`" first, then one row per AI task that has its own workspace (tool mark, title, branch, state). Choosing a row re-points Code, Changes, History and the terminal at that folder. While a task workspace is selected the pill turns info-tinted and the header gets a 2px info line along its bottom edge, so the folder on screen is never ambiguous. Shortcut: Ctrl+Tab cycles. Open editor tabs, unsaved edits, the selected file and the bottom panel are kept **per folder**: switching away and back restores them. Inside a task's folder the branch cannot be switched (the branch control is replaced by the task's branch chip with the tooltip "任务的工作区固定在它自己的分支上 / A task's workspace stays on its own branch").
-- **Sync button** (`.splitbtn`): `↓n ↑m` and the obvious verb. `↑>0` "推送 / Push"; `↓>0` "拉取 / Pull"; both "同步 / Sync"; no upstream "发布分支 / Publish branch"; nothing to do "获取 / Fetch". The caret menu: Fetch, Pull (merge), Pull (rebase), Push, Push with lease... (confirm), Manage remotes. While running, the icon spins and the label becomes the step ("正在推送... / Pushing..."). The button always describes the **selected folder**. With a task's workspace selected and its branch never pushed, it reads "发布分支 / Publish branch" with no counts (shot `workspace-changes-light-zh`). "Push with lease" is described in 5.8.
+- **Branch menu** (the lower part of the working-tree switcher's menu, under a hairline; owner, third batch, 2026-11-17). Two items for the folder on screen: "从 main 新建分支… / New branch from main…" (opens the New branch dialog of 5.8 with the base set to the branch on screen) and "切换分支… / Switch branch…" (opens the Branches tab with the filter focused; hidden inside a task's workspace). Rows of the switcher show each folder's branch with its count pills. The same "New branch" command is in the palette: "新建分支 / New branch".
+- **Sync button** (`.splitbtn`): the two count pills and the obvious verb. `↑>0` "推送 / Push"; `↓>0` "拉取 / Pull"; both "同步 / Sync"; no remote branch "发布分支 / Publish branch"; nothing to do "获取 / Fetch". The pills are the `.sync-n` pills of 5.2 (owner, third batch, 2026-11-17): `↓4` first, then `↑2`, each hidden at zero. Tooltip, one line per pill plus the freshness line: "2 个提交还没推送到 origin/main / 2 commits not pushed to origin/main", "4 个提交在 origin/main 上，还没拉到本地 / 4 commits on origin/main are not pulled yet", "3 分钟前检查过远程 / Remote checked 3 minutes ago". The caret menu: Fetch, Pull (merge), Pull (rebase), Push, Push with lease... (confirm), **拉取全部分支 / Pull all branches** (5.2b, this repository only), Manage remotes. While running, the icon spins and the label becomes the step ("正在推送... / Pushing..."). The button always describes the **selected folder**. With a task's workspace selected and its branch never pushed, it reads "发布分支 / Publish branch" with no counts (shot `workspace-changes-light-zh`). "Push with lease" is described in 5.8. Opening a workspace fetches that repository when its last fetch is more than 2 minutes old; while that runs, the pills keep their last values and the icon turns.
 - **Rail** (`.ws__rail`): the sidebar's destinations as 36px icon buttons with tooltips, pips for counts, the cup when keep-awake is held. The Projects button is active while a repository is open.
 - **Tabs** (`.ws__tabs`): six, with counts where there is work (changed files, open PRs, tasks waiting). The quick field on the right opens the palette (Cmd/Ctrl+K).
 - **Status bar** (`.ws__status`, 26px): terminal toggle; problems; context (branch, or the task folder); on the right the language servers, cursor position, encoding, language, keep-awake. Every item is a button with a tooltip.
@@ -380,7 +389,7 @@ Shots: `setup-light-zh`, `setup-idle-light-zh`, `setup-failed-light-zh`, `setup-
 
 Shots: `projects-light-zh`, `projects-dark-en`, `projects-drag-light-zh`.
 
-**Header.** Title "项目 / Projects"; subtitle "3 个项目 · 12 个仓库 · 刚刚扫描 ~/Documents/code". Actions: Rescan (icon), "克隆仓库 / Clone repository", primary "新建项目 / New project".
+**Header.** Title "项目 / Projects"; subtitle "3 个项目 · 12 个仓库 · 刚刚扫描 ~/Documents/code". Actions: Rescan (icon), **"拉取全部 / Pull all"** (secondary, the down-arrow-into-tray icon; 5.2b), "克隆仓库 / Clone repository", primary "新建项目 / New project".
 
 **Toolbar.** Segmented filter 全部 / 待处理 / 有改动 (All / To fix / With changes), a provider filter menu, search (repository or project name; matching repositories stay under their project header, other projects hide).
 
@@ -416,10 +425,37 @@ Shots: `projects-light-zh`, `projects-dark-en`, `projects-drag-light-zh`.
 - A project with a fixed account shows it in the section header beside the author identity, as a small chip with the tool mark: "[cc] 个人 / Personal". Ungrouped has no menu, so its repositories follow the app default unless they set their own.
 - Moving a repository into a project whose account default differs adds one line to the move confirm: "Claude Code 的默认账号会从「工作」变成「个人」。 / The default Claude Code account changes from Work to Personal." Repositories with their own account are not named, because nothing changes for them.
 
-**Repository row** (`.proj-table`, 6 columns): select; provider mark + name (two names when they differ, see below) + path (middle-truncated); account chip (or dashed "未绑定 / Not bound"); branch and sync (`↑2 · 5 个改动`, `↓4`, "干净 / Clean"); status (dot + two lines, same vocabulary as today); actions (AI badge, a primary fix button when the row needs one, else the More menu). **Clicking a row opens the workspace.** The chip still opens the bind popover; the checkbox and buttons do not open the workspace.
+**Repository row** (`.proj-table`, 6 columns): select; provider mark + name (two names when they differ, see below) + path (middle-truncated); account chip (or dashed "未绑定 / Not bound"); branch and sync (the count pills below, then the change count: `↓4` `↑2` · 5 个改动; "干净 / Clean" when there is nothing to push, pull or commit); status (dot + two lines, same vocabulary as today); actions (AI badge, a primary fix button when the row needs one, else the More menu). **Clicking a row opens the workspace.** The chip still opens the bind popover; the checkbox and buttons do not open the workspace.
 
 - AI badge (`.ai-badge`): "1 运行中 / 1 running" in info with a pulsing dot; "1 等待你 / 1 waiting" in warn when any task of that repository waits. Click goes to the repository's AI tasks tab.
 - Status additions: "有 4 个新提交可以拉取 / 4 new commits to pull", "1 个拉取请求等你评审 / 1 pull request to review", "SSH 密钥还没验证 / SSH key not verified yet" (warn, action "验证 / Verify"), "登录还剩 48 分钟 / Sign-in ends in 48 min".
+
+**Counts on the row: not pushed, not pulled** (owner, third batch, 2026-11-17; plan 4.6a). The sync cell shows two pills for the branch that is checked out in the main folder.
+
+```
+main          [↓4] [↑2] · 5 个改动          main          [↓4] [↑2] · 5 changes
+feat/payout   [↑1]                          feat/payout   [↑1]
+hotfix/tax    [未发布]                      hotfix/tax    [Not published]
+release/2.4   [远程分支已删除]              release/2.4   [Remote branch deleted]
+main          干净                          main          Clean
+```
+
+- `↓n` first (what is waiting for you), then `↑n` (what you have not sent). A pill is hidden at zero. Above 99 it reads `99+`; the tooltip has the exact number.
+- Tooltips. `↑2`: "2 个提交还没推送到 origin/main / 2 commits not pushed to origin/main". `↓4`: "4 个提交在 origin/main 上，还没拉到本地 / 4 commits on origin/main are not pulled yet". Both end with the freshness line, one of:
+  - "3 分钟前检查过远程 / Remote checked 3 minutes ago" (relative up to a day, then the date and time);
+  - "上次检查没成功：登录已过期 · 上次成功是 2 小时前 / The last check failed: the sign-in has expired · last success 2 hours ago" (the reasons are the ones of 5.2b: sign-in, key, network);
+  - "Codepass 不会自动检查这个仓库（没有绑定账号，也没打开过）。上次获取：昨天 18:20 / Codepass does not check this repository by itself (not bound, never opened). Last fetched: yesterday 18:20";
+  - "还没检查过远程 / The remote has not been checked yet".
+- **When the last successful check is more than an hour old, or the last check failed**, `↓n` is drawn muted (text `--text-3`, no tint) with a small clock mark, so an old number does not look like news. A repository with no `↓` pill but a stale or failed check shows nothing extra on the row; the status column already carries sign-in and key problems.
+- "未发布 / Not published": the branch has no remote branch. Tooltip: "这个分支只在这台电脑上。打开仓库可以发布它。 / This branch exists only on this computer. Open the repository to publish it." "远程分支已删除 / Remote branch deleted": tooltip "origin 上已经没有 release/2.4 了，本地的分支和提交都还在。 / origin no longer has release/2.4. The local branch and its commits are still here."
+- A detached checkout shows the chip "游离 / Detached" and no pills.
+- **Other branches.** When other local branches of the repository have commits to pull, a muted suffix follows the pills: "另有 2 个分支可更新 / 2 more branches to update". Its tooltip names them (at most five, then "等 7 个 / and 4 more"). Clicking it opens the row menu's "拉取全部分支 / Pull all branches".
+- Screen readers hear words, not arrows: "main，4 个提交还没拉取，2 个提交还没推送，5 个改动，3 分钟前检查 / main, 4 commits not pulled, 2 commits not pushed, 5 changes, checked 3 minutes ago".
+- The status line "有 4 个新提交可以拉取 / 4 new commits to pull" stays as the row's status text when nothing more urgent is there.
+- **Project header.** The meta line of a project section adds, only when above zero: "3 个仓库有新提交 / 3 repositories have new commits". Collapsed sections show it too.
+- **Freshness** (plan 4.6a). By itself the app checks only repositories that are bound to an account or were opened: every 15 minutes; when the window comes to the front and the last round is more than 5 minutes old; when the network comes back; right after a sign-in succeeds, for the repositories that failed for it. Never more often than every 5 minutes for the whole list. While a round runs nothing on the page spins; the pills change in place when it ends.
+
+**Row menu and project menu additions.** Row menu (More): "拉取全部分支 / Pull all branches" after Open. Project menu: "拉取这个项目的全部仓库 / Pull all in this project" before "remove project". Bulk bar: "已选 2 个仓库 · 移到项目 ▾ · 检查连接 · 拉取所选 / 2 selected · Move to project ▾ · Check connection · Pull selected". All three run 5.2b for their own set of repositories.
 
 **Two names** (`.remote-name`). A repository has a local folder name and a remote name (the last part of the origin URL). When they are the same, one name is shown, as before. When they differ, the **local folder name comes first** and the remote name follows as a small outlined tag: `api-main` `远程 acme_api` / `api-main` `remote acme_api`. This one component (`RepoName`) is used in project rows, the workspace header crumb, the AI tasks page, the session switcher, the quit dialog, the Free up space dialog, pull request groups and search results. Screen readers hear "api-main，远程仓库名 acme_api / api-main, remote name acme_api". Search matches either name. A repository with no remote shows only the folder name.
 
@@ -483,6 +519,139 @@ From the repository row menu and the repository settings sheet. Modal, 640px. It
 | Done | the modal closes; toast "已把 acme_api 重命名为 api-main / Renamed acme_api to api-main" with "撤销 / Undo" (while no session has started since); the row shows both names; stopped sessions show "继续 / Resume". |
 
 **Accessibility.** `role="dialog"`; the two boxes are a group labelled "名字 / Names"; the path line is `aria-live="polite"`; the lists are real lists; the failure banner is `role="alert"`.
+
+### 5.2b Pull all (`pull-all`)
+
+Shots (drawn later): `pull-all-start-light-zh`, `pull-all-light-zh`, `pull-all-dark-en`, `pull-all-signin-light-zh`, `pull-all-done-light-zh`, `pull-all-done-light-en`, `pull-all-clean-light-zh`.
+
+Owner's requirement (third batch, 2026-11-17; plan 4.6a): one button that looks at which local branches every repository has and brings the latest code into each of them, one by one. In the owner's example, repository A has 3 local branches and repository B has 2: one click, five branches checked.
+
+**What it is, in the UI's own words.** "拉取全部 / Pull all" fetches each repository once, then moves every local branch forward to its remote branch when that needs no decision. It never pushes, never merges, never touches uncommitted changes and never touches a task's workspace.
+
+**Where it starts.**
+
+| Place | Label | Covers |
+|---|---|---|
+| Projects header | 拉取全部 / Pull all | every repository in the list |
+| Project menu | 拉取这个项目的全部仓库 / Pull all in this project | that project |
+| Bulk bar | 拉取所选 / Pull selected | the ticked rows |
+| Row menu; Sync button's caret menu; the "N more branches" suffix | 拉取全部分支 / Pull all branches | one repository |
+| Palette | 拉取全部 / Pull all | every repository in the list |
+
+Left out of every run, and said in the start popover when there are any: hidden repositories, repositories without a remote, repositories whose folder is gone. A search or filter on the page does not narrow "Pull all"; the bulk bar is the way to pull a subset. A repository that is not bound to an account is included: the owner clicked, so it is fetched like any other, and it fails with its own line if it cannot sign in.
+
+**Start popover** (`.pullall-start`, a popover under the button, 360px; the same for every entry point with its own numbers).
+
+```
+拉取全部                                         Pull all
+12 个仓库 · 31 个本地分支                        12 repositories · 31 local branches
+每个仓库获取一次，然后把能直接前进的本地分支      Each repository is fetched once. Then every local branch
+更新到远程的最新提交。                            that can simply move forward is brought up to date.
+
+不会推送、不会合并，也不会动没提交的改动。        Nothing is pushed or merged, and uncommitted changes
+                                                 are left alone.
+
+[x] 更新后运行仓库自己的脚本（3 个仓库有）       [x] Run the repositories' own scripts after updating (3 have one)
+没算进去：2 个已隐藏，1 个没有远程仓库           Left out: 2 hidden, 1 without a remote
+
+                         [取消]  [开始拉取]                          [Cancel]  [Start pulling]
+```
+
+- Focus lands on "开始拉取 / Start pulling"; Enter starts, Esc closes. Nothing here loses anything, so the primary has the focus.
+- The checkbox row shows only when at least one repository in the run has a script that git runs after an update (a `post-merge` hook). Default on, not remembered. Its help, behind an info icon: "这些脚本是仓库自己带的（比如更新后自动安装依赖）。只有当前检出的分支被更新时才会运行，和你在仓库里点「拉取」时一样。 / These scripts belong to the repositories (for example, installing dependencies after an update). They run only when the checked-out branch is updated, exactly as when you press Pull inside the repository." It lists the three repositories by name.
+- "没算进去 / Left out" shows only the kinds that apply; each number opens a tooltip with the names.
+- No network: the primary is disabled with "现在没有网络 / No network right now".
+- The one-repository entry points skip the popover when that repository has no such script: the run starts at once.
+
+**While it runs** (`.pullall`, a bar under the Projects toolbar, the `.opbar` shape with the info tint; shots `pull-all-light-zh`, `pull-all-dark-en`).
+
+```
+[spin] 正在拉取全部 · 第 5 / 12 个仓库 · 已更新 7 个分支            [========----]   [查看详情]  [取消]
+[spin] Pulling all · repository 5 of 12 · 7 branches updated        [========----]   [Details]   [Cancel]
+```
+
+- The bar counts repositories, not branches: a repository is one step. Up to 4 repositories are worked on at once.
+- **Rows.** Each repository in the run shows its step in the sync cell in place of the pills: waiting "排队中 / Queued" (muted); "正在获取… / Fetching…" (spinner); "正在更新 3 个分支… / Updating 3 branches…"; "正在运行仓库自己的脚本… / Running the repository's own script…". When the repository is done the pills come back with their new numbers and a result line sits under the branch until the bar is closed: "更新了 2 个分支 / 2 branches updated" (ok), "已是最新 / Up to date" (muted), "1 个分支需要你看一下 / 1 branch needs a look" (warn), "没连上远程 / Could not reach the remote" (danger). Clicking the result line opens the results sheet at that repository.
+- **The header button** reads "正在拉取… 5/12 / Pulling… 5/12" with the spinner; clicking it opens the results sheet. A second run cannot start while one runs; the other entry points are disabled with the tooltip "已经在拉取了 / A pull is already running".
+- **Elsewhere.** The run continues when the owner leaves the Projects page, opens a workspace or hides the window. The Projects item in the sidebar and the rail shows the spinner pip while it runs. Rows and menus of a repository that is being worked on stay usable, but its own Sync button waits: "等「拉取全部」处理完这个仓库 / Waiting for Pull all to finish with this repository".
+- **Sign-in needed** (shot `pull-all-signin-light-zh`). One line per sign-in or key, inside the bar, under the progress line; never one per repository:
+
+  ```
+  [!] acme 的登录已过期，5 个仓库在等。                       [重新登录]   [跳过这 5 个]
+  [!] The sign-in for acme has expired. 5 repositories are waiting.   [Sign in again]   [Skip these 5]
+
+  [!] alex-dev 的 SSH 密钥被拒绝了，2 个仓库在等。            [验证密钥]   [跳过这 2 个]
+  [!] The SSH key of alex-dev was refused. 2 repositories are waiting.   [Verify key]   [Skip these 2]
+  ```
+
+  The other repositories keep going. "重新登录 / Sign in again" starts that portal's sign-in in its own private window (the same button as on the pass); when it succeeds the line goes and the waiting repositories run. The app never opens a sign-in window by itself. When everything else is done and a line is still open, the bar reads "其余的都处理完了，还有 5 个仓库在等登录 / Everything else is done. 5 repositories are still waiting for the sign-in" and stays until the owner signs in or skips. The waiting rows read "等待登录 / Waiting for sign-in".
+- **Cancel** (no confirm: nothing is lost). The bar reads "正在停止… / Stopping…", then "已取消。12 个仓库处理了 5 个，更新的分支保持更新。 / Cancelled. 5 of 12 repositories were done. Updated branches stay updated." No new repository starts; fetches in flight are stopped; an update of files that has begun is allowed to finish. Quitting the app cancels in the same way. Esc never cancels a run.
+
+**When it ends** (shots `pull-all-done-light-zh`, `-en`, `pull-all-clean-light-zh`). The bar turns into the summary and stays until closed (x) or until the next run.
+
+| Outcome | Bar text | Tint, button |
+|---|---|---|
+| Updates, nothing to look at | 拉取完成：更新了 6 个仓库的 9 个分支。 / Pull finished: 9 branches updated in 6 repositories. | ok, check draw; "查看结果 / See results" |
+| Updates and things to look at | 拉取完成：更新了 9 个分支，5 个需要你看一下。 / Pull finished: 9 branches updated, 5 need a look. | warn; primary "查看结果 / See results" |
+| Nothing new anywhere | 全部都是最新的。 / Everything is up to date. | ok; "查看结果 / See results" |
+| Nothing updated, things to look at | 没有分支被更新，5 个需要你看一下。 / No branch was updated. 5 need a look. | warn; primary "查看结果 / See results" |
+| Every repository failed for the network | 连不上远程仓库，什么都没有更新。 / Could not reach the remotes. Nothing was updated. | danger; "重试 / Try again" |
+
+When the owner is not on the Projects page at the end, the same sentence is a toast with "查看结果 / See results". When the window is not in front, it is the system notification of section 6.
+
+**Results sheet** (`.sheet`, from the right, 520px; title "拉取全部的结果 / Pull all results", subtitle "今天 14:32 · 12 个仓库 · 31 个分支 · 用时 48 秒 / Today 14:32 · 12 repositories · 31 branches · took 48 s"). Three groups, each a heading with a count; inside a group, one block per repository (provider mark, `RepoName`, account chip), then one line per branch (branch name in mono, then the result).
+
+1. **需要你看一下 / Needs a look** (open; warn mark). Lines with an action.
+2. **已更新 / Updated** (open; ok mark).
+3. **没有变化 / Nothing to do** (collapsed; muted). A repository whose branches are all here is one line: "acme_cs_portal · 4 个分支都是最新的 / acme_cs_portal · all 4 branches are up to date".
+
+Footer: "重试没成功的 3 个仓库 / Retry the 3 repositories that failed" (only network, sign-in and key failures; shown when there are any), "关闭 / Close". The sheet shows the last run until the next one; it is not kept after the app quits.
+
+**Every case, and what the line says.** `{n}`, `{m}` are counts; `a1b2c3d → e4f5a6b` are the short hashes before and after, each a copy button.
+
+| Case | Group | Line (中文 / English) | Action on the line |
+|---|---|---|---|
+| Moved forward, branch not checked out | Updated | 更新了 3 个提交 · a1b2c3d → e4f5a6b / Updated by 3 commits · a1b2c3d → e4f5a6b | 查看提交 / View commits (History, that range) |
+| Moved forward, the checked-out branch of the main folder | Updated | 更新了 3 个提交，文件夹里的文件也更新了 · a1b2c3d → e4f5a6b / Updated by 3 commits. The files in the folder were updated too · a1b2c3d → e4f5a6b | 查看提交 / View commits |
+| The same, and the repository's script ran and reported an error | Updated (warn mark) | 更新了 3 个提交。仓库自己的脚本报了错。 / Updated by 3 commits. The repository's own script reported an error. | 查看输出 / View output (the last lines, plain text) |
+| Already up to date | Nothing to do | 已是最新 / Up to date | none |
+| No remote branch | Nothing to do | 未发布，只在这台电脑上 / Not published. It exists only on this computer | 打开 / Open |
+| Remote branch deleted | Nothing to do (the block stays visible even when the group is collapsed) | 远程分支已删除，本地的分支和提交都还在 / The remote branch was deleted. The local branch and its commits are still here | 打开 / Open (Branches tab, that branch selected; deleting it is done there, with its own confirm) |
+| Local commits not pushed, nothing new on the remote | Nothing to do | 远程没有新提交。这里有 2 个提交还没推送 / Nothing new on the remote. 2 commits here are not pushed | 打开 / Open |
+| Both sides moved | Needs a look | 两边都有新提交（这里 2 个，远程 4 个），没有自动合并 / Both sides have new commits (2 here, 4 on the remote). Nothing was merged automatically | 打开去处理 / Open to sort it out (workspace, Branches tab, that branch: Pull (merge) and Pull (rebase) are there) |
+| Checked-out branch, uncommitted changes | Needs a look | 有 3 个没提交的改动，这个分支没有更新（远程有 4 个新提交） / 3 uncommitted changes, so this branch was not updated (4 new commits on the remote) | 打开去拉取 / Open to pull (the Sync button there offers the stash-first prompt of 5.8) |
+| Checked-out branch, a live AI session works in the main folder | Needs a look | AI 任务正在这个文件夹里工作，这个分支没有更新（远程有 4 个新提交） / An AI task is working in this folder, so this branch was not updated (4 new commits on the remote) | 打开任务 / Open the task |
+| Checked-out branch, a file in the folder is in the way (git refused; nothing changed) | Needs a look | 文件夹里有文件挡住了更新，这个分支没有更新 / A file in the folder is in the way of the update. This branch was not updated | 打开 / Open; "查看详情 / Details" shows the file names git gave |
+| Branch open in a task's workspace | Nothing to do when it has nothing to pull; else Needs a look | 这个分支在任务「修复结算四舍五入」的工作区里打开着，没有动它（远程有 2 个新提交） / This branch is open in the workspace of the task "Fix settlement rounding", so it was left alone (2 new commits on the remote) | 打开任务 / Open the task |
+| Detached checkout in the main folder | no line of its own | (the repository block gets the muted note) 主文件夹现在不在任何分支上；各个分支照常处理。 / The main folder is not on a branch right now. The branches were handled as usual. | none |
+| Repository in the middle of a merge, rebase, cherry-pick or revert | Needs a look, one line for the repository | 这个仓库有一次合并还没做完。只获取了远程，没有更新任何分支。 / A merge is unfinished in this repository. The remote was fetched; no branch was updated. (变基 / rebase, 拣选 / cherry-pick, 还原 / revert follow the operation) | 打开去完成 / Open to finish it |
+| AWS sign-in expired, skipped by the owner | Needs a look, one line for the repository | 登录已过期，没有拉取 / The sign-in has expired. Nothing was pulled | 重新登录 / Sign in again |
+| SSH key refused, skipped by the owner | Needs a look, one line | alex-dev 的 SSH 密钥被拒绝，没有拉取 / The SSH key of alex-dev was refused. Nothing was pulled | 验证密钥 / Verify key |
+| The key needs a passphrase the app cannot ask for | Needs a look, one line | 这个密钥需要密码短语，Codepass 没法在这里问你 / This key needs its passphrase, and Codepass cannot ask for it here | 在终端里拉取 / Pull in the terminal |
+| Not bound, and the fetch was refused | Needs a look, one line | 没有绑定账号，远程拒绝了访问 / Not bound to an account, and the remote refused access | 绑定账号… / Bind account… |
+| Network failure or no progress for 2 minutes | Needs a look, one line | 没连上远程（网络断了或者超时），没有拉取 / Could not reach the remote (no network, or it timed out). Nothing was pulled | 重试 / Retry (this repository) |
+| The remote no longer exists or the address is wrong | Needs a look, one line | 远程仓库找不到了，检查一下地址 / The remote repository was not found. Check its address | 管理远程 / Manage remotes |
+| Folder gone since the start | Needs a look, one line | 找不到这个文件夹 / This folder is gone | 重新定位… / Locate… |
+| Another action of the owner was running in that repository | no line; the repository waits its turn | row text while waiting: 等这个仓库手上的操作做完 / Waiting for this repository's current action | none |
+| Cancelled before its turn | Nothing to do, one line | 已取消，没有处理 / Cancelled before its turn | none |
+| Any other git error | Needs a look, one line | 没有成功，git 报了错 / It did not work. git reported an error | 查看详情 / Details (the last three lines of git's message, plain text, with secrets removed as elsewhere) |
+
+- Branch names, task titles and git's messages are other people's text: plain text only (section 6).
+- A repository with several remotes is fetched once per remote that a local branch follows; a failure of one remote gives its own line, "upstream：没连上 / upstream: could not reach it", and the branches of the other remote are still handled.
+- Tags: new tags that come with the fetched commits arrive as with any fetch; they are not listed in the results.
+- Submodules are not updated. A repository that has them gets one muted note in its block when its checked-out branch was updated: "子模块没有更新 / Submodules were not updated".
+
+**After a run.** Every count pill on the page is fresh (the run fetched everything it covered), and the freshness line reads "刚刚检查过远程 / Remote checked just now".
+
+**Keyboard and screen readers.**
+
+- The header button is in the tab order after Rescan. The popover traps focus; Enter starts, Esc closes and returns focus to the button.
+- The bar is a `role="status"` region with a `progressbar` ("第 5 个，共 12 个仓库 / repository 5 of 12"). It announces politely: the start ("开始拉取 12 个仓库 / Pulling 12 repositories"), every sign-in line when it appears (it has buttons, so focus is not moved; the line is announced once), and the end sentence. It does not announce each repository.
+- "查看详情 / Details" and "查看结果 / See results" open the sheet and move focus to its title. Groups are headings (h3) with their counts; each repository is a list; each line reads as one sentence: "acme_api，分支 feat/payout，两边都有新提交，这里 2 个，远程 4 个，没有自动合并。按钮：打开去处理 / acme_api, branch feat/payout, both sides have new commits, 2 here, 4 on the remote, nothing was merged automatically. Button: Open to sort it out". Esc closes the sheet and returns focus to where it was opened from.
+- While a row shows a step in place of its pills, the row's accessible name ends with the step ("正在获取 / fetching").
+- Every state has text; the tints only repeat it.
+
+**States.** No repository with a remote: the button is disabled with the tooltip "没有带远程的仓库 / No repository has a remote". One repository: the popover reads "1 个仓库 · 3 个本地分支 / 1 repository · 3 local branches". More than 200 rows in the run: row and bar motion is skipped (section 3).
 
 ### 5.3 Code (`workspace-code`)
 
@@ -944,8 +1113,38 @@ Ended sessions keep things on disk: a workspace (often with gigabytes of build o
 
 **Branches** (`repo-branches`; shots `repo-branches-light-zh`, `repo-branches-light-en`).
 
-- Left (`.refs`): filter; **本地 / Local** (current branch has a check and the "当前 / Current" badge; ahead / behind per branch; task branches use the bot icon), **远程 / Remote** per remote, **标签 / Tags**, **远程仓库 / Remotes**. "新建分支 / New branch" (name, from which branch or commit, "创建后切换 / Switch to it").
+- Left (`.refs`): filter; **本地 / Local** (current branch has a check and the "当前 / Current" badge; the count pills of 5.2 per branch, with "未发布 / Not published" and "远程分支已删除 / Remote branch deleted" where they apply; task branches use the bot icon and, when open in a task's workspace, the muted note "在任务工作区里 / in a task workspace"), **远程 / Remote** per remote (each group's heading ends with the freshness text "3 分钟前检查 / checked 3 minutes ago" and a small "获取 / Fetch" button), **标签 / Tags**, **远程仓库 / Remotes**. "新建分支 / New branch" at the top opens the dialog below with the current branch as the base.
+- **Every branch row, local and remote, has "从这个分支新建 / New branch from here"** (owner, third batch, 2026-11-17): a plus-branch icon button that appears on hover and on keyboard focus, the first item of the row's context menu, and the key N while the row has focus. It opens the dialog with that branch as the base. A local branch that is behind its remote also has "更新到远程最新 / Bring up to date" in its menu (the one-branch form of 5.2b: fetch, then move forward if that needs no decision).
 - Right: the selected branch: name (mono, 18px), what it tracks, last commit; primary "切换到这个分支 / Switch to this branch"; More: Rename, Push, Set upstream, Delete. **Compare** (`.cmp`): two cards "这里有、main 还没有的提交 3" and "main 有、这里还没有的提交 1", "换一个比较对象 / Compare with another". Actions: "合并到 main / Merge into main", "变基到 main 之上 / Rebase onto main", "把 main 合并进来 / Merge main into this", and for GitHub / Bitbucket "创建拉取请求 / Create pull request". Then a card with Commits / Files changed. A warn banner predicts conflicts when both sides touched the same file ("合并时 1 个文件可能冲突 / 1 file may conflict when merging").
+
+**New branch** (`.modal--sm`; shots `new-branch-light-zh`, `new-branch-remote-light-zh`; plan 4.6a).
+
+```
+新建分支                                              New branch
+
+分支名                                                Branch name
+[ feat/payout-export                          ]       [ feat/payout-export                          ]
+
+基于                                                  Based on
+[ (branch) main                             v ]       [ (branch) main                             v ]
+  e4f5a6b · 修复结算四舍五入 · Alex · 2 小时前          e4f5a6b · Fix settlement rounding · Alex · 2 hours ago
+
+[x] 创建后切换到它                                    [x] Switch to it
+[ ] 同时发布到 origin                                 [ ] Also publish to origin
+
+                        [取消]  [创建分支]                                    [Cancel]  [Create branch]
+```
+
+- **"基于 / Based on" (`.base-pick`)** is a combobox with a search field. Groups, in this order: "本地 / Local" (the current branch first with the "当前 / Current" badge, then by last commit, newest first), "远程 origin / Remote origin" (one group per remote), "标签 / Tags". Each option: icon, name, and on the right the age of its last commit; local branches show their count pills. Typing filters all groups with the ranking of the Projects search (start of the name, then start of a part after `/`, `-`, `_`, then anywhere). A pasted commit hash that exists shows one option "提交 a1b2c3d · 修复结算四舍五入 / Commit a1b2c3d · Fix settlement rounding". No match: "没有叫这个名字的分支或标签 / No branch or tag has this name". The default is the branch of the folder on screen; opened from a row or from History's "从这里建分支 / Branch from here", the base is already set to that branch or commit.
+- **The line under the picker** always shows the commit the new branch starts at: short hash, subject, author, age.
+- **Base is a remote branch** (shot `new-branch-remote-light-zh`): one more line, muted: "origin/release/2.4 是 3 分钟前获取的 / origin/release/2.4 was fetched 3 minutes ago" with the link "先获取 / Fetch first" (fetches that remote, then the commit line updates). More than an hour old, or never: the line is warn and the link becomes a button. The new branch starts at that commit and **does not follow the base**: after creating, it is "未发布 / Not published" until it is published under its own name.
+- **Base is a local branch that is behind its remote**: a warn line, "本地的 main 比 origin/main 少 4 个提交 / Local main is 4 commits behind origin/main", with "改用 origin/main / Use origin/main instead" (one click changes the base). Nothing is pulled.
+- **Same name as the remote branch.** When the base is `origin/release/2.4` and the name typed is `release/2.4` (and no local branch has it), the dialog says: "这会把远程分支 release/2.4 取到本地，并跟随它 / This gets the remote branch release/2.4 onto this computer and follows it", the publish checkbox hides, and the primary reads "取到本地 / Get it here".
+- **"同时发布到 origin / Also publish to origin"**: off by default, remembered per repository; hidden when the repository has no remote; with several remotes it is a select ("发布到 / Publish to"). Help text: "别人马上就能在远程看到这个分支。 / Others can see the branch on the remote right away." With it on, the primary reads "创建并发布 / Create and publish". If publishing fails, the branch is still created and a toast says so: "分支建好了，但没能发布：登录已过期 / The branch was created but could not be published: the sign-in has expired" with the inline sign-in or "验证密钥 / Verify key" (section 6); the branch shows "未发布 / Not published".
+- **"创建后切换到它 / Switch to it"**: on by default. Inside a task's workspace it is off and disabled, with "任务的工作区固定在它自己的分支上 / A task's workspace stays on its own branch". Switching with uncommitted changes: from the current branch they simply come along (the dialog says "你没提交的 3 个改动会带过去 / Your 3 uncommitted changes come along"); from any other base it asks the question of this section: 带过去 / 先贮藏 / 取消.
+- **Name field.** Checked while typing with git's own rule; errors are inline and block the primary: "已经有叫这个名字的分支了 / A branch with this name already exists" (with "切换过去 / Switch to it"), "名字里不能有空格、~、^、:、?、*、[ 或 \\ / The name cannot contain a space, ~, ^, :, ?, *, [ or \\", "不能以 / 或 . 结尾 / It cannot end with / or .". A space typed in the middle becomes "-" as the owner types (the Bitbucket site does the same for characters it cannot use). When the owner uses prefixes in this repository (two or more local branches share one, such as `feat/`, `fix/`), they are offered as chips under the field.
+- Keys: the name has the focus; Tab to the picker; Down opens it; Enter in the name field creates when valid; Esc closes. Screen readers hear the picker as "基于，组合框，main，当前分支 / Based on, combo box, main, current branch", and the commit line and any warn line are tied to it by `aria-describedby`.
+- Toasts: "已从 main 新建 feat/payout-export 并切换过去 / Created feat/payout-export from main and switched to it"; "已从 origin/release/2.4 新建 hotfix/tax-rate，并发布到 origin / Created hotfix/tax-rate from origin/release/2.4 and published it to origin". Undo deletes the branch while it has no commits of its own and was not published.
 - Switching with a dirty tree asks: "main 上有 3 个还没提交的改动 / You have 3 uncommitted changes on main" - 带过去 / 先贮藏 / 取消 (Bring them along / Stash them first / Cancel).
 - Delete warns about unmerged commits with the count; a pushed branch offers "同时删除远程分支 / Also delete the remote branch".
 - Rebase is plain (no interactive list in 1.0). It runs with the `.opbar`: "正在把 feat/payout-batch 变基到 main · 第 2 / 3 个提交" with 中止 / 跳过 / 继续. A rebased branch that was pushed offers "推送（覆盖远程，带保护）/ Push (replace remote, with lease)". The confirm lists the remote commits that will be replaced, counted from **the last remote commit you pulled or pushed**, not from whatever the app fetched in the background: "远程 origin/feat/payout-batch 上的这 2 个提交会被替换 / These 2 commits on origin/feat/payout-batch will be replaced" with author and subject per row. If someone pushed after that point, the list shows their commits in warn with "有别人的新提交，建议先拉取 / Someone else pushed. Pull first", and the primary button is "先拉取 / Pull first"; replacing other people's commits needs a second, explicit click. If git refuses at push time: "远程在你不知道的时候变了，没有推送 / The remote changed without you seeing it. Nothing was pushed".
@@ -1373,7 +1572,7 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
 - **Confirms** keep the rule: primary repeats the verb, focus on Cancel, the sentence says exactly what is lost. Force push is only ever "带保护的强制推送 / force push with lease" and its confirm names the branch, the remote and the commits that will be replaced.
 - **Backups**: every write to a config file (repository config for bindings, identity, remotes; global git config; the app's known-hosts file) keeps the existing backup-first behaviour, and toasts offer Undo where one exists. Backups never contain private keys or tokens; creating a key is not a backed-up action.
 - **Text written by other people** (pull request titles, descriptions and timelines, release notes, hover documentation, commit messages, branch and file names) is shown as plain text, or as Markdown with raw HTML turned off. No remote images load anywhere in the app; avatars are monogram tiles. Links open in the browser only after the https check. This matters more than before: the window can now type into a terminal, so nothing from outside may ever become markup.
-- **What the app runs by itself.** Background refreshes only read; they never run a repository's own hooks or helper programs. Those run only for an action the user started (commit, push, pull, fetch by button).
+- **What the app runs by itself.** Background refreshes only read; they never run a repository's own hooks or helper programs. Those run only for an action the user started (commit, push, pull, fetch by button). **Pull all** (5.2b) is such an action, with one narrowing: its fetches and its updates of branches that are not checked out run without hooks, because no working folder changes there; only the update of a checked-out branch runs the repository's own script, as Pull does, and the start popover says how many repositories have one and can switch them off for that run.
 - **Proxy.** Network actions use the system proxy. Errors behind a proxy name it.
 - **Empty, loading, error**: `.empty` for empty, skeletons for loads over 150ms, inline danger text + "重试" for errors; a full-pane error only when the pane has nothing else to show.
 - **Windows**: system title bar; the workspace header drops the 84px reserve; shortcuts use Ctrl; the status bar and rail are identical; terminal default shell is PowerShell; "Reveal in Finder" reads "在资源管理器中显示 / Show in Explorer"; the keep-awake limits text changes as noted.
@@ -1387,6 +1586,7 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
   | Sign-in ended | The sign-in has expired. Once per sign-in. On macOS it replaces the heads-up. Default sound. | 登录已过期：acme / Sign-in expired: acme | alex · acme-prod 等 3 个账号。重新登录后才能继续用。 / alex · acme-prod and 2 more. Sign in again to continue. | 重新登录 / Sign in again | Shows the window, opens Accounts at that portal. |
   | AI task waiting | A task changes to "waiting" while the window is not focused (5.6). Default sound. | acme_api | Claude Code 在等你回答 / Claude Code is waiting for your answer | none | Shows the window, opens that task's terminal. |
   | Still running | The first time the window is closed while tasks run (4.4). Once ever. No sound. | Codepass 还在运行 / Codepass is still running | 2 个 AI 任务没有中断 / 2 AI tasks were not interrupted | none | Shows the window. |
+  | Pull all finished | A Pull all run (5.2b) ends while the window is not in front. Once per run; not after Cancel. No sound. | 拉取全部完成 / Pull all finished | 更新了 9 个分支，5 个需要你看一下 / 9 branches updated, 5 need a look. Nothing to look at: 更新了 6 个仓库的 9 个分支 / 9 branches updated in 6 repositories. Nothing new: 全部都是最新的 / Everything is up to date. Waiting for a sign-in: 还有 5 个仓库在等登录 / 5 repositories are still waiting for a sign-in. | none | Shows the window, opens Projects with the results sheet. |
   | Queue: needs you | A queued ticket's session needs the owner (5.15), window focused or not, once per ticket and reason. Default sound. | 工单 #12 在等你 / Ticket #12 needs you | acme_api · AI 有问题要问你 / acme_api · The AI has a question for you (the reason line from 5.15) | 去回答 / Answer | Shows the window, opens that task's terminal. The button does the same. |
   | Queue: paused for the limit | No account has room, or the running ticket waits for a reset, or this ticket's account is used up while automatic switching is off. Once per pause. No sound. | 队列因用量暂停 / Queue paused for usage | Claude Code · 周一 00:00 重置后继续 / Claude Code · continues after the reset, Mon 00:00. When another account has room and automatic switching is off: 「工作」用完了，「个人」还有用量 / Work is used up. Personal has usage. | none; **"在「个人」上继续 / Continue on Personal"** when another account has room and automatic switching is off | Shows the window, opens Tickets. The button shows the window and opens the switch confirm for that ticket's session (5.6); for a ticket that has not started, it starts it on Personal. |
   | Queue: continued on another account | An automatic switch happened for a queued ticket (only with automatic switching on for that tool). No sound. | 已换到「个人」继续 / Continued on Personal | 工单 #12 · 「工作」的用量用完了，对话带过去了 / Ticket #12 · Work ran out of usage. The conversation came along (with a handoff note: 对话以交接笔记的形式带过去了 / The conversation came along as a handoff note) | none | Shows the window, opens that task's terminal. |
@@ -1403,6 +1603,7 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
   - **"Continue on Personal" from a notice** is the owner's click, so it is offered while automatic switching is off (plan 4.17). It never switches without the confirm when the ticket is already running, and it is never on the account notice.
   - **One button at most**, because macOS shows a single button by name and folds two or more into a menu. The button text follows the app language, also for notifications sent after a language change.
   - **Windows:** the same words. The title is one line. Old notifications cannot be withdrawn there, so a heads-up may still be listed after the sign-in was renewed; pressing its button then only shows "已经登录了 / Already signed in".
+  - **Pull all** notices carry counts only: no repository, branch, account or path. A sign-in that expired during a run is covered by the existing sign-in notice; Pull all sends no second one.
 
 ---
 
@@ -1411,7 +1612,7 @@ AI 用量 / AI usage                                    3 分钟前 · [刷新 /
 - Editor: CodeMirror 6. Map `--syn-*` to a `HighlightStyle`; the change bar is a gutter; hover, completion and peek are CodeMirror tooltips / widgets styled with `.hover-card`, `.ac`, `.peek`. Diff and conflict views use `@codemirror/merge` with the `.dl` look (line tints, no word-level strike-through).
 - Terminal: xterm.js with a theme object built from `--term-*`; the DOM renderer first.
 - Lists that can be long (commits, files, find results, tasks) are virtualised; motion is skipped above 200 rows (section 3).
-- All new strings go through i18n with the keys grouped by screen (`setup.*`, `projects.*`, `ws.*`, `code.*`, `changes.*`, `tasks.*`, `history.*`, `branches.*`, `stash.*`, `conflict.*`, `pr.*`, `accounts.git.*`, `identity.*`, `update.*`, `settings.ai.*`, `settings.awake.*`, `settings.notify.*`, `notify.*` for the notification texts in section 6; from milestone 8 also `tickets.*`, `queue.*`, `aiaccounts.*`, `usage.*`, `settings.queue.*`). The copy in this document is the source for both languages.
+- All new strings go through i18n with the keys grouped by screen (`setup.*`, `projects.*`, `ws.*`, `code.*`, `changes.*`, `tasks.*`, `history.*`, `branches.*`, `stash.*`, `conflict.*`, `pr.*`, `accounts.git.*`, `identity.*`, `update.*`, `settings.ai.*`, `settings.awake.*`, `settings.notify.*`, `notify.*` for the notification texts in section 6, `sync.*` for the count pills and their tooltips, `pullall.*` for Pull all (5.2b); from milestone 8 also `tickets.*`, `queue.*`, `aiaccounts.*`, `usage.*`, `settings.queue.*`). The copy in this document is the source for both languages.
 - Mock scenarios for the demo backend match the mockup data, which is **generic by rule**: project `acme` (repositories `acme_api`, `acme_agent_portal`, `acme_cs_portal`, `acme_merchant_portal_v4`), projects `globex` and `umbrella`, AWS accounts `acme-prod`, `globex`, `initech` with account IDs `111122223333`, `444455556666`, `777788889999`, GitHub account `alex-dev`, Bitbucket account `alex_acme`, the person `Alex <alex@acme.example.com>`, and the five tasks. The same names are used in tests, fixtures, the tutorial, the guide and every screenshot. No real company, repository, account or person name may appear in the repository; the publish check blocks them.
 - Every new Go service gets a typed mock in `frontend/src/api/mock` (the mocks are typed against the generated bindings, so a missing one fails the type check). Two mocks are scripted: a terminal that replays a recorded Claude Code session, and a language server that answers hover, completion and definition for the mock files.
 - `dangerouslySetInnerHTML` stays at zero uses; a test enforces it.
@@ -1425,6 +1626,8 @@ Not drawn in the mockup; specified above in words: quick open / palette, create 
 **Open repository (5.7c) is drawn later**, by A2-16 ("Fable first"), from the session switcher's drawing.
 
 **Milestone 8 screens are drawn later.** Tickets (5.15: the page, the queue bar in each state, the editor, quick capture), AI accounts and usage (5.16: the accounts group, the add-account sheet, the usage popover, the sidebar chip), the limit banner and account chip on the session bar (5.6), the "换账号 / Switch account" menu, the switch-back hint and the New task sheet's account row with its one-line reason (5.6), the two account rows in the Repository settings sheet (4.2), the project's AI accounts sheet (5.2), the account on AI tasks rows and session switcher rows (5.7, 5.7a), the ticket editor's account field (5.15), the "默认用于 / Default for" line, the account details and the remove preview (5.16), the queue settings card (5.14) and the Tickets item in the sidebar (4.1) exist only as words and text sketches. So do the third batch's parts: the switch confirm with its extra lines, the four result lines and the "查看笔记 / View note" sheet, the account-problem line on the session bar (5.6); the automatic-switching switch with its one-time confirm, the "需要你处理 / Needs your attention" pass and its "为什么 / Why" popover, the two new lines in step 1 and the consent paragraph in step 2 of the add-account sheet (5.16); the personal-use line in Settings (5.14); copies and notes in Free up space (5.7b); the two new queue bar rows (5.15). The milestone's tasks draw them in the mockup first ("Fable first"), take the shots, and only then build. Mock data for them: AI accounts "工作 / Work" (the tool's own folder, first in the order, so the app default) and "个人 / Personal" for Claude Code, and the same two labels for Codex ("工作 / Work" is the tool's own, first; "个人 / Personal" is the extra one); project globex uses Personal, repository acme_agent_portal in project acme uses Personal, acme_api and globex_web follow their projects; tickets #6 to #17 in the repositories of section 7.
+
+**The third batch's git screens are drawn later** (owner, 2026-11-17): the count pills on the Projects row, the Sync button and the Branches list (4.2, 5.2, 5.8); the New branch dialog with the "Based on" picker (5.8); Pull all: start popover, running bar with row states, the sign-in line, the summary bar and the results sheet (5.2b). They exist as words and text sketches. The tasks of milestone 4 draw them in the mockup first ("Fable first"), take the shots named in 5.2b and 5.8, and only then build. Mock data: `acme_api` on `main` with `↓4 ↑2` and 5 changes; `acme_agent_portal` on `feat/payout` with `↑1` and the task branch `ai/fix-settlement-rounding` open in a task's workspace; `acme_cs_portal` clean; `acme_merchant_portal_v4` on `release/2.4` whose remote branch was deleted; `globex_web` with both sides moved on `feat/checkout`; an expired sign-in for `initech`.
 
 Drawn at the milestone-0 gate (2026-11-16): the session switcher, Rename local folder, Free up space, the "closed, still running" rows, the quit dialog.
 
@@ -1450,6 +1653,13 @@ Open points for the planner or the owner:
 18. **A Team or Enterprise seat is not marked.** The add-account sheet has one line about it. Codepass does not store what kind of account it is, so it cannot add a line to the switch confirm when a conversation moves between a seat and a personal account. If the owner wants that line, the sheet gets a checkbox "这是团队或企业席位 / This is a Team or Enterprise seat", stored as one flag.
 19. **An account that needs attention blocks its sessions from moving.** The design is strict: until the owner cleared the state, the app does not move that account's sessions, even by hand. The other choice is to allow the owner's own click from the switch menu, with the "为什么 / Why" text shown first.
 20. **"修好的副本 / repaired copy".** The word in Free up space and in the result line's help. "去掉账号专属内容的副本 / a copy without the account-only parts" is more exact and longer.
+21. **Publish on create.** "Also publish to origin" is off by default and remembered per repository. The Bitbucket site always creates on the server; if the owner wants that, the default becomes on.
+22. **Uncommitted changes and Pull all.** The design leaves a checked-out branch alone as soon as the folder has any uncommitted change, by the clean-folder rule. Git itself would update it when the changes do not touch the same files. If the owner prefers that, the rule for Pull all becomes "git decides", and the line "a file is in the way" covers the refusals.
+23. **The repositories' own scripts in Pull all.** They run by default, with a switch per run. The stricter choice is "never in a bulk run"; then a repository that installs dependencies after a pull must be pulled from its own workspace.
+24. **Unbound and never-opened repositories** are covered by Pull all (the click is the owner's) though the app never fetches them by itself. If dozens of old forks make the run slow or noisy, Pull all can be limited to bound or opened repositories, with the others one click away in the popover.
+25. **No undo for Pull all.** The results give the hash before and after for every branch. A "退回 / Put back" per branch (possible for a branch that is not checked out) is not in the design.
+26. **Remote branches that were deleted** are only named. Pull all never deletes a local branch; a "清理 / Clean up" action for such branches would be its own feature.
+27. **No shortcut for Pull all.** It is a button, three menus and a palette command.
 
 ---
 
