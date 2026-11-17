@@ -1,0 +1,20 @@
+/* The terminal surface: one dark surface in both themes (--term-*). Owned by A2-07. */
+.term { position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; flex: 1; background: var(--term-bg); color: var(--term-fg); }
+.term__box { flex: 1; min-height: 0; min-width: 0; padding: 16px; box-sizing: border-box; overflow: hidden; }
+.term-host { width: 100%; height: 100%; }
+.term-host .xterm { height: 100%; }
+.term-host .xterm-viewport { background-color: transparent !important; }
+.term__search {
+  position: absolute; top: 8px; right: 16px; display: flex; align-items: center; gap: 4px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r-md); box-shadow: var(--shadow-2);
+}
+.term__search-input { width: 220px; }
+.term__miss { font-size: var(--fs-12); color: var(--text-3); padding: 0 4px; white-space: nowrap; }
+.term__error {
+  position: absolute; left: 16px; right: 16px; bottom: 12px; display: flex; align-items: center; gap: var(--sp-2);
+  padding: 6px 10px; background: var(--term-bg); border: 1px solid var(--term-danger); border-radius: var(--r-md);
+  color: var(--term-danger); font-size: var(--fs-13);
+}
+.term__error .btn { margin-left: auto; }
+/* Only the first bytes of a session this page started fade in; the global data-motion rules shorten it for Reduced. */
+.term-host--fresh { animation: fade-in 120ms var(--ease-enter) both; }
