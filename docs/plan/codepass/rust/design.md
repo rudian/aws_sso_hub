@@ -1,6 +1,6 @@
 # Codepass re-platform to Rust and gpui: design
 
-Date: 2026-11-17. Author: planner (Opus). Status: draft for the owner's approval. Files in this folder: this design, `ui-native.md` (Fable's UI map), `crate-facts.md` (crate versions and licences checked on 2026-11-17).
+Date: 2026-11-17. Author: planner (Opus). Status: draft for the owner's approval; the owner's answers of 2026-11-17 are in section 13. Files in this folder: this design, `ui-native.md` (Fable's UI map), `crate-facts.md` (crate versions and licences checked on 2026-11-17).
 Reads with: `docs/plan/codepass/product-plan.md` ("plan N.N"), `ui-design.md` ("design N.N"), `tasks.md`, `docs/research/rust-gui-spike.md` ("spike"), `docs/release.md`, `reviews/m2B-wiring.md` and `reviews/m2C-wiring.md` ("m2B", "m2C"), and Fable's UI mapping `ui-native.md` in this folder ("UI map N"). Crate facts were checked on crates.io, docs.rs and GitHub on 2026-11-17; the raw list is `crate-facts.md` in this folder.
 
 A **planner's call** is a choice the owner may change. Everything else follows from the owner's decision of 2026-11-17 or from the plan. Tuning numbers (worker counts, chunk sizes, channel capacities, thresholds, budgets) are planner's calls unless a plan section is cited next to them.
@@ -12,7 +12,7 @@ A **planner's call** is a choice the owner may change. Everything else follows f
 - The UI thread never waits. Services run on one tokio runtime and on dedicated threads and publish state; views read state at most once per frame.
 - The Go code (51,577 lines, 1,334 Go test functions), the frontend tests (1,005) and the reviewed edge cases are the executable specification. A spec map ties every Go test to a Rust test or to a written reason for dropping it.
 - New milestones: **R0** foundation (18 points), **R1** port of the AWS SSO Hub core and milestone 1 (57), **R2** port of milestone 2's Go work, then the rest of milestone 2 (40), then **3, 8, 4, 5, 6, 7** as planned (162). Total about **277 points, about 48 plan-weeks**. The re-platform itself costs about 101 points (about 14 weeks).
-- Three owner questions (section 13): where Windows builds run; Apple's Metal toolchain; what happens if Chinese input or VoiceOver fails the R0 test.
+- Owner decisions of 2026-11-17 (section 13): Windows builds and tests run on GitHub Actions; Chinese input passed the owner's own test on the spike; VoiceOver and Apple's Metal toolchain are settled in R0-09.
 
 ## 1. Intent
 
@@ -114,7 +114,7 @@ Planner's call: `cp-ui` starts as one crate and is split (shell, pages, workspac
 - `dev`: workspace crates at opt-level 0, dependencies at opt-level 1 (a debug UI stays usable), `debug = "line-tables-only"`, `split-debuginfo = "unpacked"` on macOS. Planner's call; R0-01 measures clean and incremental times.
 - `release` (local runs, perf): thin LTO, codegen-units 16 (spike: 3 min 47 s clean).
 - `dist` (shipping): fat LTO, codegen-units 1, symbols stripped; the dSYM stays in the release output folder (never uploaded); `panic = "unwind"`. Features `mock`, `shots` and `perf` are never in `dist` (the gate checks the feature set).
-- **Task worktrees.** Each worktree gets its own `target/` seeded by an APFS clone of the main checkout's `target/` (`cp -c -R`: copy-on-write, near-zero space, dependencies already built). If R0-08 shows cargo rebuilds the registry crates anyway, use `sccache` (Apache-2.0) instead. A group starts only with at least 40 GB free (spike: 4.9 GB per target with debug and release).
+- **Task worktrees.** Each worktree gets its own `target/` seeded by an APFS clone of the main checkout's `target/` (`cp -c -R`: copy-on-write, near-zero space, dependencies already built). If R0-08 shows cargo rebuilds the registry crates anyway, use `sccache` (Apache-2.0) instead. A group starts only with at least 25 GB free, and at most 3 Rust tasks build at the same time (the Mac has 24 GB of memory); a finished task's `target/` goes with its worktree at cleanup (spike: 4.9 GB per target with debug and release). Planner's call after the builder check: the disk had 28 GB free on 2026-11-17; the owner agreed to clear rebuildable caches (Xcode DerivedData, the Go build cache, the npm and Homebrew caches), which left 54 GB.
 - **Lock file.** A merge conflict in `Cargo.lock` is resolved by taking `codepass`'s file and running `cargo check --workspace --offline`, which adds only the new entries.
 
 ### 4.4 Threads and async: the UI thread never blocks
@@ -352,7 +352,7 @@ At a **milestone gate** add: the full perf run on an idle Mac with the threshold
 | B. GitHub Actions Windows runner | Builds and tests on `windows-latest` (how Zed builds gpui for Windows); no secret involved; the Mac downloads the zip, checks its sha256 and signs the manifest. | Builds outside the owner's machines (supply-chain trust in the runner); needs the owner's OK for Actions. |
 | C. Cross build from the Mac | `cargo-xwin` plus shader blobs precompiled once on Windows and a patched `gpui-pre-windows` (`third_party/`). | A permanent patch to keep; untested. |
 
-Per group, `cargo xtask wincheck` runs `cargo xwin check --target x86_64-pc-windows-msvc` on the Mac if R0-08 shows it passes (cfg mistakes are caught early, as `GOOS=windows go build` did); otherwise the check runs on the Windows host. Planner's recommendation: **A**, with B as the fallback (question 1).
+**Owner's decision (2026-11-17): B, GitHub Actions.** The Mac has no VM software and too little disk for a Windows VM. R0-08 adds `.github/workflows/windows.yml`: on every push to `codepass` (and by hand), `windows-latest` builds `x86_64-pc-windows-msvc`, runs the Windows tests and keeps the zip as a run artifact; it needs no secret. `cargo xtask wincheck` waits for that run on the pushed commit and reports it; the next group starts only when it is green. A compile check on the Mac (plain `cargo check --target x86_64-pc-windows-msvc`) is added if R0-08 shows it works without accepting any licence; `cargo-xwin` is not used, because its CRT and SDK licence would have to be accepted on the owner's behalf. For a release the Mac downloads the run's zip, checks its sha256 against the run's log and signs the manifest; the exe stays unsigned (owner decision 3). Manual Windows checks at milestone gates still need a Windows machine or VM, which the owner provides at the R1 gate; the Windows 10 1809 check stays with milestone 7 as `tasks.md` has it (an Intel PC or a cloud Windows Server 2019).
 
 ## 8. Dependency policy
 
@@ -405,7 +405,7 @@ The design of `docs/release.md` and plan 4.14 stays. What changes is only what r
 - The version is written once in `[workspace.package] version`; the bundle, the Windows resource and `cp-core::version` are generated from it, and `release.sh` checks them (the "four places" rule becomes one place).
 
 **Windows.**
-- Built on the Windows host (7.5) with `--profile dist --target x86_64-pc-windows-msvc`. The exe carries a version resource (`1.0.0-rc.N` → `1.0.0.N`, the F1-20 contract), the icon and a manifest (per-monitor DPI v2, UTF-8 code page, Common Controls 6). Zipped as `Codepass-<v>-windows-amd64.zip` with only `codepass.exe`. Unsigned (owner decision 3). The manifest is signed on the Mac.
+- Built on the GitHub Actions Windows runner (7.5) with `--profile dist --target x86_64-pc-windows-msvc`. The exe carries a version resource (`1.0.0-rc.N` → `1.0.0.N`, the F1-20 contract), the icon and a manifest (per-monitor DPI v2, UTF-8 code page, Common Controls 6). Zipped as `Codepass-<v>-windows-amd64.zip` with only `codepass.exe`. Unsigned (owner decision 3). The manifest is signed on the Mac.
 - Toasts need an AppUserModelID. If check W1 shows the portable exe cannot show them, a per-user installer (Inno Setup or NSIS; build tools only, never linked) adds the Start-menu shortcut, and the zip stays the update payload. Planner's call.
 
 **Updater** (`cp-update`; plan 4.14 unchanged).
@@ -417,6 +417,8 @@ The design of `docs/release.md` and plan 4.14 stays. What changes is only what r
 - **Swap (replaces Wails' `pkg/updater`).** The app copies its executable into the staging folder and starts that copy in helper mode, then quits through the direct path (no quit dialog, as F1-W notes). The helper waits for the app's PID (at most 30 s), copies `Codepass.app` to `Codepass.app.bak`, removes it, renames the staged bundle into place, runs the gate once more, relaunches with `/usr/bin/open -n`, and records the restart in `<data>/update/restarts`. Windows: rename the running exe to `.bak`, move the new one in, start it. The crash window and the manual recovery in `docs/release.md` stay as they are. Every refusal removes the staging folder and leaves the installed app byte-identical; the S0-02 scenarios R1 to R9 and G3 are its tests.
 - No Go Codepass was ever shipped and 0.0.x has no updater, so the chain starts with the first Rust release candidate. The key ceremony (owner present) is unchanged and still pending.
 
+**Urgent fixes after the R1 gate** (planner's call after the builder check). From the R1 gate the owner uses the Rust build every day while development goes on. At that gate the branch `release/1.0` is cut from the gate's commit. An urgent fix is made on `release/1.0` first, shipped as the next `rc.N` through the test channel, and merged back into `codepass` the same day; `codepass` itself never ships between gates. The owner keeps AWS SSO Hub 0.0.2 as the fallback until R2-DEL: when the Rust build first starts, the old-app guard's choice is "quit it", not "move it to the Trash".
+
 ## 11. Migration plan
 
 ### 11.1 Milestones
@@ -425,7 +427,7 @@ Run order: **R0, R1, R2, 3, 8, 4, 5, 6, 7**. Sizes: S = 1 point, M = 2, L = 3 (t
 
 | Milestone | Content | Points | Weeks | Gate adds |
 |---|---|---|---|---|
-| **R0 Foundation** | workspace, toolchain, gate, core crates, UI kit, shell, mock mode, shots, perf harness, packaging, Windows host, risk probes | 18 | 3 | the owner's hands-on IME and VoiceOver test (question 3) |
+| **R0 Foundation** | workspace, toolchain, gate, core crates, UI kit, shell, mock mode, shots, perf harness, packaging, Windows host, risk probes | 18 | 3 | the owner's hands-on VoiceOver test (Chinese input already passed on the spike, section 13) |
 | **R1 Port 1** | everything AWS SSO Hub 0.0.2 does, plus milestone 1 | 57 | 7 | milestone 1's gate on the Rust build: shots, test channel rc, checks C1 to C28, A9, A16, A17, B1 to B3, B5, B9, B15 to B19; the Rust build replaces AWS SSO Hub on the owner's Mac |
 | **R2 Milestone 2** | port of A2-01 to A2-08, A2-13 and the frame, then A2-W, A2-09 to A2-16, A2-CL; the Go and React code is deleted inside it (11.6) | 40 | 6 | milestone 2's gate (tasks.md), manual group E |
 | 3, 8, 4, 5, 6, 7 | as in tasks.md, same tasks, sizes and order | 31, 29, 34, 25, 28, 15 | 5, 8, 7, 5, 4, 3 | as in tasks.md |
@@ -438,7 +440,7 @@ The Go plan still had 176 points to do (a recount of the sizes in tasks.md; HAND
 - **A (alone).** R0-01 Workspace, toolchain, gate (S): everything in 4.1 and 4.3; every crate created empty with its owner named; `cargo xtask gate`; the Rust variant of the workflow script. Accept: the gate passes on the empty workspace; build times recorded.
 - **B (parallel).** R0-02 `cp-core` (M). R0-03 `cp-store` and the `settings.json` model with the 0.0.1 and 0.0.2 fixtures (M). R0-04 `cp-i18n` with the conversion of the 21 namespaces (M). R0-05 `cp-ui-kit` (L). R0-06 `cp-platform` base: single instance, IPC, opener, reveal, process table, Time Machine exclusion (M).
 - **C (alone).** R0-07 App shell and wiring (L): the start order, `cp-app` traits, the window and shell, menus, close and quit hooks, key contexts, mock mode with the ported world, shots and `shotdiff`, perf harness.
-- **D (parallel).** R0-08 Build and package (M): `xtask bundle`, `xtask relkit`, `release.sh --dry-run` on Rust, the Windows host and `winbuild`, `wincheck`, worktree target seeding. R0-09 Risk probes (S): the owner's Chinese input and VoiceOver run on the R0 shell; a 120 Hz run if a ProMotion display is at hand; gpui's notification API (permission state, a click that launches the app); precompiled versus run-time shaders at start.
+- **D (parallel).** R0-08 Build and package (M): `xtask bundle`, `xtask relkit`, `release.sh --dry-run` on Rust, the GitHub Actions Windows workflow, `winbuild`, `wincheck`, worktree target seeding. R0-09 Risk probes (S): the owner's VoiceOver run on the R0 shell (Chinese input already passed on the spike, 2026-11-17); a 120 Hz run if a ProMotion display is at hand; gpui's notification API (permission state, a click that launches the app); precompiled versus run-time shaders at start.
 
 ### 11.3 R1 groups
 
@@ -514,25 +516,30 @@ Milestones 3, 8, 4, 5, 6 and 7 keep their task IDs, sizes, acceptance and order.
 | Risk | Mitigation |
 |---|---|
 | GPUI Kit and gpui-pre: breaking 0.x releases every one to three weeks, both published by one person; Zed's own `gpui` crate is 13 months old | Exact pins; upgrades only in planned tasks (section 8); `cp-ui-kit` and `cp-term-view` hold most Kit calls; full source available under Apache-2.0, so a stop means vendoring into `third_party/`, not a rewrite |
-| Chinese input and screen readers are unproven in practice (spike d, b) | Owner's hands-on test in R0-09 is a go/no-go (question 3); terminal IME built in R2-08; `announce` service (UI map 3); accessibility pass in M7 |
+| Screen readers are unproven in practice (spike b); Chinese input passed the owner's own test on the spike (2026-11-17) | The owner's VoiceOver run in R0-09 (fallback in section 13, item 3); terminal IME built in R2-08; `announce` service (UI map 3); accessibility pass in M7 |
 | The terminal is hand-built (selection, links, search, IME, mouse, screen-reader text) | Two tasks (R2-08, R2-10) and acceptance copied from A2-07 and design 5.6; `alacritty_terminal` for emulation; the fair-lock design of 4.4 |
 | The editor: GPUI Kit's editor maturity for split view, multiple cursors, 3 MB files, peek, blame | A probe at the start of M5 before E5-04; the remaining features built in `cp-editor`; never Zed's GPL editor |
-| Windows needs a Windows host to build (`fxc.exe`) | Question 1; `wincheck` per group; Windows build and smoke per milestone |
+| Windows needs a Windows machine to build (`fxc.exe`) | GitHub Actions runner (section 13, item 1); `wincheck` per group; Windows build and smoke per milestone |
 | Behaviour regressions against Go and its reviewed edge cases | Spec map, fixtures byte for byte, differential tests, wiring notes as acceptance (7.2) |
 | Data-format drift (Go writes `null` for empty lists; Go time format; field names; unknown fields) | Golden fixtures from 0.0.1, 0.0.2 and Go Codepass; the 0.0.1 binary-compatibility check of F1-02 repeated on Rust-written folders |
 | Memory above the old 150 MB idle target once content loads (spike 204 to 243 MB) | Section 9 budgets per part; scrollback and editor caps; perf at every milestone gate |
-| Compile times and disk with parallel worktrees (4.9 GB per target) | Service crates without gpui; APFS-cloned targets or sccache; 40 GB free before a group |
+| Compile times and disk with parallel worktrees (4.9 GB per target) | Service crates without gpui; APFS-cloned targets or sccache; 25 GB free before a group, at most 3 builds at once |
 | AWS SDK for Rust: heavy, frequent releases | Only three small service crates, default features off (5.2a); behind `cp-aws`; exact pins |
 | GPL contamination by copying Zed code | Rule in section 1; `cargo deny`; reviewers check new files that look ported |
 | Old app and Codepass running at once on one data folder | Same single-instance lock as Wails plus the old-app guard (5.2h) |
 | Supply chain: a weekly upstream from a single crates.io owner | `cargo deny` advisories and sources; upgrade diffs read before merging (section 8) |
 | Agents slower in Rust (compile-error loops, longer reviews) | Smaller crates, service tests without gpui, the gate's fast steps first; estimates re-checked after R0 |
 
-## 13. Open questions for the owner
+## 13. Owner decisions (2026-11-17)
 
-1. **Where are Windows builds made?** A (recommended): a Windows 11 VM on your Mac (Visual Studio Build Tools and the Windows SDK installed in it, which means accepting Microsoft's licences there); builds stay on your machines. B: a GitHub Actions Windows runner builds and tests; nothing secret goes there and the Mac still signs the manifest, but the exe is built outside your machines.
-2. **May the builder install Apple's Metal toolchain on your Mac?** A (recommended): yes, but only if R0-09 shows it makes the app start at least 50 ms faster; release builds then use precompiled shaders (a separate download of several hundred MB through Xcode; development builds keep compiling at start). B: no; every build compiles its shaders at start (the spike's start time, about 320 ms).
-3. **If your hands-on test in R0 finds Chinese input or VoiceOver broken in gpui, what then?** A (recommended): we fix it in a patched copy of the toolkit (`third_party/`, offered upstream), with up to two weeks for it, and carry on. B: stop and choose the toolkit again before R1.
+The three questions of the draft and the builder check's questions, as answered or settled:
+
+1. **Windows builds and tests: GitHub Actions** (`windows-latest`), chosen by the owner over a Windows VM on the Mac (7.5).
+2. **Apple's Metal toolchain:** settled in R0-09 with the measured start-time gain. The planner's recommendation stands: install it only if the start is at least 50 ms faster. Until then shaders compile at start.
+3. **Chinese input:** the owner typed Chinese with the system input method in the spike's single-line field, multi-line field and code editor: it works (2026-11-17). **VoiceOver** is still to be tested, in R0-09. If it, or anything else in gpui's input or accessibility, fails: planner's default is a fix in `third_party/` (up to two weeks); the owner is asked only if that is not enough.
+4. **Disk:** the owner agreed to clear rebuildable caches; 25 GB freed, 54 GB free (4.3).
+5. **UI map question 1 (scale and tilt):** option A, drop them and keep fade, movement and shadow (designer's recommendation; the owner was told and did not object). UI map question 2: the menu-bar and tray item exists today, so it stays on both platforms (5.1, row `app`).
+6. **Urgent fixes once the owner uses the Rust build daily:** a `release/1.0` branch from the R1 gate (section 10, last paragraph; planner's call).
 
 ## 14. Left to the builder
 
@@ -541,5 +548,5 @@ Milestones 3, 8, 4, 5, 6 and 7 keep their task IDs, sizes, acceptance and order.
 - The clippy lint set, the dev-profile numbers, the `shotdiff` thresholds, the watchdog limit, tokio worker counts: each tuned by measurement in R0.
 - User-level tools on the Mac (no administrator rights, nothing global): `cargo-nextest`, `cargo-deny`, `cargo-about`, `cargo-xwin` if `wincheck` works, `sccache` if needed.
 - The Rust variant of `codepass-group-v2.js` (gate string, worktree setup without `node_modules`, `Cargo.lock` merge rule of 4.3).
-- Everything UI map 2 to 8 leaves open at the component level. Its question 1 (scale and tilt) stays Fable's; its question 2 is answered by the existing menu-bar item (5.1, row `app`).
+- Everything UI map 2 to 8 leaves open at the component level. Its questions are settled (section 13, item 5).
 - Not left to the builder: anything a requirement, the design, a file format or a safety rule fixes. When code and this document disagree, the plan, the design and the Go tests win, and the builder asks the planner.

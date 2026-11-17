@@ -2,7 +2,7 @@
 
 更新：2026-11-17（第八版，里程碑 2 的 B 组合并后）。状态：**进行中**。里程碑 1 的任务全部合并，关卡只剩用户的事（测试频道、手动检查）。里程碑 2：A2-01 和 B 组的 7 个任务已合并（还没接到界面上）；**C 组正在跑：A2-08 和 F1-SG 一起跑，之后单独跑 A2-W**。用户的第三批需求（git）已写进计划，放在里程碑 4。
 
-**2026-11-17 用户决定：程序和界面全部改用 Rust，界面库用 gpui + gpui-component（需求不变）。C 组合并后，不再做 Go 的新组。** 现在：C 组已合并（A2-08、F1-SG），这是最后一组 Go；gpui 小样做完了，报告在 `docs/research/rust-gui-spike.md`，等用户亲手试中文输入和读屏；第四批需求（AWS 登录后自动拉取）已写进计划（G4-14）。下一步见第 1 节第 5 条。
+**2026-11-17 用户决定：程序和界面全部改用 Rust，界面库用 gpui + gpui-component（需求不变）。C 组合并后，不再做 Go 的新组。** 现在：C 组已合并（A2-08、F1-SG），这是最后一组 Go；gpui 小样做完了，报告在 `docs/research/rust-gui-spike.md`；用户亲手试过中文输入，没问题（VoiceOver 留到 R0-09）；改造设计稿在 `docs/plan/codepass/rust/`（`design.md`、`ui-native.md`、`crate-facts.md`），用户的答案写在 `design.md` 第 13 节：Windows 用 GitHub Actions 编译，清了缓存腾出硬盘；**等用户批准整份设计**，批准后用 writing-plans 重排 `tasks.md`；第四批需求（AWS 登录后自动拉取）已写进计划（G4-14）。下一步见第 1 节第 5 条。
 
 这份文档给下一个 session 用。用户给新 session 的 prompt 会很短，**所有规则都写在这里**。先读完这份，再照第 1 节做。
 

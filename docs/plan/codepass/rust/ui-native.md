@@ -190,6 +190,8 @@ A table in `ui/shots.rs` lists every shot: `name`, `screen`, `state`, `theme`, `
 1. *Small scale and tilt effects (item 1).* gpui cannot scale or tilt a panel. **A (recommended):** keep fade, rise and shadow; drop the 1.5% scale on dialogs, the 2% on popovers and the tilt on the dragged row. Hard to notice, no cost. **B:** keep them exactly; this needs a patch to the vendored gpui to draw a subtree into a texture, about 1 to 2 weeks, and it must be redone at each gpui update.
 2. *macOS menu-bar item.* The old spec (ui-spec 7.12) listed a menu-bar menu "if the framework supports it"; ui-design.md 4.4 uses only the Dock on macOS. **A (recommended):** Dock on macOS, tray on Windows, exactly as ui-design.md says. **B:** also add the macOS menu-bar item with the sign-in list; about 3 days, one more thing to test.
 
+**Settled 2026-11-17** (`design.md` section 13, item 5): question 1 is option A. Question 2 is moot: the menu-bar and tray item exists today (`internal/app/tray.go`, setting `tray.enabled`, off by default), so it stays on both platforms.
+
 ## 8. Proposed text for ui-design.md
 
 All requirements stay. These are additions and wording swaps only.
@@ -211,7 +213,7 @@ All requirements stay. These are additions and wording swaps only.
 > - **Markdown.** One wrapper, `safe_markdown()`: raw HTML off, no image is ever loaded, links go through the https-only opener. A test forbids any other use of the Markdown or HTML view. This replaces the `dangerouslySetInnerHTML` rule.
 > - **Accessibility.** ARIA roles and properties map to AccessKit roles and properties of the same name. A "live region" is a call to `announce(text, polite | assertive)`, which uses the platform's announcement (macOS announcement notification, Windows UI Automation notification event). The rules about what is announced and when are unchanged.
 > - **Keyboard.** A grid, tree, menu or tab row is one Tab stop; arrow keys move inside it. Shortcuts are actions bound per context; the terminal context takes only the keys listed in 4.3.
-> - **Motion.** Section 3 holds, with one limit of the toolkit: ordinary elements cannot be scaled or rotated. Dialogs and popovers keep their fade and movement without the scale; the dragged row keeps its shadow and ring without the tilt. *(Remove this sentence if the owner chooses option B of question 1.)*
+> - **Motion.** Section 3 holds, with one limit of the toolkit: ordinary elements cannot be scaled or rotated. Dialogs and popovers keep their fade and movement without the scale; the dragged row keeps its shadow and ring without the tilt.
 > - **Strings.** The i18n keys of section 7 are kept as they are, in the Rust catalogue.
 > - **Mock mode and shots.** `codepass --mock <scenario>` runs on fake services with the generic data of section 7 (scenarios `fresh`, `mid`, `done`, `empty`, `edge`); the scripted terminal and language server stay. `codepass --mock <scenario> --shots <dir>` writes the shots of section 9 under the same names. New screens are still drawn in the HTML mockup first.
 
