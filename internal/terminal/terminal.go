@@ -15,6 +15,7 @@ import (
 	"github.com/rudian/codepass/internal/api"
 	"github.com/rudian/codepass/internal/execx"
 	"github.com/rudian/codepass/internal/gitx"
+	"github.com/rudian/codepass/internal/shellguard"
 )
 
 // Request selects the terminal, directory and profile. GOOS "" means the running OS.
@@ -172,6 +173,9 @@ func Open(ctx context.Context, req Request) error {
 	req.Dir = dir
 	l, err := Build(req)
 	if err != nil {
+		return err
+	}
+	if err := shellguard.RefuseInTest("terminal.Open"); err != nil {
 		return err
 	}
 	if !l.Wait {
