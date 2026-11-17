@@ -6,7 +6,7 @@ Revision 3 applies the seven spike notes as corrected by `spike-review-a.md` and
 
 Revision 4 (2026-11-16, planner: Opus; research and design: Fable) turns the owner's second batch into tasks: F1-21 (merge `main`, AWS SSO Hub 0.0.2), F1-22 (system notifications; sign-in expiry), E5-11 (PHP code intelligence), A2-16 (open a repository from any screen; with F1-CL's Projects search by folder name) and **milestone 8** (ticket queue, AI accounts and usage for Claude Code and Codex: T8-01 to T8-09 and T8-W). Milestone 8 runs after milestone 3, so the run order is 0, 1, 2, 3, 8, 4, 5, 6, 7. A2-04 and A2-05 gained what milestone 8 needs from them. Research notes: `docs/research/notifications.md`, `docs/research/claude-usage-accounts.md`.
 
-Revision 5 (2026-11-17, planner: Opus; design: Fable) adds the milestone 1 gate fixes (F1-GF, group I) and turns the owner's third batch (git) into tasks: a new branch from any branch the owner chooses (as on the Bitbucket website), the counts of commits not pushed and not pulled with how fresh they are, and "拉取全部 / Pull all" (every local branch of every repository brought up to date where that needs no decision). New tasks G4-11, G4-12 and G4-13; G4-01, G4-02, G4-06 and G4-07 grow. Plan 4.6a; design 4.2, 5.2, 5.2b and 5.8; the git facts behind it are in `docs/research/git-pull-all.md`.
+Revision 5 (2026-11-17, planner: Opus; design: Fable) adds the milestone 1 gate fixes (F1-GF, group I) and turns the owner's third batch (git) into tasks: a new branch from any branch the owner chooses (as on the Bitbucket website), the counts of commits not pushed and not pulled with how fresh they are, and "拉取全部 / Pull all" (every local branch of every repository brought up to date where that needs no decision). New tasks G4-11, G4-12 and G4-13; G4-01, G4-02, G4-06 and G4-07 grow. Plan 4.6a; design 4.2, 5.2, 5.2b and 5.8; the git facts behind it are in `docs/research/git-pull-all.md`. The owner's fourth batch (2026-11-17) adds Pull all after an AWS sign-in: new task G4-14 in group D of milestone 4; plan 4.6a part 4, design 5.2b "Automatic run" and 5.14.
 
 ## How the work runs
 
@@ -785,10 +785,10 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 
 ---
 
-## Milestone 4 - Git client (6.5 weeks)
+## Milestone 4 - Git client (7 weeks)
 
 **Goal.** Everything the owner does in Sourcetree and on the Bitbucket website for branches and history.
-**User-visible result.** Sync, branches, compare, merge with a conflict screen, rebase, cherry-pick, revert, reset, stash, history with a graph, tags, remotes, file history. Owner, third batch (2026-11-17): a new branch from any branch; on every repository and branch the number of commits not pushed and not pulled, with when the remote was last checked; and "拉取全部 / Pull all", one click that brings every local branch of every repository up to date where that needs no decision.
+**User-visible result.** Sync, branches, compare, merge with a conflict screen, rebase, cherry-pick, revert, reset, stash, history with a graph, tags, remotes, file history. Owner, third batch (2026-11-17): a new branch from any branch; on every repository and branch the number of commits not pushed and not pulled, with when the remote was last checked; and "拉取全部 / Pull all", one click that brings every local branch of every repository up to date where that needs no decision. Owner, fourth batch (2026-11-17): after an AWS sign-in, the repositories bound to that portal are pulled by themselves (a Settings switch, on by default).
 
 **Group A (parallel, backend).**
 
@@ -827,7 +827,7 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 - Review: drop is confirmed upstream.
 
 **G4-13 · Counts and freshness** (M). Owner, third batch (2026-11-17); plan 4.6a; design 5.2 "Counts on the row" and 4.2.
-- Build: backend in `internal/repos/live.go` and `internal/app/loops.go`: the last successful fetch time and the last failure reason per repository in the status the page reads; the extra fetch rounds of plan 4.6a (window to the front, a workspace opened, the network back, a sign-in succeeded) with the 5-minute floor and 4 repositories at once; the list of other local branches that have commits to pull. The rule stays: by itself the app fetches only bound or opened repositories. Frontend: the shared `SyncCount` component (`frontend/src/components/SyncCount.tsx`, class `.sync-n`) with its tooltip and the stale style, used by `ProjectRow.tsx` (the order becomes `↓` then `↑`), the project header's meta line and the Open repository rows; exported for G4-06 and G4-07. **Fable first** for `projects-counts-light-zh` and `projects-counts-dark-en`.
+- Build: backend in `internal/repos/live.go` and `internal/app/loops.go`: the last successful fetch time and the last failure reason per repository in the status the page reads; the extra fetch rounds of plan 4.6a (window to the front, a workspace opened, the network back, a sign-in succeeded) with the 5-minute floor and 4 repositories at once; the list of other local branches that have commits to pull. The rule stays: by itself the app fetches only bound or opened repositories. Frontend: the shared `SyncCount` component (`frontend/src/components/SyncCount.tsx`, class `.sync-n`) with its tooltip and the stale style, used by `ProjectRow.tsx` (the order becomes `↓` then `↑`), the project header's meta line and the Open repository rows; exported for G4-06 and G4-07. **Fable first** for `projects-counts-light-zh` and `projects-counts-dark-en`. Trigger (d) sits behind one check, "is the automatic pull on for this portal?"; G4-14 flips it.
 - Owns: `internal/repos/live.go` and its tests, `internal/app/loops.go`, `frontend/src/components/SyncCount*`, `frontend/src/pages/projects/ProjectRow.tsx` and the project header file, locale `sync.ts`.
 - Accept: with the window in the back for an hour and then brought to the front, one round runs and the pills change without a click; a repository that is neither bound nor opened is never fetched by itself (a test remote records fetches); the tooltip is right in its four forms; matches the two new shots.
 - Tests: trigger debounce and the floor; the pill matrix (0/0, n/0, 0/n, n/m, none, gone, detached, 99+, stale).
@@ -836,7 +836,7 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 **Group A2 (after A).**
 
 **G4-11 · Pull all: backend** (L). Owner, third batch (2026-11-17); plan 4.6a; the git facts in `docs/research/git-pull-all.md`.
-- Build: `internal/gitpullall`: the plan step (which repositories and branches, what is left out, which repositories have a `post-merge` script); the run (4 repositories at once; per repository: look, `git fetch --prune` once per remote that a local branch follows, look again, then per branch the decision table of plan 4.6a: `git fetch . <remote-tracking ref>:refs/heads/<branch>` for a branch that is not checked out, `git merge --ff-only` for the checked-out branch of a clean main folder with no live AI session, nothing in every other case); waiting groups per sign-in or key that resume after the sign-in; cancel; per-repository retry; progress events; the result model (one record per repository and per branch, a case from a fixed list, the hash before and after, counts); the lease value set through G4-01 for every branch it moved.
+- Build: `internal/gitpullall`: the plan step (which repositories and branches, what is left out, which repositories have a `post-merge` script); the run (4 repositories at once; per repository: look, `git fetch --prune` once per remote that a local branch follows, look again, then per branch the decision table of plan 4.6a: `git fetch . <remote-tracking ref>:refs/heads/<branch>` for a branch that is not checked out, `git merge --ff-only` for the checked-out branch of a clean main folder with no live AI session, nothing in every other case); waiting groups per sign-in or key that resume after the sign-in; cancel; per-repository retry; progress events; the result model (one record per repository and per branch, a case from a fixed list, the hash before and after, counts); the lease value set through G4-01 for every branch it moved. The run takes a "started by" value (owner / sign-in) and a "scripts: never" mode; G4-14 uses both.
 - Owns: `internal/gitpullall/`, `internal/app/pullallservice.go`, mock `pullall.ts` (scripted to reproduce the `pull-all-*` shots).
 - Deps: G4-01 (runner, classification, lock), G4-02 (branch list).
 - Accept: on a fixture set that reproduces every row of the case table, each branch ends in the expected case and no other branch changed; a branch checked out in a task's workspace is untouched byte for byte; nothing is ever pushed (the fixture server's hooks record any push); the git runs of the research note pass on git 2.44, the app's minimum.
@@ -856,7 +856,7 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 **G4-09 · Conflict screen** (L): design 5.9: operation bar, three groups, the mine / theirs / result editor with block bars, choice cards, finish into the composer. Owns `frontend/src/workspace/conflict/`, locale `conflict.ts`. Deps: C3-04. Accept: matches `repo-merge-conflict-light-zh`, `-dark-en`. Tests: block resolution state; labels for rebase. Review: the abort sentence is only shown when true.
 
 **G4-12 · Pull all: UI** (L). Owner, third batch (2026-11-17); design 5.2b.
-- Build: the "拉取全部 / Pull all" header button, the start popover, the bar with the row states, the sign-in lines, the summary, the results sheet, the project menu, bulk bar and row menu entry points, the toast and the system notification kind "Pull all finished" (design 6; through `internal/notify`). **Fable first**: draw the `pull-all-*` screens in the mockup and take the shots, then build.
+- Build: the "拉取全部 / Pull all" header button, the start popover, the bar with the row states, the sign-in lines, the summary, the results sheet, the project menu, bulk bar and row menu entry points, the toast and the system notification kind "Pull all finished" (design 6; through `internal/notify`). **Fable first**: draw the `pull-all-*` screens in the mockup and take the shots, then build. The bar, button, sheet title and summary read their text from the run's "started by" value (G4-14).
 - Owns: `frontend/src/pages/projects/pullall/`, locale `pullall.ts`, and for this task `ProjectsPage.tsx` and the project section and row menus in `frontend/src/pages/projects/`; the new notification kind in `internal/notify` and `internal/app/notifyservice.go`.
 - Deps: G4-11, G4-13, G4-W.
 - Accept: matches `pull-all-start-light-zh`, `pull-all-light-zh`, `pull-all-dark-en`, `pull-all-signin-light-zh`, `pull-all-done-light-zh`, `pull-all-done-light-en`, `pull-all-clean-light-zh`; the whole flow works with the keyboard only; a screen reader hears the start, each sign-in line and the end once.
@@ -865,7 +865,37 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 
 **G4-10 · Stash UI** (S): design 5.8 Stash in the Changes left pane, with the stash popover and the apply / keep / branch / delete actions. Owns `frontend/src/workspace/changes/stash/`. Accept: matches `repo-stash-light-zh`. Tests: popover options; apply-with-conflict hands over to the conflict screen. Review: delete confirms; empty state.
 
-**Gate.** Standard. Screenshots: repo-branches (2), repo-history (2), repo-merge-conflict (2), repo-stash (1), projects-counts (2), new-branch (4), pull-all (7), workspace-sync (1). Manual: a scripted "day of git" on a fixture repository: branch, commit, rebase with a conflict, force push, cherry-pick, revert, reset, tag; a new branch from a remote branch, published; Pull all over the owner's repositories, once with an expired AWS sign-in.
+**Group D (alone, after C).**
+
+**G4-14 · Pull all after an AWS sign-in** (M). Owner, fourth batch (2026-11-17); plan 4.6a part 4, 4.15; design 5.2b "Automatic run", 5.14, 6.
+- Build: (1) the trigger: on every successful portal sign-in, list the repositories bound to that portal's accounts and roles and ask the Pull all engine for an automatic run; no run for the silent token renewal, at app start, with the switch off, or with zero repositories. (2) The automatic mode of the engine: hooks off in every step; the checked-out branch is skipped in a repository with a `post-merge` script or a filter in its own config; no waiting for a sign-in; one run at a time with a waiting request that merges; repositories fetched by a run less than 5 minutes ago are left out. (3) Trigger (d) of G4-13 is skipped for a portal while the switch is on. (4) The setting (stored as "off", absent = on) and the "explained once" flag. (5) UI: the Code sync card in Settings, the automatic bar and button text, the first-run line, the quiet line in the Projects header, the sheet's title, subtitle, footer link and the two new lines, the toast, the notification kind "Automatic pull finished". **Fable first**: draw `pull-all-auto-light-zh`, `pull-all-auto-done-dark-en`, `pull-all-auto-first-light-zh` and the Settings card, take the shots, then build.
+- Owns: the trigger and its tests; for this task also the Pull all engine and screens (from G4-11, G4-12), the fetch-trigger code (from G4-13), the Settings screen's new card, the new notification kind, the locale keys `pullall.auto.*`, `settings.sync.*`, `notify.pullallAuto.*`.
+- Deps: G4-11, G4-12, G4-13, G4-W.
+- Accept:
+  1. Sign in to portal `acme` (fake) with 3 repositories bound to it, 1 bound to portal `globex`, 1 on GitHub (`alex-dev`), 1 unbound: exactly the 3 are fetched once and their branches moved; the other 3 record no fetch.
+  2. No click is needed, and no popover or question appears, with the window in front, hidden, or closed to the tray.
+  3. Switch off: no run; the fetch after sign-in of G4-13 runs as before. Switch on by default on a fresh data folder and on a data folder from the old app.
+  4. A repository with a `post-merge` script: its checked-out branch has the same commit and the same files as before, its other branches moved, the result has the "own script" line, and "Pull now" updates it and runs the script once.
+  5. No hook of any kind runs in an automatic run (hook logs stay empty), also when a fetched commit adds a new hook file under an in-repository hooks folder.
+  6. A clicked Pull all is running when the sign-in succeeds: the automatic run starts after it and skips what was fetched in the last 5 minutes; two sign-ins while waiting give one run.
+  7. The sign-in ends during the run: no sign-in window opens, no waiting line; the rest end with "sign-in expired".
+  8. The first-run line shows once ever; the quiet line opens the results; nothing is shown when no repository is related; no bar, toast or notification when everything was up to date.
+  9. The notification has counts only; a test fails if a portal, repository or branch name from the fixture appears in it.
+  10. Keyboard only works for the whole flow; a screen reader hears the start, the first-run line and the end once each, and the switch with its state and help.
+  11. Matches the new shots in both languages.
+- Tests (fake data only: portals `acme`, `globex`, `initech`, `umbrella`; account `111122223333`; `alex-dev`; `alex@acme.example.com`; throwaway repositories with a local bare "server"):
+  - Trigger table: sign-in by pass button, by notification button, by a Pull all line, token renewal, app start with a valid sign-in, switch off, zero repositories, hidden repository, folder gone.
+  - Selection: bound to this portal / another portal / GitHub / Bitbucket / unbound / two roles of one portal (one run).
+  - Automatic mode on the fixture set of G4-11: every row of the case table, plus the two new lines.
+  - Hooks: empty logs for `post-merge`, `reference-transaction`, `post-checkout`; the in-repository hooks folder case of Accept 5.
+  - Scheduling: wait behind a running run; merge of waiting requests; the 5-minute skip; Cancel; quit during a run.
+  - Trigger (d): not run when the switch is on, run when off (a test remote records fetches).
+  - Settings: default on; the stored "off" value survives a rewrite of the settings file by the old app's shape.
+  - UI: text of the bar, button, summary matrix, quiet line and sheet in both languages; the first-run line only once.
+  - Every test uses the fake sign-in engine and the fake notification service. No test contacts AWS, opens a browser, reads the real keychain or starts the owner's shell.
+- Review: no code path lets an automatic run execute a hook or a repository-defined filter; the "never" list of G4-11's grep test still holds; no raw git term in any string ("fast-forward", "upstream", "hook", "prune"); the notification and the log lines carry no names; the switch default is on without writing anything to the settings file.
+
+**Gate.** Standard. Screenshots: repo-branches (2), repo-history (2), repo-merge-conflict (2), repo-stash (1), projects-counts (2), new-branch (4), pull-all (7), workspace-sync (1), pull-all-auto (3), settings-sync (1). Manual: a scripted "day of git" on a fixture repository: branch, commit, rebase with a conflict, force push, cherry-pick, revert, reset, tag; a new branch from a remote branch, published; Pull all over the owner's repositories, once with an expired AWS sign-in; sign in to a real portal in the morning with the window hidden and check that the notification arrives, that the code is current, and that a repository with its own script waited.
 
 ---
 
@@ -1045,6 +1075,11 @@ Owner requirements of 2026-11-17, third batch (git; asked during the milestone 1
 - "拉取全部 / Pull all": one click fetches every repository once and moves every local branch forward to its remote branch where that needs no decision; it never pushes, merges, rebases or stashes; a branch that needs a decision is listed with the reason (**G4-11, G4-12**).
 - Planner decisions the owner may change (design 8, open points 21 to 27): publishing a new branch at once is off by default; a new branch never follows its base, except when it takes the remote branch's own name; Pull all covers every listed repository with a remote, also unbound ones, and leaves hidden ones out; any uncommitted change, a live AI session in the main folder or an unfinished merge leaves the checked-out branch alone; the repositories' own `post-merge` scripts run for the checked-out branch, with a switch per run; 4 repositories at once; no undo and no shortcut.
 - Schedule: milestone 4, with the rest of the git client (about 1.5 weeks more); nothing ships before 1.0.0 (decision 4).
+
+Owner requirements of 2026-11-17, fourth batch (asked during milestone 2 and planned the same day; plan 4.6a part 4, design 5.2b "Automatic run", 5.14 and 6):
+- After an AWS sign-in succeeds, the app runs Pull all by itself for the repositories bound to that portal, one repository after another, so nobody has to click "Pull all". A Settings switch, "登录 AWS 后自动拉取 / Pull automatically after AWS sign-in", turns it off; it is on by default.
+- Planner decisions the owner may change (design 8, open points 28 to 31; told to the owner on 2026-11-17): an automatic run never runs a repository's own script, so a repository that has one keeps its checked-out branch for one click; it runs only after a sign-in, not when the app starts.
+- Schedule: milestone 4, task G4-14 (about 0.5 week more).
 
 **Open questions for the owner after the milestone-0 gate** (the plan assumes the first answer of each until told otherwise):
 1. Decision 3 was relayed as "3 a", which in the lettering below means "buy a certificate", while this block records "ship unsigned". Both reviews ask for a confirmation. Assumed: unsigned. If a certificate is bought, F1-10 gains a Windows signing step no spike has tested and F1-20 gains an Authenticode check.
