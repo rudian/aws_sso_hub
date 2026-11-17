@@ -64,6 +64,9 @@
 | A 的周用量用完 → 换 B 接着做，**上下文一点都不能丢** | **T8-05、T8-11**（三层：同一个会话、修好的副本、交接笔记；永远不会从零开始） | plan 4.16「Switching keeps the conversation」；调研 R8 |
 | 多账号要符合 Claude 和 OpenAI 的官方条款、别被封号；只给自己用，不转售 | **T8-01、T8-04、T8-05、T8-07** | plan 4.16「Several accounts within the terms」；调研 R3、R5d、R9 |
 | TASK A 用账号 A、TASK B 用账号 B，同时跑 | 支持（Anthropic 文档写的「同时登录工作账号和个人账号」就是这种用法） | plan 4.16；调研 R2、R9 |
+| **第三批（2026-11-17，git）**：像 Bitbucket 一样，选任何一个分支来新建分支 | **G4-02、G4-07** | plan 4.6a；design 5.8「New branch」 |
+| 每个仓库、每个分支显示还没推送的提交数（↑n）和远程有、还没拉取的提交数（↓n），并说明上次检查远程是什么时候 | **G4-13、G4-06、G4-07**（项目页的 ↑↓ 里程碑 1 已经有了） | plan 4.6a；design 4.2、5.2 |
+| 「拉取全部」：一个按钮，把每个仓库的每个本地分支都更新到远程最新（只做不用决定的更新；不推送、不合并） | **G4-11、G4-12** | plan 4.6a；design 5.2b；`docs/research/git-pull-all.md` |
 
 **规划时 planner 自己定的事**（用户可以改；都写在 `tasks.md` 里）：
 - 全部进 1.0.0（和 decision 4 一致）。

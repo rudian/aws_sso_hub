@@ -6,6 +6,8 @@ Revision 3 applies the seven spike notes as corrected by `spike-review-a.md` and
 
 Revision 4 (2026-11-16, planner: Opus; research and design: Fable) turns the owner's second batch into tasks: F1-21 (merge `main`, AWS SSO Hub 0.0.2), F1-22 (system notifications; sign-in expiry), E5-11 (PHP code intelligence), A2-16 (open a repository from any screen; with F1-CL's Projects search by folder name) and **milestone 8** (ticket queue, AI accounts and usage for Claude Code and Codex: T8-01 to T8-09 and T8-W). Milestone 8 runs after milestone 3, so the run order is 0, 1, 2, 3, 8, 4, 5, 6, 7. A2-04 and A2-05 gained what milestone 8 needs from them. Research notes: `docs/research/notifications.md`, `docs/research/claude-usage-accounts.md`.
 
+Revision 5 (2026-11-17, planner: Opus; design: Fable) adds the milestone 1 gate fixes (F1-GF, group I) and turns the owner's third batch (git) into tasks: a new branch from any branch the owner chooses (as on the Bitbucket website), the counts of commits not pushed and not pulled with how fresh they are, and "拉取全部 / Pull all" (every local branch of every repository brought up to date where that needs no decision). New tasks G4-11, G4-12 and G4-13; G4-01, G4-02, G4-06 and G4-07 grow. Plan 4.6a; design 4.2, 5.2, 5.2b and 5.8; the git facts behind it are in `docs/research/git-pull-all.md`.
+
 ## How the work runs
 
 **Models.** Sonnet implements every task. Opus reviews every task before it merges, using the task's "Review" line plus the standing checklist below. Fable is called only where a task says "Fable first" (a screen the mockup does not draw) or when a reviewer finds a design gap.
@@ -395,7 +397,7 @@ Group A merged 2026-11-16 (`f868498`). Group B merged 2026-11-16 (`9302a4c`..`64
 - Tests: spawn, resize, exit codes; kill-tree with the **real launch form and a shell function**; a grandchild started under `set -m`; a child that ignores SIGTERM is gone after the SIGKILL step; on the Windows VM: kill-tree, and the app killed from Task Manager leaves no child.
 - Review: no orphan after an app crash; nothing is killed that is not in the session or the job.
 
-**Group B (parallel, after A).**
+**Group B (parallel, after A).** Orchestrator, 2026-11-17: the group also runs F1-GF2 (at its end; it touches only the Projects table's CSS). Exceptions for this group: A2-06 adds the workspace route to `App.tsx` and changes `openRepo` in `ProjectsPage.tsx`; A2-07 adds the xterm packages (`frontend/package.json`, `package-lock.json`); A2-13 may edit `internal/pty/pty_unix.go` for FU-01a. The terminal contract between A2-02 and A2-07 is in `reviews/m2B-args.md`.
 
 **A2-02 · Terminal sessions and the data path** (L)
 - Build: `internal/terminal` rewritten: sessions with a byte log and offsets kept as a ring of fixed chunks (memory stays near the cap; default cap 16 MB per session), a "gap" marker, the small ping event sent from its own goroutine, bound methods `Read(session, offset)` (returns a copy; the log lock is never held across a Wails call; `max` is capped), `Write`, `Resize`; explicit environment (plan 4.7); the login-shell launch form. From S0-01 and its review: the reader tracks DEC private modes (alt screen 1049 / 47 / 1047, mouse, bracketed paste, focus, cursor keys, cursor visibility, keypad and keyboard-protocol modes); the log is trimmed only where the escape parser is in ground state and on a UTF-8 boundary, preferring the latest full clear or alt-screen entry before the cut; a read whose offset was trimmed returns `gap` plus a `prologue` that is the mode state **as of the new base**, with both set and reset sequences. When a session ends, its last scrollback (capped) is written to the task's data folder (`<data>/sessions/<task-id>/scrollback`, mode 0600), so an ended task can still be read after a restart; a setting turns this off; the file never enters a backup, an export or the app log.
@@ -435,7 +437,7 @@ Group A merged 2026-11-16 (`f868498`). Group B merged 2026-11-16 (`9302a4c`..`64
 
 **A2-13 · Process tracker and force stop** (M)
 - Why (owner, 2026-11-16): an AI tool starts background helpers, dev servers and shells. They must be known even after the session's terminal is closed, shown as "closed but still running", and stoppable.
-- Build: `internal/proctrack`: per session, a set of every descendant ever seen. A snapshot every 2 s while the session is live and every 10 s afterwards (macOS: one `ps -axo pid=,ppid=,pgid=,sess=,lstart=,pcpu=,rss=,comm=` call, never one call per process; Windows: the Job Object's process list). A process is remembered by PID **and start time**, so a reused PID is never mistaken for it; a process that left the terminal session by `setsid`, or was re-parented to launchd when its parent exited, stays in the set. API: `Leftovers(session)` (count, CPU, memory, command names), `ForceStop(session)`: SIGTERM to every tracked process and group, about 5 s, then SIGKILL (Windows: `TerminateJobObject`), then one more snapshot to confirm. The set survives the session's close and is dropped when its last process is gone. It does not survive an app quit: quitting with "stop all" runs `ForceStop` for every session first (A2-08).
+- Build: `internal/proctrack`: per session, a set of every descendant ever seen. A snapshot every 2 s while the session is live and every 10 s afterwards (macOS: one `ps -axo pid=,ppid=,pgid=,sess=,lstart=,pcpu=,rss=,comm=` call, never one call per process; Windows: the Job Object's process list). A process is remembered by PID **and start time**, so a reused PID is never mistaken for it; a process that left the terminal session by `setsid`, or was re-parented to launchd when its parent exited, stays in the set. API: `Leftovers(session)` (count, CPU, memory, command names), `ForceStop(session)`: SIGTERM to every tracked process and group, about 5 s, then SIGKILL (Windows: `TerminateJobObject`), then one more snapshot to confirm. The set survives the session's close and is dropped when its last process is gone. It does not survive an app quit: quitting with "stop all" runs `ForceStop` for every session first (A2-08). **After a crash** (FU-01b, planner 2026-11-17; plan 4.8b): on macOS a `nohup` child or a `set -m` background group survives when the app dies, so the set (PID, start time and command name of every tracked process; never a command line) is saved to `<data>/sessions/leftovers.json` (mode 0600) whenever it changes, and at the next start the survivors (same PID and start time) are listed as "closed, still running" with Force stop. **FU-01a**: `Members()` must not wait for a whole `KillSession` (in group B this task may edit `internal/pty/pty_unix.go` for it: a separate kill mutex, `k.mu` only around each listing).
 - Owns: `internal/proctrack/`, `internal/app/proctrackservice.go`, mock `proctrack.ts`.
 - Deps: A2-01.
 - Accept: a session whose tool started `sh -c "sleep 600 &"` and a server that calls `setsid`, then exited, reports 2 leftover processes; `ForceStop` leaves none; a process started by another session or by the user's own Terminal is never in the set, even when it is a child of the same shell binary.
@@ -458,6 +460,13 @@ Group A merged 2026-11-16 (`f868498`). Group B merged 2026-11-16 (`9302a4c`..`64
 - Tests: client re-sync logic; replies dropped during replay on both channels; nudge rate limit; link classification; key mapping (Shift+Enter sends ESC CR).
 - Review: no terminal text is ever turned into HTML.
 
+**F1-GF2 · Projects rows fit the window** (S). Added 2026-11-17 by the orchestrator (follow-up FU-GFa, found by F1-GF's verifier; it was on codepass before F1-GF): the Projects row's actions column is cut off at window widths from 980 to about 1101 and from 1181 to about 1281. That includes the default window (1200x780) and the 980x660 minimum, so the More button and its row menu cannot be reached with the mouse.
+- Build: the Projects table fits every width from 980 up, in both languages: the narrow template's breakpoint (`@media (max-width: 1180px)` in `frontend/src/pages/projects/projects.css`, about line 119) moves to where the wide template stops fitting (about 1290px), and the narrow template fits at 980 (smaller minimums, the branch column hidden below about 1100px, or a sideways scroll inside `.proj__body > div` that keeps its vertical clip for the collapse).
+- Owns: `frontend/src/pages/projects/projects.css` and a new test file.
+- Accept: at 980x660, 1100x780, 1200x780, 1281x800 and 1440x900, light zh-CN and dark en, every row's More button is fully visible and opens its menu; nothing else on the page changes.
+- Tests: a check that the narrow template's column minimums fit its width (or screenshots at each width when jsdom cannot measure, named in the result).
+- Review: the collapse animation still clips vertically; no row content overlaps.
+
 **Group C (serial).**
 
 **A2-08 · Task lifecycle** (L)
@@ -468,7 +477,7 @@ Group A merged 2026-11-16 (`f868498`). Group B merged 2026-11-16 (`9302a4c`..`64
 - Tests: lifecycle state machine; restart recovery; cap.
 - Review: races between exit, stop and state events.
 
-**A2-W · Wiring** (S): registers the services, mocks, locales, the workspace route, the rail and sidebar changes (AI tasks item, keep-awake chip); the "Switch session" command (Cmd+J; Ctrl+J on Windows, Ctrl+Shift+J while a terminal has focus) in the menu and the command table, and the quit dialog's mount point, both with placeholders that A2-14 and A2-15 fill; adds xterm packages; removes the Terminal helper page and `internal/terminal`'s old API users. Owns the shared files. Deps: A2-06 to A2-08, A2-13.
+**A2-W · Wiring** (S): registers the services, mocks, locales, the workspace route (A2-06 adds the route in group B; A2-W keeps it), the rail and sidebar changes (AI tasks item, keep-awake chip); the "Switch session" command (Cmd+J; Ctrl+J on Windows, Ctrl+Shift+J while a terminal has focus) in the menu and the command table, and the quit dialog's mount point, both with placeholders that A2-14 and A2-15 fill; checks the xterm packages A2-07 added in group B; removes the Terminal helper page and `internal/terminal`'s old API users. Owns the shared files. Deps: A2-06 to A2-08, A2-13.
 
 **Group D (parallel, after C).**
 
@@ -766,25 +775,25 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 
 ---
 
-## Milestone 4 - Git client (5 weeks)
+## Milestone 4 - Git client (6.5 weeks)
 
 **Goal.** Everything the owner does in Sourcetree and on the Bitbucket website for branches and history.
-**User-visible result.** Sync, branches, compare, merge with a conflict screen, rebase, cherry-pick, revert, reset, stash, history with a graph, tags, remotes, file history.
+**User-visible result.** Sync, branches, compare, merge with a conflict screen, rebase, cherry-pick, revert, reset, stash, history with a graph, tags, remotes, file history. Owner, third batch (2026-11-17): a new branch from any branch; on every repository and branch the number of commits not pushed and not pulled, with when the remote was last checked; and "拉取全部 / Pull all", one click that brings every local branch of every repository up to date where that needs no decision.
 
 **Group A (parallel, backend).**
 
 **G4-01 · Sync** (M)
-- Build: `internal/gitsync`: fetch, pull (merge or rebase), push, publish; the integrated commit per branch; force push with `--force-with-lease=<ref>:<sha>` and `--force-if-includes`, plus the list of commits that will be replaced; auth-failure classification (AWS session ended, SSH key refused).
+- Build: `internal/gitsync`: fetch, pull (merge or rebase), push, publish; the integrated commit per branch; force push with `--force-with-lease=<ref>:<sha>` and `--force-if-includes`, plus the list of commits that will be replaced; auth-failure classification (AWS session ended, SSH key refused). Third batch (plan 4.6a): one shared network-action runner for fetch, pull, push, publish and Pull all (no prompt of any kind, the auth classification, a per-repository lock so one repository never runs two network actions at once, a no-progress timeout); `Publish(branch, remote)`, which the New branch dialog reuses; a method that sets a branch's "last integrated remote commit" (the lease value), which Pull all calls for the branches it moved. No Pull all logic here.
 - Owns: `internal/gitsync/`, `internal/app/syncservice.go`, mock `sync.ts`.
 - Accept: a background fetch between "pull" and "force push" does not weaken the lease (test with a third clone pushing in between).
 - Tests: the lease scenario; rejected push; auth classification from recorded errors.
 - Review: no bare `--force` or bare `--force-with-lease` anywhere.
 
 **G4-02 · Refs** (M)
-- Build: `internal/gitrefs`: local and remote branches, ahead / behind, create, switch (bring along or stash), rename, delete (unmerged warning, remote too), upstream; tags; remotes (backup-first); compare; conflict prediction with `merge-tree --write-tree`.
+- Build: `internal/gitrefs`: local and remote branches, ahead / behind, create, switch (bring along or stash), rename, delete (unmerged warning, remote too), upstream; tags; remotes (backup-first); compare; conflict prediction with `merge-tree --write-tree`. Third batch (plan 4.6a): the branch list carries, per local branch, its remote branch, ahead, behind, "gone" and the folder it is checked out in (one `git for-each-ref` through the read-only runner); remote branches carry the age of their last commit; `CreateBranch(name, base, switch, publishTo)` where the base is a local branch, a remote branch, a tag or a commit, always with `--no-track` except when the new name is the remote branch's own name; the name checked with git's own rule (`git check-ref-format --branch`); publishing through G4-01; "how far is local X behind its remote" for the dialog's warn line.
 - Owns: `internal/gitrefs/`, `internal/app/refsservice.go`, mock `refs.ts`.
 - Accept: prediction matches a real merge on the fixture set.
-- Tests: table tests on a fixture repository.
+- Tests: table tests on a fixture repository; a branch created from a remote branch does not follow it, and the same-name exception does; creating inside a task folder never switches.
 - Review: switching is refused inside a task folder.
 
 **G4-03 · Operations** (L)
@@ -807,21 +816,46 @@ Added 2026-11-16 (owner, second batch). It has the last number but runs right af
 - Accept / Tests: each action on a fixture; apply with conflict hands over to G4-03.
 - Review: drop is confirmed upstream.
 
-**Group B (serial).** **G4-W · Wiring** (S).
+**G4-13 · Counts and freshness** (M). Owner, third batch (2026-11-17); plan 4.6a; design 5.2 "Counts on the row" and 4.2.
+- Build: backend in `internal/repos/live.go` and `internal/app/loops.go`: the last successful fetch time and the last failure reason per repository in the status the page reads; the extra fetch rounds of plan 4.6a (window to the front, a workspace opened, the network back, a sign-in succeeded) with the 5-minute floor and 4 repositories at once; the list of other local branches that have commits to pull. The rule stays: by itself the app fetches only bound or opened repositories. Frontend: the shared `SyncCount` component (`frontend/src/components/SyncCount.tsx`, class `.sync-n`) with its tooltip and the stale style, used by `ProjectRow.tsx` (the order becomes `↓` then `↑`), the project header's meta line and the Open repository rows; exported for G4-06 and G4-07. **Fable first** for `projects-counts-light-zh` and `projects-counts-dark-en`.
+- Owns: `internal/repos/live.go` and its tests, `internal/app/loops.go`, `frontend/src/components/SyncCount*`, `frontend/src/pages/projects/ProjectRow.tsx` and the project header file, locale `sync.ts`.
+- Accept: with the window in the back for an hour and then brought to the front, one round runs and the pills change without a click; a repository that is neither bound nor opened is never fetched by itself (a test remote records fetches); the tooltip is right in its four forms; matches the two new shots.
+- Tests: trigger debounce and the floor; the pill matrix (0/0, n/0, 0/n, n/m, none, gone, detached, 99+, stale).
+- Review: the background fetch still runs with the empty hooks folder and the no-prompt settings.
+
+**Group A2 (after A).**
+
+**G4-11 · Pull all: backend** (L). Owner, third batch (2026-11-17); plan 4.6a; the git facts in `docs/research/git-pull-all.md`.
+- Build: `internal/gitpullall`: the plan step (which repositories and branches, what is left out, which repositories have a `post-merge` script); the run (4 repositories at once; per repository: look, `git fetch --prune` once per remote that a local branch follows, look again, then per branch the decision table of plan 4.6a: `git fetch . <remote-tracking ref>:refs/heads/<branch>` for a branch that is not checked out, `git merge --ff-only` for the checked-out branch of a clean main folder with no live AI session, nothing in every other case); waiting groups per sign-in or key that resume after the sign-in; cancel; per-repository retry; progress events; the result model (one record per repository and per branch, a case from a fixed list, the hash before and after, counts); the lease value set through G4-01 for every branch it moved.
+- Owns: `internal/gitpullall/`, `internal/app/pullallservice.go`, mock `pullall.ts` (scripted to reproduce the `pull-all-*` shots).
+- Deps: G4-01 (runner, classification, lock), G4-02 (branch list).
+- Accept: on a fixture set that reproduces every row of the case table, each branch ends in the expected case and no other branch changed; a branch checked out in a task's workspace is untouched byte for byte; nothing is ever pushed (the fixture server's hooks record any push); the git runs of the research note pass on git 2.44, the app's minimum.
+- Tests: the research note's rows as table tests; the lease value after a run; cancel during a fetch (no lock file left, `git fsck` clean); resume after a simulated sign-in; hooks: a `reference-transaction` log stays empty for the fetch and for moves of branches that are not checked out, and `post-merge` runs once for the checked-out branch and not at all with the switch off.
+- Review: no `update-ref`, no `--force`, no `+` refspec, no `--update-head-ok`, no stash, no `merge` without `--ff-only`, no `rebase` and no `push` anywhere in the package (a grep test enforces it).
+
+**Group B (serial).** **G4-W · Wiring** (S): also registers G4-11's service and events and the mock.
 
 **Group C (parallel, UI).**
 
-**G4-06 · Sync button** (M): design 4.2 and 6: labels per state, caret menu, progress, inline sign-in or "Verify key" on auth failure, the force-push confirm (design 5.8). Owns `frontend/src/workspace/Sync*.tsx`. Accept: the label always describes the selected folder; a push after an expired AWS session offers sign-in in place. Tests: label matrix; confirm list. Review: the confirm names other people's commits in warn and needs a second click.
+**G4-06 · Sync button** (M): design 4.2 and 6: labels per state, caret menu, progress, inline sign-in or "Verify key" on auth failure, the force-push confirm (design 5.8). Owns `frontend/src/workspace/Sync*.tsx`, and the two branch items at the foot of the working-tree switcher's menu (design 4.2 "Branch menu"; the switcher's file is named in A2-06's notes). Third batch: the count pills and their tooltip come from G4-13's `SyncCount`; the caret menu gains "拉取全部分支 / Pull all branches" (G4-11 for one repository, its result as a toast with "查看结果 / See results"); the waiting text while Pull all holds the repository. Accept: the label always describes the selected folder; a push after an expired AWS session offers sign-in in place; the tooltip shows the freshness line in each of its four forms. Tests: label matrix; confirm list. Review: the confirm names other people's commits in warn and needs a second click.
 
-**G4-07 · Branches tab** (L): design 5.8 Branches: lists, detail, compare cards, merge / rebase / create PR entry points, tags, remotes, new-branch and delete dialogs, the clean-folder prompt. Owns `frontend/src/workspace/branches/`, locale `branches.ts`. Accept: matches `repo-branches-light-zh`, `-en`. Tests: dialogs and states. Review: no raw git terms in copy.
+**G4-07 · Branches tab** (L): design 5.8 Branches: lists, detail, compare cards, merge / rebase / create PR entry points, tags, remotes, new-branch and delete dialogs, the clean-folder prompt. Third batch (design 5.8 as revised 2026-11-17): the count pills per local branch with "未发布 / Not published" and "远程分支已删除 / Remote branch deleted"; "从这个分支新建 / New branch from here" on every local and remote row (button, context menu, key N); the New branch dialog with the "基于 / Based on" picker (`frontend/src/workspace/branches/NewBranch*.tsx`, exported so History's "Branch from here" and the header's branch menu open the same dialog); the freshness text and Fetch on the Remote heading; "更新到远程最新 / Bring up to date" on a branch that is behind. **Fable first** for the `new-branch-*` shots. Owns `frontend/src/workspace/branches/`, locale `branches.ts`. Accept: matches `repo-branches-light-zh`, `-en` (re-taken with the pills) and `new-branch-light-zh`, `new-branch-pick-light-zh`, `new-branch-remote-light-zh`, `new-branch-behind-light-zh`. Tests: dialogs and states; the picker's ranking; the name rule. Review: no raw git terms in copy; a new branch from a remote base never follows the base.
 
 **G4-08 · History tab** (L): design 5.8 History: virtualised list with the lane graph, ref chips, toolbar, details, compare, reset / cherry-pick / revert / tag dialogs, file history view. Owns `frontend/src/workspace/history/`, locale `history.ts`. Accept: matches `repo-history-light-zh`, `repo-history-dark-en`. Tests: graph rendering snapshots; reset dialog copy. Review: the hard-reset confirm states exactly what is lost; focus on Cancel.
 
 **G4-09 · Conflict screen** (L): design 5.9: operation bar, three groups, the mine / theirs / result editor with block bars, choice cards, finish into the composer. Owns `frontend/src/workspace/conflict/`, locale `conflict.ts`. Deps: C3-04. Accept: matches `repo-merge-conflict-light-zh`, `-dark-en`. Tests: block resolution state; labels for rebase. Review: the abort sentence is only shown when true.
 
+**G4-12 · Pull all: UI** (L). Owner, third batch (2026-11-17); design 5.2b.
+- Build: the "拉取全部 / Pull all" header button, the start popover, the bar with the row states, the sign-in lines, the summary, the results sheet, the project menu, bulk bar and row menu entry points, the toast and the system notification kind "Pull all finished" (design 6; through `internal/notify`). **Fable first**: draw the `pull-all-*` screens in the mockup and take the shots, then build.
+- Owns: `frontend/src/pages/projects/pullall/`, locale `pullall.ts`, and for this task `ProjectsPage.tsx` and the project section and row menus in `frontend/src/pages/projects/`; the new notification kind in `internal/notify` and `internal/app/notifyservice.go`.
+- Deps: G4-11, G4-13, G4-W.
+- Accept: matches `pull-all-start-light-zh`, `pull-all-light-zh`, `pull-all-dark-en`, `pull-all-signin-light-zh`, `pull-all-done-light-zh`, `pull-all-done-light-en`, `pull-all-clean-light-zh`; the whole flow works with the keyboard only; a screen reader hears the start, each sign-in line and the end once.
+- Tests: every line of the case table in both languages; the summary sentence matrix; focus return; one run at a time.
+- Review: no raw git term in any string ("fast-forward", "upstream", "HEAD", "worktree", "hook", "prune"); branch names and git messages render as plain text.
+
 **G4-10 · Stash UI** (S): design 5.8 Stash in the Changes left pane, with the stash popover and the apply / keep / branch / delete actions. Owns `frontend/src/workspace/changes/stash/`. Accept: matches `repo-stash-light-zh`. Tests: popover options; apply-with-conflict hands over to the conflict screen. Review: delete confirms; empty state.
 
-**Gate.** Standard. Screenshots: repo-branches (2), repo-history (2), repo-merge-conflict (2), repo-stash (1). Manual: a scripted "day of git" on a fixture repository: branch, commit, rebase with a conflict, force push, cherry-pick, revert, reset, tag.
+**Gate.** Standard. Screenshots: repo-branches (2), repo-history (2), repo-merge-conflict (2), repo-stash (1), projects-counts (2), new-branch (4), pull-all (7), workspace-sync (1). Manual: a scripted "day of git" on a fixture repository: branch, commit, rebase with a conflict, force push, cherry-pick, revert, reset, tag; a new branch from a remote branch, published; Pull all over the owner's repositories, once with an expired AWS sign-in.
 
 ---
 
@@ -994,6 +1028,13 @@ Owner requirements of 2026-11-16, second batch (asked after the group-E merge, p
 - TASK A on account A and TASK B on account B at the same time: supported. For Claude Code it is the use Anthropic documents as being signed in to several accounts at once, "such as work and personal accounts"; for Codex it is not forbidden and not described (research R2, R9 case b).
 - Hidden reasoning (research R8): for the newest Claude models the AI's hidden thinking records work only in the account that produced them, and the service drops them in another account without an error. Everything visible (the owner's messages, the AI's replies, tool calls and results) carries over. The switch confirm says so behind "有一样带不过去 / One thing cannot". The owner then asked whether the task can still continue: yes. The hidden reasoning is the draft before each reply, its conclusions are already in the replies and the code, and on the other account the AI thinks again from the whole visible conversation and the workspace; Anthropic documents switching accounts as "keep sending the full history", and Claude Code already strips stale thinking signatures after a login switch (plan 4.16 decision 22, "Why the task still continues"). Check D13 proves it on a scratch conversation; T8-05 is not signed off without it.
 - Schedule (planner's call under decision 4): all of it ships in 1.0.0. F1-21 and F1-22 run before the milestone-1 gate (they touch the accounts code the gate checks, and the build that replaces AWS SSO Hub must not lose 0.0.2). Milestone 8 runs **right after milestone 3**: it needs AI tasks (milestone 2) and task workspaces (milestone 3), and the owner runs into the weekly limit today.
+
+Owner requirements of 2026-11-17, third batch (git; asked during the milestone 1 gate review and planned the same day; plan 4.6a; design 4.2, 5.2, 5.2b and 5.8; the git facts in `docs/research/git-pull-all.md`):
+- As on the Bitbucket website, a new branch from any branch the owner chooses: the New branch dialog's "基于 / Based on" picker (local branches, remote branches, tags; the branch on screen by default) and "从这个分支新建 / New branch from here" on every branch row (**G4-02, G4-07**).
+- The number of commits committed but not pushed (`↑n`) and on the remote but not pulled (`↓n`) as count pills on the Projects row, the Sync button and the Branches list, with when the remote was last checked; extra fetch rounds when the window comes to the front, a workspace opens, the network comes back or a sign-in succeeds (**G4-13, G4-06, G4-07**). The Projects row already shows both numbers (milestone 1).
+- "拉取全部 / Pull all": one click fetches every repository once and moves every local branch forward to its remote branch where that needs no decision; it never pushes, merges, rebases or stashes; a branch that needs a decision is listed with the reason (**G4-11, G4-12**).
+- Planner decisions the owner may change (design 8, open points 21 to 27): publishing a new branch at once is off by default; a new branch never follows its base, except when it takes the remote branch's own name; Pull all covers every listed repository with a remote, also unbound ones, and leaves hidden ones out; any uncommitted change, a live AI session in the main folder or an unfinished merge leaves the checked-out branch alone; the repositories' own `post-merge` scripts run for the checked-out branch, with a switch per run; 4 repositories at once; no undo and no shortcut.
+- Schedule: milestone 4, with the rest of the git client (about 1.5 weeks more); nothing ships before 1.0.0 (decision 4).
 
 **Open questions for the owner after the milestone-0 gate** (the plan assumes the first answer of each until told otherwise):
 1. Decision 3 was relayed as "3 a", which in the lettering below means "buy a certificate", while this block records "ship unsigned". Both reviews ask for a confirmation. Assumed: unsigned. If a certificate is bought, F1-10 gains a Windows signing step no spike has tested and F1-20 gains an Authenticode check.
