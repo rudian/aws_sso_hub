@@ -77,6 +77,12 @@ type Manager struct {
 	starting map[string]bool
 	// tails is the end offset of each released session, so a reused ID continues its offsets.
 	tails map[string]int64
+	// archGen counts the drops of an ID's cached archive: an archive read from the file before a drop is never
+	// cached after it (FU-A2-02b).
+	archGen map[string]uint64
+	// afterArchiveRead is a test seam in archive(), between the file read and the cache store.
+	afterArchiveRead func(id string)
+	onInput          func(id string, data []byte)
 }
 
 // NewManager makes a manager.
@@ -96,7 +102,7 @@ func NewManager(cfg Config) *Manager {
 	if cfg.PingEvery <= 0 {
 		cfg.PingEvery = defaultPingEvery
 	}
-	return &Manager{cfg: cfg, sessions: map[string]*Session{}, archives: map[string]*Log{}, starting: map[string]bool{}, tails: map[string]int64{}}
+	return &Manager{cfg: cfg, sessions: map[string]*Session{}, archives: map[string]*Log{}, starting: map[string]bool{}, tails: map[string]int64{}, archGen: map[string]uint64{}}
 }
 
 func invalid(field string) error {
@@ -149,6 +155,13 @@ func (m *Manager) Start(o StartOptions) (*Session, error) {
 	if tail == 0 {
 		tail = archiveTail(ScrollbackPath(m.cfg.DataDir, o.ID))
 	}
+	if tail > 0 {
+		// FU-A2-02d: a reused ID's log starts one byte past the previous tail, never exactly at it. A page that
+		// followed the old run to its end then asks for an offset below the new base and gets gap > 0 with the
+		// default-mode prologue, so it resets its terminal instead of carrying the old run's alt screen and
+		// mouse modes into the new run.
+		tail++
+	}
 	reserved := true
 	defer func() {
 		if reserved {
@@ -175,6 +188,8 @@ func (m *Manager) Start(o StartOptions) (*Session, error) {
 	m.mu.Lock()
 	m.sessions[o.ID] = s
 	delete(m.starting, o.ID)
+	// FU-A2-02b: a Read during the spawn window may have loaded the previous run's file again
+	m.dropArchiveLocked(o.ID)
 	m.mu.Unlock()
 	reserved = false
 	go m.pinger(s)
@@ -258,9 +273,25 @@ func (m *Manager) Read(id string, offset int64, max int) ReadReply {
 	return ReadReply{Done: true}
 }
 
+// SetOnInput sets a function that sees every Write before it is queued (the task service tells the state
+// tracker and keep-awake that the person typed). It runs on the caller's goroutine and must return quickly; the
+// bytes must not be kept or changed. Terminal replies (focus reports, cursor position, device attributes) come
+// through Write as well, so the function has to tell them from keystrokes (taskstate.CanAnswer).
+func (m *Manager) SetOnInput(f func(id string, data []byte)) {
+	m.mu.Lock()
+	m.onInput = f
+	m.mu.Unlock()
+}
+
 // Write sends keystrokes. Input to an unknown or ended session is dropped.
 func (m *Manager) Write(id string, b []byte) error {
 	if s := m.get(id); s != nil {
+		m.mu.Lock()
+		f := m.onInput
+		m.mu.Unlock()
+		if f != nil && !s.Ended() {
+			f(id, b)
+		}
 		return s.Write(b)
 	}
 	return nil
@@ -313,6 +344,7 @@ func (m *Manager) Release(id string) error {
 	if !s.Ended() {
 		return api.NewError(api.ErrInvalidInput, "session %s is still running", id).WithParam("field", "session")
 	}
+	m.dropArchiveLocked(id) // FU-A2-02b: whatever was cached for this ID belongs to an older run
 	m.tails[id] = max(m.tails[id], s.log.Tail())
 	delete(m.sessions, id)
 	return nil

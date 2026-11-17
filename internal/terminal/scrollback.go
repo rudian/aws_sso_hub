@@ -91,6 +91,12 @@ func (m *Manager) scrollbackOn() bool {
 // saveScrollback writes the file, or removes an old one when the setting is off. Errors are not reported: a
 // missing scrollback is not worth interrupting anything for.
 func (m *Manager) saveScrollback(s *Session) {
+	// FU-A2-02b: whatever happens to the file, a copy of the older one loaded earlier is stale from now on
+	defer func() {
+		m.mu.Lock()
+		m.dropArchiveLocked(s.id)
+		m.mu.Unlock()
+	}()
 	path := ScrollbackPath(m.cfg.DataDir, s.id)
 	if path == "" {
 		return
@@ -146,12 +152,16 @@ func (m *Manager) archive(id string) *Log {
 		m.mu.Unlock()
 		return l
 	}
+	gen := m.archGen[id]
 	m.mu.Unlock()
 	path := ScrollbackPath(m.cfg.DataDir, id)
 	if path == "" {
 		return nil
 	}
 	b, err := os.ReadFile(path)
+	if h := m.afterArchiveRead; h != nil {
+		h(id) // test seam: a Release, a new run or a save happens between the read and the cache
+	}
 	if err != nil || len(b) == 0 {
 		return nil
 	}
@@ -171,6 +181,11 @@ func (m *Manager) archive(id string) *Log {
 	defer m.mu.Unlock()
 	if old := m.archives[id]; old != nil {
 		return old
+	}
+	if m.sessions[id] != nil || m.starting[id] || m.archGen[id] != gen {
+		// FU-A2-02b: a run of this ID is starting or exists; the file is the previous run's (or about to be
+		// replaced), so answer from it once but never keep it
+		return l
 	}
 	m.archives[id] = l
 	m.archOrder = append(m.archOrder, id)
@@ -193,6 +208,7 @@ func (m *Manager) touchArchiveLocked(id string) {
 
 // dropArchiveLocked forgets a loaded archive.
 func (m *Manager) dropArchiveLocked(id string) {
+	m.archGen[id]++
 	delete(m.archives, id)
 	for i, x := range m.archOrder {
 		if x == id {

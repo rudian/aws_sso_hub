@@ -196,6 +196,7 @@ func TestFallbackObserveAndExit(t *testing.T) {
 		t.Fatal("one miss must not end it")
 	}
 	tr.Observe("n", Alive)
+	tr.Observe("n", Alive) // FU-A2-05a: two alive verdicts in a row before exited verdicts count
 	tr.Observe("n", Exited)
 	tr.Observe("n", Exited)
 	if state(t, tr, "n").State != StateEnded {
@@ -349,6 +350,152 @@ func TestConcurrentChangesEndWithTheTrackersState(t *testing.T) {
 		mu.Unlock()
 		if want := state(t, tr, "a"); got.State != want.State {
 			t.Fatalf("delivered %s, tracker %s", got.State, want.State)
+		}
+	}
+}
+
+// FU-A2-05a: helpers that run while the login shell starts must not make a task look ended, then "running (no
+// signal)".
+func TestShellStartupHelpersDoNotEndOrMisleadAHooksTask(t *testing.T) {
+	tr, _, c := newT(t)
+	tr.Register("a", ToolClaude, ModeHooks)
+	tr.Observe("a", Alive) // path_helper in the foreground
+	tr.Observe("a", Exited)
+	tr.Observe("a", Exited)
+	tr.Observe("a", Exited)
+	if st := state(t, tr, "a").State; st != StateStarting {
+		t.Fatalf("a hooks task that sent nothing is never ended by the fallback, got %s", st)
+	}
+	c.t = c.t.Add(25 * time.Second)
+	tr.Observe("a", Alive)
+	if st := state(t, tr, "a").State; st != StateNoSignal {
+		t.Fatalf("after the grace: %s", st)
+	}
+	tr.Apply(ev("a", ToolClaude, "SessionStart", nil)) // a late SessionStart
+	if st := state(t, tr, "a").State; st != StateStarting {
+		t.Fatalf("SessionStart moves running (no signal) back to starting, got %s", st)
+	}
+	tr.Observe("a", Alive)
+	if st := state(t, tr, "a").State; st != StateStarting {
+		t.Fatalf("a task with a report is not shown as no signal again, got %s", st)
+	}
+
+	tr.Register("o", ToolOpenCode, ModeHooks)
+	c.t = c.t.Add(25 * time.Second)
+	tr.Observe("o", Alive)
+	if st := state(t, tr, "o").State; st != StateNoSignal {
+		t.Fatalf("%s", st)
+	}
+	tr.Apply(ev("o", ToolOpenCode, EventPluginLoaded, nil))
+	if st := state(t, tr, "o").State; st != StateStarting {
+		t.Fatalf("plugin.loaded moves it back to starting, got %s", st)
+	}
+}
+
+func TestOneAliveVerdictIsNotEnoughForATaskWithoutHooks(t *testing.T) {
+	for _, mode := range []SignalMode{ModeNone, ModeTurnOnly} {
+		tr, _, _ := newT(t)
+		tr.Register("n", ToolCodex, mode)
+		tr.Observe("n", Alive) // one helper caught
+		tr.Observe("n", Exited)
+		tr.Observe("n", Exited)
+		tr.Observe("n", Exited)
+		if st := state(t, tr, "n").State; st == StateEnded {
+			t.Fatalf("mode %d: a single alive verdict must not arm the exit verdicts", mode)
+		}
+		tr.Observe("n", Alive)
+		tr.Observe("n", Alive)
+		tr.Observe("n", Exited)
+		tr.Observe("n", Exited)
+		if st := state(t, tr, "n").State; st != StateEnded {
+			t.Fatalf("mode %d: two alive verdicts in a row arm them, got %s", mode, st)
+		}
+	}
+}
+
+// FU-A2-05b: any accepted report revives a fallback end, and a revived task needs its verdicts again.
+func TestAnyReportRevivesAFallbackEnd(t *testing.T) {
+	for _, event := range []string{"PermissionRequest", "Stop", "StopFailure", "PreToolUse", "Notification"} {
+		tr, _, _ := newT(t)
+		tr.Register("a", ToolClaude, ModeHooks)
+		tr.Apply(ev("a", ToolClaude, "SessionStart", nil))
+		tr.Observe("a", Exited)
+		tr.Observe("a", Exited)
+		if state(t, tr, "a").State != StateEnded {
+			t.Fatalf("%s: setup", event)
+		}
+		tr.Apply(ev("a", ToolClaude, event, func(r *Report) { r.NotificationType = "permission_prompt" }))
+		if st := state(t, tr, "a").State; st != StateWaiting {
+			t.Fatalf("%s after a fallback end: %s", event, st)
+		}
+	}
+	tr, _, _ := newT(t)
+	tr.Register("a", ToolClaude, ModeHooks)
+	tr.Apply(ev("a", ToolClaude, "SessionStart", nil))
+	tr.Observe("a", Exited)
+	tr.Observe("a", Exited)
+	tr.Apply(ev("a", ToolClaude, "PermissionRequest", nil))
+	if i := state(t, tr, "a"); i.State != StateWaiting || i.Reason != ReasonPermission {
+		t.Fatalf("%+v", i)
+	}
+}
+
+func TestARevivedTaskNeedsItsExitVerdictsAgain(t *testing.T) {
+	tr, _, _ := newT(t)
+	tr.Register("a", ToolClaude, ModeHooks)
+	tr.Apply(ev("a", ToolClaude, "SessionStart", nil))
+	tr.Observe("a", Exited)
+	tr.Observe("a", Exited) // ended
+	tr.Apply(ev("a", ToolClaude, "UserPromptSubmit", nil))
+	tr.Observe("a", Exited) // one verdict only
+	if st := state(t, tr, "a").State; st != StateRunning {
+		t.Fatalf("one exited verdict after a revival must not end it, got %s", st)
+	}
+	tr.Observe("a", Exited)
+	if st := state(t, tr, "a").State; st != StateEnded {
+		t.Fatalf("two do, got %s", st)
+	}
+}
+
+func TestProcessExitStaysFinalForEveryReport(t *testing.T) {
+	tr, _, _ := newT(t)
+	tr.Register("a", ToolClaude, ModeHooks)
+	tr.ProcessExited("a")
+	for _, e := range []string{"SessionStart", "UserPromptSubmit", "PermissionRequest", "Stop"} {
+		tr.Apply(ev("a", ToolClaude, e, nil))
+		if st := state(t, tr, "a").State; st != StateEnded {
+			t.Fatalf("%s revived an exited process: %s", e, st)
+		}
+	}
+}
+
+// FU-A2-05c
+func TestCanAnswer(t *testing.T) {
+	yes := []string{"\r", "1", "y2", "\x1b", "ok\r", "\x1b[Ayes\r", "\x1bx3"}
+	no := []string{"", "\x1b[I", "\x1b[O", "\x1b[12;40R", "\x1b[?62;4c", "\x1b]11;rgb:0000/0000/0000\x07", "\x1b]11;rgb:0000/0000/0000\x1b\\", "\x1b[A", "\x1b[B", "\x1bOA", "abc", "\x1b[I\x1b[O", "\x1b[<0;10;5M"}
+	for _, s := range yes {
+		if !CanAnswer([]byte(s)) {
+			t.Errorf("%q should be an answer", s)
+		}
+	}
+	for _, s := range no {
+		if CanAnswer([]byte(s)) {
+			t.Errorf("%q cannot answer anything", s)
+		}
+	}
+}
+
+func TestIsTyping(t *testing.T) {
+	yes := []string{"a", "\r", "\x1b", "\x1b[A", "\x1b[3~", "\x1bOA", "x\x1b[I", "\x1bx"}
+	no := []string{"", "\x1b[I", "\x1b[O", "\x1b[12;40R", "\x1b[?62;4c", "\x1b]11;rgb:0000/0000/0000\x07", "\x1b]11;x\x1b\\", "\x1b[<0;10;5M", "\x1b[I\x1b[O", "\x1b[>0;276;0c"}
+	for _, s := range yes {
+		if !IsTyping([]byte(s)) {
+			t.Errorf("%q is typing", s)
+		}
+	}
+	for _, s := range no {
+		if IsTyping([]byte(s)) {
+			t.Errorf("%q is not typing", s)
 		}
 	}
 }

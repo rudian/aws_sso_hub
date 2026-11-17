@@ -99,7 +99,8 @@ type taskEntry struct {
 	registered time.Time
 	exited     bool // the process is gone (ProcessExited): final
 	signaled   bool // a report was accepted: the tool's hooks work
-	seenAlive  bool // the fallback saw the tool alive: only then do exited verdicts count
+	seenAlive  bool // the fallback saw the tool alive (twice in a row for a task without hooks): only then do exited verdicts count
+	alive      int  // consecutive alive verdicts
 	missed     int
 	prompt     func(string) // armed first-prompt receiver
 }
@@ -228,6 +229,7 @@ func (t *Tracker) Apply(r Report) bool {
 	}
 	r.Prompt = "" // never stored
 	e.signaled = true
+	e.missed = 0 // FU-A2-05b: a report is proof of life; a fallback end needs its verdicts again
 	before := e.info
 	t.transition(e, r)
 	e.info.Updated = t.opt.Now()
@@ -260,9 +262,8 @@ func (t *Tracker) transition(e *taskEntry, r Report) {
 	if r.Mode != "" {
 		i.PermissionMode = r.Mode
 	}
-	if i.State == StateEnded && r.Event != "SessionStart" && r.Event != "session.execution.started" && r.Event != "UserPromptSubmit" {
-		return
-	}
+	// FU-A2-05b: no guard for a fallback end. Apply refuses reports of a task whose process exited
+	// (ProcessExited is final), so any report that gets here proves the tool is alive and revives the task.
 	wait := func(reason Reason) { i.State, i.Reason = StateWaiting, reason }
 	run := func() {
 		i.State, i.Reason = StateRunning, ReasonNone
@@ -271,7 +272,7 @@ func (t *Tracker) transition(e *taskEntry, r Report) {
 	switch r.Event {
 	case "SessionStart":
 		i.SessionSource = r.Source
-		if i.State == StateEnded {
+		if i.State == StateEnded || (i.State == StateNoSignal && i.Mode == ModeHooks) {
 			i.State, i.Reason = StateStarting, ReasonNone
 		}
 	case "UserPromptSubmit", "session.execution.started", "permission.replied":
@@ -309,7 +310,11 @@ func (t *Tracker) transition(e *taskEntry, r Report) {
 			wait(ReasonError)
 		}
 	case EventPluginLoaded:
-		// A signal that the plugin works; no state change.
+		// A signal that the plugin works. A task that was shown as "running (no signal)" before the tool had
+		// loaded it goes back to starting (FU-A2-05a).
+		if i.State == StateNoSignal && i.Mode == ModeHooks {
+			i.State, i.Reason = StateStarting, ReasonNone
+		}
 	case "SessionEnd":
 		// No state change: Claude Code sends it for /clear, resume and logout while the tool keeps running.
 		// The tool's exit is ProcessExited's job.
@@ -378,10 +383,27 @@ func (t *Tracker) Observe(task string, v Verdict) {
 	switch v {
 	case Alive:
 		e.missed = 0
-		e.seenAlive = true
+		e.alive++
+		// FU-A2-05a: a helper that runs while the login shell starts (path_helper, tty, brew shellenv's ps,
+		// starship, zoxide, conda, nvm) is a non-shell process in the foreground for a moment. For a task
+		// without hooks one alive verdict is not enough to say the tool ran; two in a row are. A task with hooks
+		// never counts verdicts for its end: only a report (signaled) lets the fallback end it.
+		if e.info.Mode != ModeHooks && e.alive >= 2 {
+			e.seenAlive = true
+		}
 		noSignal := e.info.Mode != ModeHooks || (!e.signaled && t.opt.Now().Sub(e.registered) >= t.opt.NoSignalAfter)
 		if e.info.State == StateEnded {
-			noSignal = true // the fallback ended it by mistake (ProcessExited would have set exited)
+			// the fallback ended it by mistake (ProcessExited would have set exited). A task with hooks that
+			// never sent a report goes back to starting, with the grace time still running.
+			noSignal = e.info.Mode != ModeHooks || e.signaled || noSignal
+			if !noSignal {
+				e.info.State, e.info.Reason = StateStarting, ReasonNone
+				e.info.Updated = t.opt.Now()
+				s := t.snapLocked(e)
+				t.mu.Unlock()
+				t.emit(task, s)
+				return
+			}
 		}
 		if (e.info.State == StateStarting || e.info.State == StateEnded) && noSignal {
 			e.info.State = StateNoSignal
@@ -392,8 +414,15 @@ func (t *Tracker) Observe(task string, v Verdict) {
 			return
 		}
 	case Exited:
-		// While the login shell sources its startup files only the shell is in the foreground: that is not an exit.
-		if !e.seenAlive && !e.signaled {
+		e.alive = 0
+		// While the login shell sources its startup files only the shell is in the foreground: that is not an
+		// exit. A task with hooks is ended by the fallback only after it has sent a report; any other task only
+		// after the tool was seen alive.
+		if e.info.Mode == ModeHooks {
+			if !e.signaled {
+				break
+			}
+		} else if !e.seenAlive && !e.signaled {
 			break
 		}
 		e.missed++
