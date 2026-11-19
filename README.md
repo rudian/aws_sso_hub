@@ -93,7 +93,7 @@ Found a vulnerability? Please report it privately, see [SECURITY.md](SECURITY.md
 
 ## Build from source
 
-You need Go 1.26 or later, Node.js 26 or later, and the Wails v3 CLI:
+You need Go 1.27.4 or later, Node.js 26 or later, and the Wails v3 CLI:
 
 ```sh
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0

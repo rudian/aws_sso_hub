@@ -93,7 +93,7 @@ shasum -a 256 -c SHA256SUMS.txt --ignore-missing
 
 ## 从源码构建
 
-需要 Go 1.26 或更新版本、Node.js 26 或更新版本，以及 Wails v3 命令行工具：
+需要 Go 1.27.4 或更新版本、Node.js 26 或更新版本，以及 Wails v3 命令行工具：
 
 ```sh
 go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
