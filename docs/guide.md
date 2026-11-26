@@ -233,6 +233,8 @@ The dark theme:
 4. **Console** on a card opens the AWS console for that role.
 5. **Health check** points out long-term keys and environment variables that would bypass SSO.
 
+**Console through a proxy (macOS).** Some organizations allow AWS access only from a fixed egress IP, for example a VPN. For such a portal, choose **…** on the portal header, then **Open console through a proxy…**, and enter the HTTP proxy as `host:port` (for example `10.0.0.1:3128`). The header then shows the proxy, and **Console** opens a separate Google Chrome that sends AWS traffic through the proxy and every other site direct. When the proxy cannot be reached, AWS pages do not load: nothing goes to AWS directly instead. To use your default browser again, choose **Turn off** in the same dialog.
+
 ## 16. Troubleshooting
 
 **macOS says the app is damaged or from an unidentified developer.**
@@ -246,6 +248,9 @@ Your session ended. Choose **SSO sign-in** for that portal.
 
 **The countdown says my session ends earlier or later than it really does.**
 The session length is set by your administrator, and the app cannot read it. The app works out the real end from what AWS returns each time it renews the sign-in, so the countdown corrects itself. The first sign-in may show 8 hours until AWS reveals the end. A session of an hour or less is detected within about two minutes, as long as **Renew sign-in automatically** in Settings is on (it is by default).
+
+**The console says I am not authorized, "with an explicit deny".**
+Your organization may allow AWS only from a fixed egress IP, such as its VPN, while your default browser connects directly. Connect to the VPN and set a console proxy for that portal (see **Console through a proxy** in section 15).
 
 **"AWS CLI not found" or "too old".**
 Install AWS CLI v2 2.22 or later. If the app still cannot find it, enter the full path under Settings, tool paths.
