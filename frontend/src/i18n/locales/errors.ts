@@ -18,6 +18,7 @@ export const zh = {
   'errors.field.role': '角色名称',
   'errors.field.startUrl': '门户地址',
   'errors.field.path': '路径',
+  'errors.field.consoleProxies': '控制台代理必须写成“主机:端口”',
   'errors.E_CONFIG_CHANGED': '{file} 刚刚在应用外被修改了，请重新检查更改后再写入。',
   'errors.E_FILE_IO': '无法读写 {file}',
   'errors.E_PROFILE_NOT_FOUND': '找不到配置文件 {name}',
@@ -69,6 +70,8 @@ export const zh = {
   'errors.E_UNSUPPORTED_OS': '这个系统暂不支持',
   'errors.E_IMPORT_FORMAT': '无法读取这个文件',
   'errors.E_IMPORT_FORMAT.body': '它不是 AWS SSO Hub 导出的账号配置，或者来自更新的版本。',
+  'errors.E_CHROME_MISSING': '没有找到 Google Chrome',
+  'errors.E_CHROME_MISSING.body': '这个门户的控制台设为经代理打开，需要 Google Chrome。请把它安装到“应用程序”文件夹，或在门户菜单里关闭代理。',
 } as const
 
 export const en: { [K in keyof typeof zh]: string } = {
@@ -89,6 +92,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   'errors.field.role': 'role name',
   'errors.field.startUrl': 'portal URL',
   'errors.field.path': 'path',
+  'errors.field.consoleProxies': 'the console proxy must be host:port',
   'errors.E_CONFIG_CHANGED': '{file} changed outside the app. Review the changes again before saving.',
   'errors.E_FILE_IO': 'Can’t read or write {file}',
   'errors.E_PROFILE_NOT_FOUND': 'Profile {name} wasn’t found',
@@ -140,4 +144,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   'errors.E_UNSUPPORTED_OS': 'Not supported on this system',
   'errors.E_IMPORT_FORMAT': 'Can’t read this file',
   'errors.E_IMPORT_FORMAT.body': 'It isn’t an AWS SSO Hub accounts export, or it comes from a newer version.',
+  'errors.E_CHROME_MISSING': 'Google Chrome wasn’t found',
+  'errors.E_CHROME_MISSING.body': 'This portal’s console opens through a proxy, which needs Google Chrome. Install it in Applications, or turn the proxy off in the portal menu.',
 }

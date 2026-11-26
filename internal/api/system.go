@@ -147,9 +147,10 @@ type Settings struct {
 	AutoBindOnAdd   bool             `json:"autoBindOnAdd"`   // bind a hand-added repository to its detected SSO profile
 	PrivateSignIn   bool             `json:"privateSignIn"`   // open the sign-in page in a private browser window (default true)
 
-	CollapsedPortals []string `json:"collapsedPortals"` // portal names collapsed on the Accounts page
-	LastCloneProfile string   `json:"lastCloneProfile"` // AWS profile of the last successful clone
-	LastCloneRegion  string   `json:"lastCloneRegion"`  // region of the last successful clone
+	CollapsedPortals []string          `json:"collapsedPortals"` // portal names collapsed on the Accounts page
+	ConsoleProxies   map[string]string `json:"consoleProxies"`   // portal name -> HTTP proxy (host:port) its console opens through
+	LastCloneProfile string            `json:"lastCloneProfile"` // AWS profile of the last successful clone
+	LastCloneRegion  string            `json:"lastCloneRegion"`  // region of the last successful clone
 }
 
 // SettingsPatch: nil fields are left unchanged.
@@ -169,9 +170,10 @@ type SettingsPatch struct {
 	AutoBindOnAdd   *bool             `json:"autoBindOnAdd,omitempty"`
 	PrivateSignIn   *bool             `json:"privateSignIn,omitempty"`
 
-	CollapsedPortals []string `json:"collapsedPortals,omitempty"` // nil = unchanged; empty slice = clear
-	LastCloneProfile *string  `json:"lastCloneProfile,omitempty"`
-	LastCloneRegion  *string  `json:"lastCloneRegion,omitempty"`
+	CollapsedPortals []string          `json:"collapsedPortals,omitempty"` // nil = unchanged; empty slice = clear
+	ConsoleProxies   map[string]string `json:"consoleProxies,omitempty"`   // nil = unchanged; sets the portals named ("" = off), keeps the others
+	LastCloneProfile *string           `json:"lastCloneProfile,omitempty"`
+	LastCloneRegion  *string           `json:"lastCloneRegion,omitempty"`
 }
 
 type BackupKind string

@@ -17,6 +17,7 @@ export type DialogState =
   | { kind: 'move'; profile: string }
   | { kind: 'rename'; portal: string }
   | { kind: 'removePortal'; portal: string }
+  | { kind: 'consoleProxy'; portal: string }
   | { kind: 'export' }
   | { kind: 'import'; sample?: boolean }
 

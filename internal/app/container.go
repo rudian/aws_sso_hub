@@ -84,6 +84,9 @@ type Container struct {
 	// private opens sign-in pages in an isolated browser or a private window. nil in sandbox mode: a
 	// sandboxed app never launches a real browser. Tests may set it to a fake.
 	private signInBrowser
+	// console opens the console through a portal's proxy in Google Chrome. nil in sandbox mode, like private.
+	// Tests may set it to a fake.
+	console consoleBrowser
 	// signInWin holds the isolated browsers opened for sign-in pages, by page URL, until the sign-in ends;
 	// signInDone remembers the pages whose sign-in has ended, so a window that opens late is closed too.
 	signInMu    sync.Mutex
@@ -129,7 +132,8 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		signInWin: map[string][]signInWindow{}, signInDone: map[string]time.Time{}, signInDelay: 3 * time.Second, startedAt: time.Now()}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	if !p.Sandbox {
-		c.private = browserOpener{&browser.Opener{Home: p.Home}}
+		op := &browser.Opener{Home: p.Home}
+		c.private, c.console = browserOpener{op}, op
 	}
 	c.OnShutdown(c.closeSignInWindows)
 

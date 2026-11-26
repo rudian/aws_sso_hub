@@ -95,3 +95,26 @@ func TestConsoleSignInURLFallsBackToThePortalLink(t *testing.T) {
 		t.Fatalf("%q %v", got, err)
 	}
 }
+
+// The Console button looks up the portal of a profile to find the portal's console proxy.
+func TestProfilePortal(t *testing.T) {
+	h := newHarness(t, true)
+	cfg := string(readTestdata(t, "config.fixture")) + `
+[profile old-style]
+sso_start_url  = https://d-0000000000.awsapps.com/start
+sso_region     = us-east-1
+sso_account_id = 111122223333
+sso_role_name  = ReadOnlyAccess
+`
+	if err := os.WriteFile(h.p.AWSConfigFile, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for profile, want := range map[string]string{
+		"initech-admin": "initech", "initech-readonly": "initech", "old-style": "legacy:d-0000000000.awsapps.com/start",
+		"acme": "", "zzz": "",
+	} {
+		if got, ok := h.eng.ProfilePortal(profile); got != want || ok != (want != "") {
+			t.Errorf("%s: %q %v, want %q", profile, got, ok, want)
+		}
+	}
+}

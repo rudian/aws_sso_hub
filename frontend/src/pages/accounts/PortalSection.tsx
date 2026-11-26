@@ -15,6 +15,7 @@ import { useI18n } from '../../i18n'
 import { formatRemaining } from '../../lib/time'
 import { useNow } from '../../lib/useNow'
 import { useActions } from '../../shell/AppActions'
+import { useSettings } from '../../state/settings'
 import { Gated, useErrorToast, useSignOut } from './hooks'
 import type { DialogState } from './hooks'
 import { endIso, isSignedIn, pillState, pillText } from './model'
@@ -81,6 +82,8 @@ export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed 
   const { toast } = useActions()
   const failToast = useErrorToast()
   const signOut = useSignOut()
+  const { settings } = useSettings()
+  const proxy = settings?.consoleProxies?.[portal.name]
   const s = portal.session
   const mine = (portal.profiles ?? []).map((n) => profiles.find((p) => p.name === n)).filter((p): p is Profile => !!p)
 
@@ -95,6 +98,8 @@ export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed 
   const items = [
     { id: 'copyUrl', label: t('portal.menu.copyUrl'), onSelect: () => void copyUrl() },
     { id: 'open', label: t('portal.menu.openPortal'), onSelect: () => void Accounts.OpenPortal(portal.name).catch(failToast) },
+    // settings.json, not ~/.aws/config: stays available when the config file is read-only
+    { id: 'consoleProxy', label: t('portal.menu.consoleProxy'), onSelect: () => onDialog({ kind: 'consoleProxy', portal: portal.name }) },
     ...(portal.legacyFormat
       ? []
       : [
@@ -122,9 +127,14 @@ export function PortalSection({ portal, profiles, readOnly, onDialog, collapsed 
               </Badge>
             )}
           </h2>
-          <div className="portal__meta">
+          <div className={clsx('portal__meta', proxy && 'portal__meta--wrap')}>
             <span className="mono">{portal.startUrlHost}</span>
             <span>{portal.region}</span>
+            {proxy && (
+              <span className="portal__proxy" title={t('portal.consoleProxy.label', { proxy })}>
+                {t('portal.consoleProxy.label', { proxy })}
+              </span>
+            )}
           </div>
         </div>
         <div className="portal__tools">

@@ -26,6 +26,8 @@ var ErrInvalidURL = errors.New("browser: only absolute https URLs can be opened"
 type Opener struct {
 	GOOS string // "" = runtime.GOOS
 	Home string // "" = the user's home directory
+	// Applications is the system's applications folder searched for Google Chrome (macOS). "" = /Applications.
+	Applications string
 
 	// Output runs a program and returns its stdout. nil = execx.
 	Output func(ctx context.Context, name string, args ...string) ([]byte, error)

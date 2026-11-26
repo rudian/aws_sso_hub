@@ -1,5 +1,6 @@
 import * as SystemReal from '../../../bindings/github.com/rudian/aws_sso_hub/internal/app/systemservice'
 import { initialUI } from '../../lib/initialUI'
+import { cleanProxy } from '../../lib/proxy'
 import { BackupKind, BackupReason, ErrorCode, ProfileKind } from '../models'
 import type { BackupEntry, DiffLine, Settings } from '../models'
 import { mockEmit } from '../events'
@@ -51,6 +52,19 @@ export const mockSystemService: typeof SystemReal = {
       if (p.autoBindOnAdd != null) s.autoBindOnAdd = p.autoBindOnAdd
       if (p.privateSignIn != null) s.privateSignIn = p.privateSignIn
       if (p.collapsedPortals) s.collapsedPortals = [...p.collapsedPortals]
+      if (p.consoleProxies) {
+        const next = { ...s.consoleProxies }
+        for (const [portal, proxy] of Object.entries(p.consoleProxies)) {
+          if (!(proxy ?? '').trim()) {
+            delete next[portal]
+            continue
+          }
+          const clean = cleanProxy(proxy ?? '')
+          if (!clean) throw fail(ErrorCode.ErrInvalidInput, 'invalid console proxy', { field: 'consoleProxies' })
+          next[portal] = clean
+        }
+        s.consoleProxies = next
+      }
       if (p.lastCloneProfile != null) s.lastCloneProfile = p.lastCloneProfile
       if (p.lastCloneRegion != null) s.lastCloneRegion = p.lastCloneRegion
       mockEmit('settings:changed', deepCopy(s))

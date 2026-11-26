@@ -170,10 +170,21 @@ func (s *AccountService) OpenSignInPage(url string) (api.SignInWindow, error) {
 // with its own IAM Identity Center session (role credentials, then the AWS sign-in federation endpoint), so
 // a portal session of another user in the browser cannot get in the way. The sign-in link is a secret and
 // never reaches the frontend. Partitions without a known federation endpoint open the access portal link.
+// When the profile's portal has a console proxy (settings.consoleProxies), the console opens instead in a
+// Google Chrome instance of its own that sends the AWS traffic through that proxy (macOS only).
 func (s *AccountService) OpenConsole(ctx context.Context, profile string) error {
+	proxy := s.c.consoleProxy(profile)
+	if proxy != "" {
+		if err := s.c.checkConsoleBrowser(); err != nil {
+			return fail(err)
+		}
+	}
 	u, err := s.c.Accounts.ConsoleSignInURL(ctx, profile)
 	if err != nil {
 		return fail(err)
+	}
+	if proxy != "" {
+		return fail(s.c.openConsoleThroughProxy(ctx, u, proxy))
 	}
 	if err := s.c.RT.OpenURL(u); err != nil {
 		return api.NewError(api.ErrInternal, "cannot open the browser") // err could quote the secret link
@@ -187,9 +198,12 @@ func (s *AccountService) PreviewRenamePortal(oldName string, newName string) (ap
 	return nn(p), fail(err)
 }
 
-// RenamePortal: P1
+// RenamePortal: P1. The portal's console proxy moves to the new name.
 func (s *AccountService) RenamePortal(oldName string, newName string, baseHash string) (api.WriteResult, error) {
 	r, err := s.c.Accounts.RenamePortal(oldName, newName, baseHash)
+	if err == nil {
+		s.c.moveConsoleProxy(oldName, newName)
+	}
 	return r, fail(err)
 }
 
@@ -199,9 +213,12 @@ func (s *AccountService) PreviewRemovePortal(name string) (api.FilePreview, erro
 	return nn(p), fail(err)
 }
 
-// RemovePortal: P1
+// RemovePortal: P1. The portal's console proxy is removed with it.
 func (s *AccountService) RemovePortal(name string, baseHash string) (api.WriteResult, error) {
 	r, err := s.c.Accounts.RemovePortal(name, baseHash)
+	if err == nil {
+		s.c.moveConsoleProxy(name, "")
+	}
 	return r, fail(err)
 }
 

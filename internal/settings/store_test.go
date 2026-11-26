@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -573,5 +574,118 @@ func TestPrivateSignInOldFileIsOn(t *testing.T) {
 	o, _, err := Open(old, "/tmp/code", fixedNow)
 	if err != nil || !o.PrivateSignIn() || !o.API().PrivateSignIn {
 		t.Fatalf("old file: %v", err)
+	}
+}
+
+func TestConsoleProxiesDefaultPatchAndReload(t *testing.T) {
+	s, path, _ := open(t)
+	if a := s.API(); a.ConsoleProxies == nil || len(a.ConsoleProxies) != 0 || s.ConsoleProxy("corp") != "" {
+		t.Fatalf("default: %#v", a.ConsoleProxies)
+	}
+	const legacy = "legacy:d-1234567890.awsapps.com/start"
+	out, err := s.Update(api.SettingsPatch{ConsoleProxies: map[string]string{" corp ": " 192.0.2.10:03128 ", legacy: "Proxy.Example.com:8080"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"corp": "192.0.2.10:3128", legacy: "proxy.example.com:8080"}
+	if !reflect.DeepEqual(out.ConsoleProxies, want) || s.ConsoleProxy("corp") != "192.0.2.10:3128" || s.ConsoleProxy(legacy) != "proxy.example.com:8080" {
+		t.Fatalf("stored in canonical form: %#v", out.ConsoleProxies)
+	}
+	// no aliasing: changing the returned map changes nothing
+	out.ConsoleProxies["corp"] = "x"
+	if s.ConsoleProxy("corp") != "192.0.2.10:3128" {
+		t.Fatal("map aliased")
+	}
+	// a patch changes only the portals it names; "" (or spaces) turns a proxy off
+	out, err = s.Update(api.SettingsPatch{ConsoleProxies: map[string]string{"corp": " ", "other": "198.51.100.7:3128", "never-set": ""}})
+	want = map[string]string{legacy: "proxy.example.com:8080", "other": "198.51.100.7:3128"}
+	if err != nil || !reflect.DeepEqual(out.ConsoleProxies, want) || s.ConsoleProxy("corp") != "" {
+		t.Fatalf("%#v %v", out.ConsoleProxies, err)
+	}
+	// nil and unrelated patches keep them; a reload sees them
+	theme := api.ThemeDark
+	if out, err = s.Update(api.SettingsPatch{Theme: &theme}); err != nil || !reflect.DeepEqual(out.ConsoleProxies, want) {
+		t.Fatalf("%#v %v", out.ConsoleProxies, err)
+	}
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), `"consoleProxies": {`) || !strings.Contains(string(raw), `"other": "198.51.100.7:3128"`) {
+		t.Fatalf("file: %s", raw)
+	}
+	re, _, err := Open(path, filepath.Join(filepath.Dir(path), "code"), fixedNow)
+	if err != nil || !reflect.DeepEqual(re.API().ConsoleProxies, want) || re.ConsoleProxy("other") != "198.51.100.7:3128" {
+		t.Fatalf("reload: %#v %v", re.API().ConsoleProxies, err)
+	}
+	// turning every proxy off leaves an empty map, never null
+	if out, err = re.Update(api.SettingsPatch{ConsoleProxies: map[string]string{legacy: "", "other": ""}}); err != nil || out.ConsoleProxies == nil || len(out.ConsoleProxies) != 0 {
+		t.Fatalf("%#v %v", out.ConsoleProxies, err)
+	}
+}
+
+func TestConsoleProxiesValidation(t *testing.T) {
+	s, _, _ := open(t)
+	if _, err := s.Update(api.SettingsPatch{ConsoleProxies: map[string]string{"corp": "192.0.2.10:3128"}}); err != nil {
+		t.Fatal(err)
+	}
+	for name, p := range map[string]map[string]string{
+		"scheme":         {"corp": "http://192.0.2.10:3128"},
+		"path":           {"corp": "192.0.2.10:3128/x"},
+		"no port":        {"corp": "192.0.2.10"},
+		"port 0":         {"corp": "192.0.2.10:0"},
+		"port too big":   {"corp": "192.0.2.10:65536"},
+		"space inside":   {"corp": "192.0.2.10 :3128"},
+		"user info":      {"corp": "user@proxy.example.com:3128"},
+		"ipv6":           {"corp": "[2001:db8::1]:3128"},
+		"not an address": {"corp": "300.0.2.10:3128"},
+		"empty portal":   {" ": "192.0.2.10:3128"},
+		"long portal":    {strings.Repeat("a", 201): "192.0.2.10:3128"},
+		"control char":   {"a\nb": "192.0.2.10:3128"},
+		"one bad entry":  {"new": "198.51.100.7:3128", "corp": "nope"},
+		"bad entry, off": {"corp": "", "x": "http://198.51.100.7"},
+	} {
+		_, err := s.Update(api.SettingsPatch{ConsoleProxies: p})
+		if ae := api.AsAppError(err); ae == nil || ae.Code != api.ErrInvalidInput || ae.Params["field"] != "consoleProxies" {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if got := s.API().ConsoleProxies; !reflect.DeepEqual(got, map[string]string{"corp": "192.0.2.10:3128"}) {
+		t.Fatalf("a rejected patch must change nothing: %#v", got)
+	}
+	many := map[string]string{}
+	for i := 0; i < maxConsoleProxies; i++ {
+		many["p"+strconv.Itoa(i)] = "203.0.113.5:3128"
+	}
+	_, err := s.Update(api.SettingsPatch{ConsoleProxies: many})
+	wantInvalid(t, err, "consoleProxies")
+	delete(many, "p0")
+	if out, err := s.Update(api.SettingsPatch{ConsoleProxies: many}); err != nil || len(out.ConsoleProxies) != maxConsoleProxies {
+		t.Fatalf("%d proxies must fit: %d %v", maxConsoleProxies, len(out.ConsoleProxies), err)
+	}
+}
+
+func TestConsoleProxiesNormalizeOnLoad(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	raw := `{"consoleProxies":{" corp ":" 192.0.2.10:3128 ","scheme":"http://192.0.2.10:3128","":"192.0.2.10:3128",` +
+		`"lan":"PROXY.example.com:0080","ctl\u0001":"192.0.2.10:3128","noport":"192.0.2.10"}}`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, _, err := Open(path, filepath.Join(dir, "code"), fixedNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"corp": "192.0.2.10:3128", "lan": "proxy.example.com:80"}
+	if got := s.API().ConsoleProxies; !reflect.DeepEqual(got, want) {
+		t.Fatalf("%#v", got)
+	}
+	// a file from an older version (no key) and a null map both read as "no proxies"
+	for _, body := range []string{`{"schemaVersion":1,"firstRunDone":true}`, `{"consoleProxies":null}`} {
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		o, _, err := Open(path, filepath.Join(dir, "code"), fixedNow)
+		if err != nil || o.API().ConsoleProxies == nil || len(o.API().ConsoleProxies) != 0 || o.ConsoleProxy("corp") != "" {
+			t.Fatalf("%s: %#v %v", body, o.API().ConsoleProxies, err)
+		}
 	}
 }

@@ -62,6 +62,7 @@ const (
 	ErrSandbox             ErrorCode = "E_SANDBOX"
 	ErrUnsupportedOS       ErrorCode = "E_UNSUPPORTED_OS"
 	ErrImportFormat        ErrorCode = "E_IMPORT_FORMAT" // params: reason (not-json | format | version | size | limit)
+	ErrChromeMissing       ErrorCode = "E_CHROME_MISSING"
 )
 
 // AppError is the only error type returned by bound methods. Wails delivers its JSON to JS as error.cause.

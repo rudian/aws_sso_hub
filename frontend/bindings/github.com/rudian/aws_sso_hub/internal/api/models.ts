@@ -627,6 +627,7 @@ export enum ErrorCode {
      * params: reason (not-json | format | version | size | limit)
      */
     ErrImportFormat = "E_IMPORT_FORMAT",
+    ErrChromeMissing = "E_CHROME_MISSING",
 };
 
 /**
@@ -1639,6 +1640,11 @@ export interface Settings {
     "collapsedPortals": string[] | null;
 
     /**
+     * portal name -> HTTP proxy (host:port) its console opens through
+     */
+    "consoleProxies": { [_ in string]?: string } | null;
+
+    /**
      * AWS profile of the last successful clone
      */
     "lastCloneProfile": string;
@@ -1680,6 +1686,11 @@ export interface SettingsPatch {
      * nil = unchanged; empty slice = clear
      */
     "collapsedPortals"?: string[] | null;
+
+    /**
+     * nil = unchanged; sets the portals named ("" = off), keeps the others
+     */
+    "consoleProxies"?: { [_ in string]?: string } | null;
     "lastCloneProfile"?: string | null;
     "lastCloneRegion"?: string | null;
 }

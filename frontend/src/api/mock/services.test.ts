@@ -265,6 +265,17 @@ describe('mock services', () => {
     expect(c).toMatchObject({ collapsedPortals: [], lastCloneProfile: '', lastCloneRegion: '' })
   })
 
+  it('settings: console proxies merge per portal, are stored in canonical form and "" turns one off', async () => {
+    resetWorld('fresh')
+    expect((await call(mock.system.GetSettings())).consoleProxies).toEqual({})
+    let s = await call(mock.system.UpdateSettings({ consoleProxies: { initech: ' Proxy.Example.com:03128 ', acme: '192.0.2.10:3128' } }))
+    expect(s.consoleProxies).toEqual({ initech: 'proxy.example.com:3128', acme: '192.0.2.10:3128' })
+    s = await call(mock.system.UpdateSettings({ consoleProxies: { acme: '' } }))
+    expect(s.consoleProxies).toEqual({ initech: 'proxy.example.com:3128' })
+    expect(await code(mock.system.UpdateSettings({ consoleProxies: { initech: 'http://192.0.2.10:3128' } }))).toBe(ErrorCode.ErrInvalidInput)
+    expect((await call(mock.system.GetSettings())).consoleProxies).toEqual({ initech: 'proxy.example.com:3128' })
+  })
+
   it('restoring a redacted credentials backup needs confirmation', async () => {
     resetWorld('mid')
     const entry = (await call(mock.system.ListBackups()))!.find((b) => b.kind === 'aws-credentials')!

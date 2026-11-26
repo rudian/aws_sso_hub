@@ -18,6 +18,9 @@
 .portal__meta { min-width: 0; }
 .portal__meta .mono { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .portal__meta > :not(.mono) { flex: none; }
+/* With a console proxy the line may wrap, so the proxy moves below instead of being cut off in a narrow window. */
+.portal__meta--wrap { flex-wrap: wrap; row-gap: 2px; }
+.portal__meta > .portal__proxy { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .portal__title { display: flex; align-items: center; gap: var(--sp-2); }
 .portal__legacy { font-weight: var(--fw-medium); }
 .pass__block { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
@@ -35,6 +38,11 @@
 .pass-add:disabled { opacity: .55; cursor: not-allowed; }
 .legacy .pass__name { flex-wrap: wrap; }
 .legacy .pass--compact .skeleton { display: inline-block; vertical-align: middle; }
+
+/* ---- console proxy dialog ---- */
+.console-proxy { display: flex; flex-direction: column; gap: var(--sp-4); }
+.console-proxy__lead { margin: 0; }
+.console-proxy__off { margin-right: auto; }
 
 /* ---- colour dialog ---- */
 .color-dialog { display: flex; flex-direction: column; gap: var(--sp-5); }

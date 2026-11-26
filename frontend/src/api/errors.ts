@@ -109,4 +109,5 @@ export const errorKeys: Record<ErrorCode, { title: MessageKey; body?: MessageKey
   [ErrorCode.ErrSandbox]: e(ErrorCode.ErrSandbox),
   [ErrorCode.ErrUnsupportedOS]: e(ErrorCode.ErrUnsupportedOS),
   [ErrorCode.ErrImportFormat]: e(ErrorCode.ErrImportFormat, true),
+  [ErrorCode.ErrChromeMissing]: e(ErrorCode.ErrChromeMissing, true),
 }

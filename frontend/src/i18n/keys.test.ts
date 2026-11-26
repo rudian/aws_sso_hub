@@ -77,7 +77,7 @@ describe('E_INVALID_INPUT field labels', () => {
   })
 
   it('every documented field has a label in both languages', () => {
-    for (const f of ['dir', 'dirMissing', 'awsCliPath', 'gitPath', 'role', 'startUrl', 'path', 'remote', 'profile', 'url', 'parentDir', 'folderName', 'repoName']) {
+    for (const f of ['dir', 'dirMissing', 'awsCliPath', 'gitPath', 'role', 'startUrl', 'path', 'remote', 'profile', 'url', 'parentDir', 'folderName', 'repoName', 'consoleProxies']) {
       expect((namespaces.errors.zh as Record<string, string>)[`errors.field.${f}`], f).toBeTruthy()
       expect((namespaces.errors.en as Record<string, string>)[`errors.field.${f}`], f).toBeTruthy()
     }

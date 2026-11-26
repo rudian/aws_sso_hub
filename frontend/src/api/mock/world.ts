@@ -632,6 +632,7 @@ function baseSettings(): Settings {
     autoBindOnAdd: true,
     privateSignIn: true,
     collapsedPortals: [],
+    consoleProxies: {},
     lastCloneProfile: '',
     lastCloneRegion: '',
   }

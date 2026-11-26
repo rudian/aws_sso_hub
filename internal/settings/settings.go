@@ -17,6 +17,7 @@ import (
 
 	"github.com/rudian/aws_sso_hub/internal/api"
 	"github.com/rudian/aws_sso_hub/internal/backup"
+	"github.com/rudian/aws_sso_hub/internal/browser"
 	"github.com/rudian/aws_sso_hub/internal/execx"
 	"github.com/rudian/aws_sso_hub/internal/gitx"
 	"github.com/rudian/aws_sso_hub/internal/migrate"
@@ -32,6 +33,7 @@ const (
 	defaultLeadMinutes    = 15
 	defaultBackupRetained = 20
 	maxCollapsedPortals   = 500
+	maxConsoleProxies     = 500
 	maxLabelLen           = 200
 )
 
@@ -54,6 +56,7 @@ type data struct {
 	AutoBindOnAdd        bool                          `json:"autoBindOnAdd"`
 	PrivateSignIn        *bool                         `json:"privateSignIn,omitempty"` // nil (key absent) = true
 	CollapsedPortals     []string                      `json:"collapsedPortals"`
+	ConsoleProxies       map[string]string             `json:"consoleProxies"` // portal -> HTTP proxy (host:port) of its console
 	LastCloneProfile     string                        `json:"lastCloneProfile"`
 	LastCloneRegion      string                        `json:"lastCloneRegion"`
 	FirstRunDone         bool                          `json:"firstRunDone"`
@@ -94,6 +97,7 @@ func defaults(defaultScanRoot string) data {
 		BackupRetention:  defaultBackupRetained,
 		TutorialDone:     []string{},
 		CollapsedPortals: []string{},
+		ConsoleProxies:   map[string]string{},
 		UILanguage:       defaultUILanguage,
 		AutoBindOnAdd:    true,
 
@@ -213,6 +217,7 @@ func (s *Store) normalize() {
 		portals = portals[:maxCollapsedPortals]
 	}
 	d.CollapsedPortals = portals
+	d.ConsoleProxies = cleanConsoleProxies(d.ConsoleProxies)
 	d.LastCloneProfile = strings.TrimSpace(d.LastCloneProfile)
 	if !validLabel(d.LastCloneProfile, true) {
 		d.LastCloneProfile = ""
@@ -268,6 +273,26 @@ func validLabel(v string, allowEmpty bool) bool {
 		}
 	}
 	return true
+}
+
+// cleanConsoleProxies keeps the console proxies with a valid portal name and a valid host:port (in canonical
+// form), at most maxConsoleProxies of them, by portal name.
+func cleanConsoleProxies(in map[string]string) map[string]string {
+	names := make([]string, 0, len(in))
+	for k := range in {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	out := make(map[string]string, len(in))
+	for _, k := range names {
+		portal := strings.TrimSpace(k)
+		proxy, ok := browser.CleanProxy(in[k])
+		if !validLabel(portal, false) || !ok || len(out) == maxConsoleProxies {
+			continue
+		}
+		out[portal] = proxy
+	}
+	return out
 }
 
 func cleanAbs(in []string) []string {
@@ -353,6 +378,7 @@ func (s *Store) apiLocked() api.Settings {
 		PrivateSignIn:   d.privateSignIn(),
 
 		CollapsedPortals: append([]string{}, d.CollapsedPortals...),
+		ConsoleProxies:   copyStrings(d.ConsoleProxies),
 		LastCloneProfile: d.LastCloneProfile,
 		LastCloneRegion:  d.LastCloneRegion,
 	}
@@ -482,6 +508,28 @@ func (s *Store) Update(p api.SettingsPatch) (api.Settings, error) {
 			portals = append(portals, v)
 		}
 		next.CollapsedPortals = dedupe(portals)
+	}
+	if p.ConsoleProxies != nil {
+		proxies := copyStrings(s.d.ConsoleProxies)
+		for k, v := range p.ConsoleProxies {
+			portal := strings.TrimSpace(k)
+			if !validLabel(portal, false) {
+				return api.Settings{}, invalid("consoleProxies")
+			}
+			if strings.TrimSpace(v) == "" {
+				delete(proxies, portal)
+				continue
+			}
+			proxy, ok := browser.CleanProxy(v)
+			if !ok {
+				return api.Settings{}, invalid("consoleProxies")
+			}
+			proxies[portal] = proxy
+		}
+		if len(proxies) > maxConsoleProxies {
+			return api.Settings{}, invalid("consoleProxies")
+		}
+		next.ConsoleProxies = proxies
 	}
 	if p.LastCloneProfile != nil {
 		v := strings.TrimSpace(*p.LastCloneProfile)
@@ -782,6 +830,13 @@ func (s *Store) PrivateSignIn() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.d.privateSignIn()
+}
+
+// ConsoleProxy returns the HTTP proxy (host:port) the console of a portal opens through; "" = none.
+func (s *Store) ConsoleProxy(portal string) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.d.ConsoleProxies[portal]
 }
 
 // AutoBindOnAdd reports whether a hand-added repository is bound to its detected SSO profile.

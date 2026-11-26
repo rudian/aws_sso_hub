@@ -17,6 +17,7 @@ import { GlobalBanner } from '../../shell/GlobalBanner'
 import { useAccounts } from '../../state/accounts'
 import { AddPortalModal } from './AddPortalModal'
 import { ColorDialog } from './ColorDialog'
+import { ConsoleProxyDialog } from './ConsoleProxyDialog'
 import { ExportDialog } from './ExportDialog'
 import { Gated, useCollapsedPortals, useSignOut } from './hooks'
 import type { DialogState } from './hooks'
@@ -77,6 +78,7 @@ export function AccountsPage() {
     else if ((v = takeOpen('color:')) !== null) setDialog({ kind: 'color', profile: v })
     else if ((v = takeOpen('removeProfile:')) !== null) setDialog({ kind: 'remove', profile: v })
     else if ((v = takeOpen('move:')) !== null) setDialog({ kind: 'move', profile: v })
+    else if ((v = takeOpen('consoleProxy:')) !== null) setDialog({ kind: 'consoleProxy', portal: v })
     else if ((v = takeOpen('signOut:')) !== null) {
       const p = (state.portals ?? []).find((x) => x.name === v)
       if (p) void signOut(p)
@@ -173,6 +175,7 @@ export function AccountsPage() {
       {dialog?.kind === 'move' && profileOf(dialog.profile) && <MoveReposDialog from={profileOf(dialog.profile)!} onClose={close} />}
       {dialog?.kind === 'rename' && portalOf(dialog.portal) && <RenamePortalDialog portal={portalOf(dialog.portal)!} existing={portals.map((p) => p.name)} onClose={close} />}
       {dialog?.kind === 'removePortal' && portalOf(dialog.portal) && <RemovePortalDialog portal={portalOf(dialog.portal)!} onClose={close} />}
+      {dialog?.kind === 'consoleProxy' && portalOf(dialog.portal) && <ConsoleProxyDialog portal={portalOf(dialog.portal)!} onClose={close} />}
       {dialog?.kind === 'export' && <ExportDialog onClose={close} />}
       {dialog?.kind === 'import' && <ImportDialog autoSample={dialog.sample} onClose={close} />}
     </div>

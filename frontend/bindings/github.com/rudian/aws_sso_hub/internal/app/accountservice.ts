@@ -74,6 +74,8 @@ export function Logout(portal: string): $CancellablePromise<api$0.LogoutResult> 
  * with its own IAM Identity Center session (role credentials, then the AWS sign-in federation endpoint), so
  * a portal session of another user in the browser cannot get in the way. The sign-in link is a secret and
  * never reaches the frontend. Partitions without a known federation endpoint open the access portal link.
+ * When the profile's portal has a console proxy (settings.consoleProxies), the console opens instead in a
+ * Google Chrome instance of its own that sends the AWS traffic through that proxy (macOS only).
  */
 export function OpenConsole(profile: string): $CancellablePromise<void> {
     return $Call.ByID(3962406718, profile);
@@ -139,7 +141,7 @@ export function Reload(): $CancellablePromise<api$0.AccountsState> {
 }
 
 /**
- * RemovePortal: P1
+ * RemovePortal: P1. The portal's console proxy is removed with it.
  */
 export function RemovePortal(name: string, baseHash: string): $CancellablePromise<api$0.WriteResult> {
     return $Call.ByID(3219350339, name, baseHash);
@@ -150,7 +152,7 @@ export function RemoveProfile(name: string, baseHash: string): $CancellablePromi
 }
 
 /**
- * RenamePortal: P1
+ * RenamePortal: P1. The portal's console proxy moves to the new name.
  */
 export function RenamePortal(oldName: string, newName: string, baseHash: string): $CancellablePromise<api$0.WriteResult> {
     return $Call.ByID(4004662977, oldName, newName, baseHash);

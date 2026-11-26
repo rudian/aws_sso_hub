@@ -151,6 +151,21 @@ func (e *Engine) ConsoleURL(profile, destination string) (string, error) {
 	return sso.ShortcutURL(start, p.AccountID, p.Role, destination), nil
 }
 
+// ProfilePortal returns the portal (config portal, draft or legacy pseudo-portal) a profile belongs to. ok is
+// false for a profile of no portal (static keys), an unknown profile, or a config that cannot be read.
+func (e *Engine) ProfilePortal(profile string) (string, bool) {
+	snap, err := e.Snapshot()
+	if err != nil {
+		return "", false
+	}
+	for _, d := range e.portals(snap) {
+		if slices.Contains(d.profiles, profile) {
+			return d.name, true
+		}
+	}
+	return "", false
+}
+
 // ConsoleSignInURL returns a link that signs the browser in to the AWS console as the role of an SSO profile,
 // made from this app's own Identity Center session (role credentials, then a federation sign-in token), so the
 // browser's access-portal session, which may belong to another user, plays no part. The link is a secret:
