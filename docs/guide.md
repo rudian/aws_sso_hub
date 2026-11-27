@@ -114,6 +114,15 @@ Click the countdown to see the details:
 - **Session length** is set by your administrator in IAM Identity Center (8 hours by default). The app cannot read it. It works out when the session ends from what AWS returns each time it renews the sign-in. The first sign-in may show 8 hours until AWS reveals the end. A session of an hour or less is detected within about two minutes, as long as **Renew sign-in automatically** in Settings is on (it is by default).
 - The **access token** inside the session renews itself automatically; you never need to watch it.
 - **Quitting the app does not sign you out.** The sign-in is stored where the AWS CLI keeps it, so `git` and `aws` keep working until the session ends, even with the app closed.
+- **Several portals stay signed in side by side.** Each portal has its own sign-in and its own countdown.
+
+**Before the session ends, the sign-in page opens by itself.** 10 minutes before a portal's session ends, the app opens the sign-in page in your browser, without asking first. The browser first shows a page of the app that names the portal and the profiles this sign-in unlocks, so with several portals you know which account to sign in with. Choose **Continue to AWS sign-in** and sign in as usual: a new session of full length starts. If you don't want to sign in now, just close the window; it does not open again for this session.
+
+- It opens once AWS has shown when the session really ends, so it needs **Renew sign-in automatically** in Settings (on by default). The app must be running, in its window or in the menu bar.
+- While the page waits, the portal stays signed in: the countdown, **Console**, **Terminal** and Git keep working, and the cards show **Sign-in page open**. **SSO sign-in** on the card takes over, and **Sign out** stops it.
+- It works best with private sign-in on (the default): a browser that is still signed in to the portal gets the same session back from AWS, and nothing is extended.
+- It is not offered for portals in the legacy format (a profile with its own `sso_start_url` and no `sso-session`).
+- Change the time (10, 15, 30 or 60 minutes) or turn it off in Settings, under **Staying signed in**.
 
 **Sign out** on the portal header ends the session on this computer. It also removes the temporary role credentials the AWS CLI cached for that portal, so nothing keeps working in the background. Credentials that AWS already issued stay valid on AWS's side until they expire.
 
@@ -213,7 +222,7 @@ After importing, sign in to each portal. The other person needs their own IAM Id
 - **Scan folders:** where the app looks for repositories.
 - **When adding a repo, bind it to the detected SSO account:** the automatic binding from section 8.
 - **Accounts:** export and import.
-- Further down: sign-in reminders, tool paths for `aws` and `git`, and **Backups**. Every change the app makes is backed up first, without key values, and can be restored from here.
+- Further down: **Staying signed in** (open the sign-in page before the session ends, and how early; renew the sign-in automatically), tool paths for `aws` and `git`, and **Backups**. Every change the app makes is backed up first, without key values, and can be restored from here.
 
 The dark theme:
 
