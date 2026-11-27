@@ -12,11 +12,11 @@
         <key>CFBundleIdentifier</key>
             <string>com.rudian.awsssohub</string>
         <key>CFBundleVersion</key>
-            <string>0.0.3</string>
+            <string>0.0.4</string>
         <key>CFBundleGetInfoString</key>
             <string>AWS IAM Identity Center and CodeCommit helper</string>
         <key>CFBundleShortVersionString</key>
-            <string>0.0.3</string>
+            <string>0.0.4</string>
         <key>CFBundleIconFile</key>
             <string>icons</string>
         <key>LSMinimumSystemVersion</key>
