@@ -9,7 +9,6 @@ func init() {
 	application.RegisterEvent[api.AccountsState](api.EventAccountsChanged)
 	application.RegisterEvent[api.SessionStatus](api.EventSessionChanged)
 	application.RegisterEvent[api.SessionStatus](api.EventSessionRenewed)
-	application.RegisterEvent[api.SessionStatus](api.EventSessionReminder)
 	application.RegisterEvent[api.LoginProgress](api.EventLoginProgress)
 	application.RegisterEvent[api.MigrationProgress](api.EventMigrationProgress)
 	application.RegisterEvent[api.ReposState](api.EventReposChanged)

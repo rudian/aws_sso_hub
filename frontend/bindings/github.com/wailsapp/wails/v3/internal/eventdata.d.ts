@@ -22,7 +22,6 @@ declare module "@wailsio/runtime" {
             "repos:changed": api$0.ReposState;
             "repos:scan-progress": api$0.ScanProgress;
             "session:changed": api$0.SessionStatus;
-            "session:reminder": api$0.SessionStatus;
             "session:renewed": api$0.SessionStatus;
             "settings:changed": api$0.Settings;
         }

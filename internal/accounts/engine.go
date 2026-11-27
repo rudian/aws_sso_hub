@@ -37,8 +37,8 @@ type Store interface {
 	SetSessionRecord(portal string, r api.SessionRecord) error
 	DeleteSessionRecord(portal string) error
 	AutoRenew() bool
-	ReminderLead() time.Duration
-	ExpiryNotice() bool
+	AutoSignIn() bool
+	SignInLead() time.Duration
 }
 
 // RepoStats is implemented by the repo side (wired in internal/app).
@@ -91,8 +91,9 @@ type Engine struct {
 	stats       RepoStats
 	lastSig     map[string]string
 	lastRenewal map[string]time.Time
-	reminded    map[string]string
-	probes      map[string]string // portal -> LoginAt of the sign-in whose check renewal is pending (see probeDelay)
+	probes      map[string]string   // portal -> LoginAt of the sign-in whose check renewal is pending (see probeDelay)
+	autos       map[string]*autoRun // portal -> the sign-in the app opened by itself, while it waits
+	autoDone    map[string]autoMark // portal -> the sign-in and session end it last opened the sign-in page for
 }
 
 func New(d Deps) *Engine {
@@ -106,7 +107,8 @@ func New(d Deps) *Engine {
 		d.OnWrite = func(string, []byte) {}
 	}
 	return &Engine{d: d, drafts: map[string]awsconfig.Session{}, migrating: map[string]bool{}, identified: map[string]bool{},
-		lastSig: map[string]string{}, lastRenewal: map[string]time.Time{}, reminded: map[string]string{}, probes: map[string]string{}}
+		lastSig: map[string]string{}, lastRenewal: map[string]time.Time{}, probes: map[string]string{}, autos: map[string]*autoRun{},
+		autoDone: map[string]autoMark{}}
 }
 
 // LockWrites runs fn while no other config write of this engine is in progress.

@@ -163,6 +163,13 @@ export function PassCard({ profile, portal, readOnly, onDialog }: PassCardProps)
             {state === 'error' && session.error && <ErrorDetails error={session.error} />}
           </div>
         )}
+        {session.signInWaiting && (
+          <div className="pass__waiting">
+            <Badge kind="info" icon={ExternalLink}>
+              {t('card.signInWaiting')}
+            </Badge>
+          </div>
+        )}
         {shared && (
           <span className="pass__shared" title={shared}>
             <LinkIcon aria-hidden="true" />

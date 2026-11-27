@@ -47,13 +47,13 @@ func isolatedArgs(kind browserKind, dir, rawURL string) []string {
 		"--disable-search-engine-choice-screen", kind.flag, rawURL}
 }
 
-// OpenIsolated opens rawURL in a private window of a new instance of the default browser that uses dir, an
-// empty directory, as its profile. (nil, nil): the default browser cannot be started this way (only Chrome,
-// Edge, Brave and Chromium are), its private mode is turned off by policy, a UserDataDir policy would put it
-// on another profile anyway, or the system is not supported; nothing was launched and the caller falls back
-// to OpenPrivate.
+// OpenIsolated opens rawURL (an https URL or a sign-in intro page) in a private window of a new instance of the
+// default browser that uses dir, an empty directory, as its profile. (nil, nil): the default browser cannot be
+// started this way (only Chrome, Edge, Brave and Chromium are), its private mode is turned off by policy, a
+// UserDataDir policy would put it on another profile anyway, or the system is not supported; nothing was
+// launched and the caller falls back to OpenPrivate.
 func (o *Opener) OpenIsolated(ctx context.Context, rawURL, dir string) (*Isolated, error) {
-	if err := CheckURL(rawURL); err != nil {
+	if err := checkSignInPage(rawURL); err != nil {
 		return nil, err
 	}
 	goos := o.goos()

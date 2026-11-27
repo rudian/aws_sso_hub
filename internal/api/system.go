@@ -121,9 +121,9 @@ const (
 )
 
 type ReminderSettings struct {
-	ExpiryNotice bool `json:"expiryNotice"`
-	LeadMinutes  int  `json:"leadMinutes"` // 15 | 30 | 60
-	AutoRenew    bool `json:"autoRenew"`
+	AutoSignIn  bool `json:"autoSignIn"`  // open the sign-in page by itself before a session ends
+	LeadMinutes int  `json:"leadMinutes"` // 10 | 15 | 30 | 60: how long before the end
+	AutoRenew   bool `json:"autoRenew"`
 }
 
 type TraySettings struct {

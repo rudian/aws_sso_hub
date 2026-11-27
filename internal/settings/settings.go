@@ -30,7 +30,7 @@ const (
 	maxSessionMinutes     = 129600
 	maxRepoTests          = 1000
 	defaultUILanguage     = "zh-CN"
-	defaultLeadMinutes    = 15
+	defaultLeadMinutes    = 10
 	defaultBackupRetained = 20
 	maxCollapsedPortals   = 500
 	maxConsoleProxies     = 500
@@ -92,7 +92,7 @@ func defaults(defaultScanRoot string) data {
 		Motion:           api.MotionSystem,
 		ScanRoots:        []string{defaultScanRoot},
 		ExtraRepos:       []string{},
-		Reminders:        api.ReminderSettings{ExpiryNotice: true, LeadMinutes: defaultLeadMinutes, AutoRenew: true},
+		Reminders:        api.ReminderSettings{AutoSignIn: true, LeadMinutes: defaultLeadMinutes, AutoRenew: true},
 		TerminalApp:      api.TerminalAuto,
 		BackupRetention:  defaultBackupRetained,
 		TutorialDone:     []string{},
@@ -129,6 +129,7 @@ func Open(path string, defaultScanRoot string, now func() time.Time) (s *Store, 
 			return s, true, nil
 		}
 		s.d = loaded
+		s.migrateReminders(b)
 		s.normalize()
 	case os.IsNotExist(rerr):
 		// first run; nothing is written yet
@@ -136,6 +137,22 @@ func Open(path string, defaultScanRoot string, now func() time.Time) (s *Store, 
 		return nil, false, api.NewError(api.ErrFileIO, "cannot read the settings file").WithParam("file", filepath.Base(path)).WithDetail(rerr.Error())
 	}
 	return s, !s.d.FirstRunDone, nil
+}
+
+// migrateReminders carries the reminder switch of a file written before automatic sign-in existed over to
+// it. That switch ("expiryNotice") was for a reminder that never appeared, so the lead goes to the new default.
+func (s *Store) migrateReminders(b []byte) {
+	var old struct {
+		Reminders struct {
+			ExpiryNotice *bool `json:"expiryNotice"`
+			AutoSignIn   *bool `json:"autoSignIn"`
+		} `json:"reminders"`
+	}
+	if json.Unmarshal(b, &old) != nil || old.Reminders.AutoSignIn != nil || old.Reminders.ExpiryNotice == nil {
+		return
+	}
+	s.d.Reminders.AutoSignIn = *old.Reminders.ExpiryNotice
+	s.d.Reminders.LeadMinutes = defaultLeadMinutes
 }
 
 func validLanguage(v api.Language) bool {
@@ -154,7 +171,7 @@ func validTerminal(v api.TerminalApp) bool {
 	}
 	return false
 }
-func validLead(n int) bool      { return n == 15 || n == 30 || n == 60 }
+func validLead(n int) bool      { return n == 10 || n == 15 || n == 30 || n == 60 }
 func validRetention(n int) bool { return n == 0 || n == 20 || n == 50 }
 func validUILang(v string) bool { return v == "zh-CN" || v == "en" }
 
@@ -728,12 +745,16 @@ func (s *Store) DeleteSessionRecord(portal string) error {
 }
 
 func (s *Store) AutoRenew() bool { s.mu.Lock(); defer s.mu.Unlock(); return s.d.Reminders.AutoRenew }
-func (s *Store) ExpiryNotice() bool {
+
+// AutoSignIn reports whether the app opens the sign-in page by itself before a session ends.
+func (s *Store) AutoSignIn() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.d.Reminders.ExpiryNotice
+	return s.d.Reminders.AutoSignIn
 }
-func (s *Store) ReminderLead() time.Duration {
+
+// SignInLead is how long before a session ends the app opens the sign-in page.
+func (s *Store) SignInLead() time.Duration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return time.Duration(s.d.Reminders.LeadMinutes) * time.Minute

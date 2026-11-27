@@ -162,6 +162,7 @@ func NewContainer(p paths.Paths, rt Runtime, o ContainerOptions) (*Container, er
 		Endpoints:        sso.Endpoints{OIDC: o.Endpoints.OIDC, Portal: o.Endpoints.Portal},
 		OpenBrowser:      rt.OpenURL,
 		OpenSignIn:       c.openSignIn,
+		OpenIntro:        c.openIntro,
 		SignInEnded:      c.signInEnded,
 		Lang:             st.UILanguage,
 		Now:              o.Now,
@@ -468,6 +469,21 @@ func (c *Container) openSignIn(raw string) (api.SignInWindow, error) {
 	if err := checkOpenable(raw, c.Paths.Sandbox); err != nil {
 		return api.SignInWindow{}, err
 	}
+	return c.openPage(raw)
+}
+
+// openIntro opens the intro page of a sign-in the app started by itself, with the same window rules as
+// openSignIn. internal/sso calls it with the page that sign-in serves on the IPv4 loopback address; nothing else
+// is accepted, and the frontend cannot reach it.
+func (c *Container) openIntro(raw string) (api.SignInWindow, error) {
+	if err := browser.CheckIntroURL(raw); err != nil {
+		return api.SignInWindow{}, api.NewError(api.ErrInvalidInput, "not a sign-in intro page").WithParam("field", "url")
+	}
+	return c.openPage(raw)
+}
+
+// openPage opens a sign-in page that has been checked (see openSignIn).
+func (c *Container) openPage(raw string) (api.SignInWindow, error) {
 	if c.private != nil && !c.Paths.Sandbox && c.Settings.PrivateSignIn() {
 		ctx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
 		defer cancel()

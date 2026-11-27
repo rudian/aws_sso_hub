@@ -5,10 +5,12 @@ package ssotest
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -200,6 +202,44 @@ func Browser() func(string) error {
 			if err == nil {
 				io.Copy(io.Discard, resp.Body)
 				resp.Body.Close()
+			}
+		}()
+		return nil
+	}
+}
+
+// introButtonRE finds the link of the intro page's button.
+var introButtonRE = regexp.MustCompile(`class="btn" href="([^"]+)"`)
+
+// IntroBrowser simulates the user's browser for a sign-in with an intro page: it loads the page, hands its HTML
+// to seen (when not nil), then follows the page's button to the authorize URL, whose redirect it calls with a
+// code, as Browser does.
+func IntroBrowser(seen func(page string)) func(string) error {
+	return func(u string) error {
+		go func() {
+			time.Sleep(20 * time.Millisecond)
+			resp, err := http.Get(u)
+			if err != nil {
+				return
+			}
+			b, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if seen != nil {
+				seen(string(b))
+			}
+			m := introButtonRE.FindSubmatch(b)
+			if m == nil {
+				return
+			}
+			au, err := url.Parse(html.UnescapeString(string(m[1])))
+			if err != nil {
+				return
+			}
+			q := au.Query()
+			r2, err := http.Get(q.Get("redirect_uri") + "?code=THECODE&state=" + url.QueryEscape(q.Get("state")))
+			if err == nil {
+				io.Copy(io.Discard, r2.Body)
+				r2.Body.Close()
 			}
 		}()
 		return nil

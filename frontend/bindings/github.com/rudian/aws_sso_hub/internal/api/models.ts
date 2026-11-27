@@ -1379,10 +1379,13 @@ export enum ProgressStatus {
 };
 
 export interface ReminderSettings {
-    "expiryNotice": boolean;
+    /**
+     * open the sign-in page by itself before a session ends
+     */
+    "autoSignIn": boolean;
 
     /**
-     * 15 | 30 | 60
+     * 10 | 15 | 30 | 60: how long before the end
      */
     "leadMinutes": number;
     "autoRenew": boolean;
@@ -1588,6 +1591,12 @@ export interface SessionStatus {
      * set when State == error, or the last refresh hit a network error
      */
     "error"?: AppError | null;
+
+    /**
+     * SignInWaiting: the app opened the sign-in page by itself because the session ends soon, and it is
+     * waiting for the user there. State stays that of the current sign-in, which keeps working meanwhile.
+     */
+    "signInWaiting": boolean;
 }
 
 export interface Settings {

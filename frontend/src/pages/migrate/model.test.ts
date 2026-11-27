@@ -13,7 +13,7 @@ const portal = (name: string, over: Partial<Portal> = {}): Portal => ({
   legacyFormat: false,
   draft: false,
   profiles: [],
-  session: { portal: name, state: 'active' as never, sessionKnown: false, sessionEndExact: false, sessionMinutes: 480, sessionOverrun: false, progressPct: 0, canRefresh: false, refreshing: false },
+  session: { portal: name, state: 'active' as never, sessionKnown: false, sessionEndExact: false, sessionMinutes: 480, sessionOverrun: false, progressPct: 0, canRefresh: false, refreshing: false, signInWaiting: false },
   ...over,
 })
 const profile = (name: string, kind: ProfileKind, over: Partial<Profile> = {}): Profile => ({

@@ -86,21 +86,35 @@ func ShortcutURL(startURL, accountID, role, destination string) string {
 	return u
 }
 
-// CallbackPage renders the self-contained browser page shown after the redirect (no JS, no external URLs).
-func CallbackPage(lang string, ok bool, errorValue string) []byte {
+// CallbackPage renders the self-contained browser page shown after the redirect (no JS, no external URLs). It
+// names the portal when portal is not empty.
+func CallbackPage(lang, portal string, ok bool, errorValue string) []byte {
 	zh := lang == "zh-CN"
+	name := html.EscapeString(portal)
 	title, heading, body, htmlLang := "AWS SSO Hub", "", "", "en"
 	switch {
 	case zh && ok:
 		title, htmlLang = "AWS SSO Hub", "zh-CN"
 		heading, body = "登录成功", "AWS SSO Hub 已经收到授权，可以关闭这个页面，回到应用继续。"
+		if name != "" {
+			heading = "已登录 " + name
+		}
 	case zh:
 		title, htmlLang = "AWS SSO Hub", "zh-CN"
 		heading, body = "登录没有完成", "浏览器返回了："+html.EscapeString(errorValue)+"。回到 AWS SSO Hub 重试即可。"
+		if name != "" {
+			heading = name + " 登录没有完成"
+		}
 	case ok:
 		heading, body = "You're signed in", "AWS SSO Hub received the authorization. You can close this tab and go back to the app."
+		if name != "" {
+			heading = "Signed in to " + name
+		}
 	default:
 		heading, body = "Sign-in didn't finish", "The browser returned: "+html.EscapeString(errorValue)+". Go back to AWS SSO Hub and try again."
+		if name != "" {
+			heading = "Sign-in to " + name + " didn't finish"
+		}
 	}
 	colour := "#1a7f4b"
 	if !ok {
@@ -119,7 +133,7 @@ body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   background: Canvas; color: CanvasText; }
 main { max-width: 28rem; padding: 2rem; text-align: center; }
-h1 { font-size: 1.5rem; margin: 0 0 .75rem; color: ` + colour + `; }
+h1 { font-size: 1.5rem; margin: 0 0 .75rem; color: ` + colour + `; overflow-wrap: anywhere; }
 p { margin: 0; line-height: 1.6; opacity: .85; }
 </style>
 </head>

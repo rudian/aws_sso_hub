@@ -45,6 +45,9 @@ type SessionStatus struct {
 	CanRefresh      bool         `json:"canRefresh"`
 	Refreshing      bool         `json:"refreshing"`
 	Error           *AppError    `json:"error,omitempty"` // set when State == error, or the last refresh hit a network error
+	// SignInWaiting: the app opened the sign-in page by itself because the session ends soon, and it is
+	// waiting for the user there. State stays that of the current sign-in, which keeps working meanwhile.
+	SignInWaiting bool `json:"signInWaiting"`
 }
 
 // SessionRecord is the per-portal record kept in settings.json under "sessions". Never contains secrets.

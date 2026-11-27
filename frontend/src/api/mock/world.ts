@@ -264,6 +264,7 @@ export function computeSession(portal: string, m: SessionModel, at: number = now
     progressPct,
     canRefresh: m.canRefresh && m.file === 'present',
     refreshing: m.refreshing,
+    signInWaiting: false, // the mock never opens the sign-in page by itself
   }
   if (m.file !== 'missing' && m.tokenExpiresAt !== undefined) s.expiresAt = iso(m.tokenExpiresAt)
   if (m.issuedAt !== undefined && m.file === 'present') s.issuedAt = iso(m.issuedAt)
@@ -621,7 +622,7 @@ function baseSettings(): Settings {
     theme: initialUI.theme === 'dark' ? Theme.ThemeDark : initialUI.theme === 'light' ? Theme.ThemeLight : Theme.ThemeSystem,
     motion: MotionPref.MotionSystem,
     scanRoots: [SCAN_ROOT],
-    reminders: { expiryNotice: true, leadMinutes: 15, autoRenew: true },
+    reminders: { autoSignIn: true, leadMinutes: 10, autoRenew: true },
     tray: { enabled: false, keepRunning: false },
     terminalApp: TerminalApp.TerminalAuto,
     backupRetention: 20,

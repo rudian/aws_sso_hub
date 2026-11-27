@@ -36,7 +36,7 @@ export const mockSystemService: typeof SystemReal = {
       if (p.motion != null) s.motion = p.motion
       if (p.scanRoots) s.scanRoots = [...p.scanRoots]
       if (p.reminders) {
-        if (![15, 30, 60].includes(p.reminders.leadMinutes)) throw fail(ErrorCode.ErrInvalidInput, 'lead minutes must be 15, 30 or 60', { field: 'reminders.leadMinutes' })
+        if (![10, 15, 30, 60].includes(p.reminders.leadMinutes)) throw fail(ErrorCode.ErrInvalidInput, 'lead minutes must be 10, 15, 30 or 60', { field: 'reminders.leadMinutes' })
         s.reminders = { ...p.reminders }
       }
       if (p.tray) s.tray = { ...p.tray }

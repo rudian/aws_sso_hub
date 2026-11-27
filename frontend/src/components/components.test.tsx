@@ -47,6 +47,7 @@ function session(over: Partial<SessionStatus> = {}): SessionStatus {
     progressPct: 78,
     canRefresh: true,
     refreshing: false,
+    signInWaiting: false,
     ...over,
   }
 }

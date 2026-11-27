@@ -5,7 +5,6 @@ const (
 	EventAccountsChanged   = "accounts:changed"      // AccountsState
 	EventSessionChanged    = "session:changed"       // SessionStatus
 	EventSessionRenewed    = "session:renewed"       // SessionStatus
-	EventSessionReminder   = "session:reminder"      // SessionStatus
 	EventLoginProgress     = "login:progress"        // LoginProgress
 	EventMigrationProgress = "migration:progress"    // MigrationProgress
 	EventReposChanged      = "repos:changed"         // ReposState

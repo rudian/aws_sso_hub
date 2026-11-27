@@ -42,6 +42,10 @@ type Config struct {
 	// OpenSignIn, when set, opens the sign-in page instead of OpenBrowser and reports how (private window,
 	// isolated browser).
 	OpenSignIn func(url string) (api.SignInWindow, error)
+	// OpenIntro, when set, opens the intro page of a sign-in that has one (LoginOptions.Intro): the app's own
+	// page on the IPv4 loopback address, served by that sign-in, that comes before AWS's sign-in page. Unset,
+	// such a sign-in opens AWS's page directly.
+	OpenIntro func(url string) (api.SignInWindow, error)
 	// SignInEnded, when set, is called when an interactive sign-in ends, with every sign-in page URL it
 	// offered (authorize URL, device pages) and whether it succeeded, so that windows opened for them can be
 	// closed.
@@ -60,6 +64,9 @@ type Status struct {
 	Refreshing   bool
 	Err          *api.AppError
 	ClientIDHash string
+	// Waiting: a sign-in that the app started by itself is waiting in the browser. It does not change State:
+	// the current sign-in keeps working meanwhile.
+	Waiting bool
 }
 
 type Account struct{ ID, Name, Email string }
@@ -72,6 +79,7 @@ type Manager struct {
 	mu         sync.Mutex
 	locks      map[string]*sync.Mutex
 	logging    map[string]bool
+	background map[string]bool // running sign-ins that the app started by itself (LoginOptions.Background)
 	failed     map[string]time.Time
 	netErr     map[string]*api.AppError
 	refreshing map[string]bool
@@ -79,7 +87,7 @@ type Manager struct {
 }
 
 func NewManager(cfg Config) *Manager {
-	return &Manager{cfg: cfg, locks: map[string]*sync.Mutex{}, logging: map[string]bool{}, failed: map[string]time.Time{},
+	return &Manager{cfg: cfg, locks: map[string]*sync.Mutex{}, logging: map[string]bool{}, background: map[string]bool{}, failed: map[string]time.Time{},
 		netErr: map[string]*api.AppError{}, refreshing: map[string]bool{}, roleCreds: map[string]aws.Credentials{}}
 }
 
@@ -155,11 +163,11 @@ func (m *Manager) LoggingIn(s Session) bool {
 func (m *Manager) Status(s Session) Status {
 	key := keyOf(s)
 	m.mu.Lock()
-	logging, refreshing, netErr, failedAt := m.logging[key], m.refreshing[key], m.netErr[key], m.failed[key]
+	logging, background, refreshing, netErr, failedAt := m.logging[key], m.background[key], m.refreshing[key], m.netErr[key], m.failed[key]
 	m.mu.Unlock()
 
 	t, err := ReadToken(m.tokenDir(), key)
-	st := Status{Refreshing: refreshing}
+	st := Status{Refreshing: refreshing, Waiting: background}
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		st.State = api.SessionSignedOut
@@ -187,7 +195,7 @@ func (m *Manager) Status(s Session) Status {
 		}
 		st.Err = netErr
 	}
-	if logging {
+	if logging && !background {
 		st.State = api.SessionSigningIn
 	}
 	return st

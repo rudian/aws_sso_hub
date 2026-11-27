@@ -11,7 +11,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,11 +161,38 @@ func CheckURL(raw string) error {
 	return nil
 }
 
-// OpenPrivate opens rawURL in a private window of the default browser. (true, nil): opened privately.
+// introURLRE matches a sign-in intro page: the app's own page that a sign-in it started by itself serves on the
+// IPv4 loopback address before AWS's sign-in page (internal/sso: IntroPathPrefix plus 32 hex digits).
+var introURLRE = regexp.MustCompile(`^http://127\.0\.0\.1:([1-9][0-9]{0,4})/start/[0-9a-f]{32}$`)
+
+// CheckIntroURL accepts only a sign-in intro page: http on the IPv4 loopback literal 127.0.0.1 with a port, the
+// path /start/ followed by 32 lower-case hex digits, and nothing else (no user info, query or fragment).
+func CheckIntroURL(raw string) error {
+	m := introURLRE.FindStringSubmatch(raw)
+	if m == nil {
+		return ErrInvalidURL
+	}
+	if port, err := strconv.Atoi(m[1]); err != nil || port > 65535 {
+		return ErrInvalidURL
+	}
+	return nil
+}
+
+// checkSignInPage accepts what a sign-in window opens: an https URL (CheckURL) or a sign-in intro page
+// (CheckIntroURL).
+func checkSignInPage(raw string) error {
+	if CheckURL(raw) == nil || CheckIntroURL(raw) == nil {
+		return nil
+	}
+	return ErrInvalidURL
+}
+
+// OpenPrivate opens rawURL (an https URL or a sign-in intro page) in a private window of the default browser.
+// (true, nil): opened privately.
 // (false, nil): the default browser has no private-window switch (or the system is not supported); nothing
 // was launched and the caller falls back. (false, err): detection or launch failed; the caller falls back.
 func (o *Opener) OpenPrivate(ctx context.Context, rawURL string) (bool, error) {
-	if err := CheckURL(rawURL); err != nil {
+	if err := checkSignInPage(rawURL); err != nil {
 		return false, err
 	}
 	if ctx == nil {

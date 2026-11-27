@@ -28,13 +28,13 @@ type fakeStore struct {
 	sessions   map[string]api.SessionRecord
 	autoRenew  bool
 	lead       time.Duration
-	notice     bool
+	autoSignIn bool // off unless a test turns it on: other tests must not open sign-in pages by themselves
 	colorSets  int
 }
 
 func newFakeStore() *fakeStore {
 	return &fakeStore{colors: map[string]int{}, monograms: map[string]string{}, names: map[string]string{},
-		identities: map[string]api.StaticIdentity{}, sessions: map[string]api.SessionRecord{}, autoRenew: true, lead: 15 * time.Minute, notice: true}
+		identities: map[string]api.StaticIdentity{}, sessions: map[string]api.SessionRecord{}, autoRenew: true, lead: 10 * time.Minute}
 }
 
 func (s *fakeStore) AccountColors() map[string]int {
@@ -122,9 +122,17 @@ func (s *fakeStore) DeleteSessionRecord(p string) error {
 	delete(s.sessions, p)
 	return nil
 }
-func (s *fakeStore) AutoRenew() bool             { return s.autoRenew }
-func (s *fakeStore) ReminderLead() time.Duration { return s.lead }
-func (s *fakeStore) ExpiryNotice() bool          { return s.notice }
+func (s *fakeStore) AutoRenew() bool { return s.autoRenew }
+func (s *fakeStore) AutoSignIn() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.autoSignIn
+}
+func (s *fakeStore) SignInLead() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lead
+}
 
 type event struct {
 	name string
@@ -149,6 +157,10 @@ type harness struct {
 	now    time.Time
 	events []event
 	writes []string
+	// openIntro opens the intro page of a sign-in the app started by itself; nil = ssotest.IntroBrowser, which
+	// signs in. intros are the intro pages that browser saw.
+	openIntro func(string) error
+	intros    []string
 }
 
 func (h *harness) clock() time.Time { h.mu.Lock(); defer h.mu.Unlock(); return h.now }
@@ -208,6 +220,19 @@ func newHarness(t *testing.T, withFixtures bool) *harness {
 		OpenBrowser: ssotest.Browser(), Lang: func() string { return "en" }, Now: h.clock,
 		OpenSignIn: func(u string) (api.SignInWindow, error) {
 			return api.SignInWindow{Private: h.isolated, Isolated: h.isolated}, ssotest.Browser()(u)
+		},
+		OpenIntro: func(u string) (api.SignInWindow, error) {
+			h.mu.Lock()
+			open := h.openIntro
+			h.mu.Unlock()
+			if open == nil {
+				open = ssotest.IntroBrowser(func(page string) {
+					h.mu.Lock()
+					h.intros = append(h.intros, page)
+					h.mu.Unlock()
+				})
+			}
+			return api.SignInWindow{Private: h.isolated, Isolated: h.isolated}, open(u)
 		},
 	})
 	bk, err := backup.Open(p.BackupDir, func() int { return 20 }, h.clock)

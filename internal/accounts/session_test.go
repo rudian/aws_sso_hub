@@ -494,41 +494,6 @@ func TestTickEmitsOnSessionCrossing15Min(t *testing.T) {
 	}
 }
 
-func TestTickReminder(t *testing.T) {
-	h := newHarness(t, true)
-	h.store.autoRenew = false
-	h.writeToken(10*time.Minute, "CID-a")
-	h.setRecord(8*time.Hour-10*time.Minute, "CID-a", 480)
-	h.setEnd(10 * time.Minute)
-	h.eng.Tick(bg)
-	h.eng.Tick(bg)
-	if n := len(h.emitted(api.EventSessionReminder)); n != 1 {
-		t.Fatalf("reminder once per login: %d", n)
-	}
-	// unknown session: token cannot be renewed and ends within the lead time
-	h2 := newHarness(t, true)
-	h2.writeToken(10*time.Minute, "CLI")
-	cur, _ := sso.ReadToken(sso.TokenCacheDir(h2.p.Home), sso.TokenCacheKey("initech", ""))
-	cur.RefreshToken = ""
-	sso.WriteToken(sso.TokenCacheDir(h2.p.Home), sso.TokenCacheKey("initech", ""), cur)
-	h2.eng.Tick(bg)
-	h2.eng.Tick(bg)
-	if n := len(h2.emitted(api.EventSessionReminder)); n != 1 {
-		t.Fatalf("%d", n)
-	}
-	// notice disabled
-	h3 := newHarness(t, true)
-	h3.store.notice = false
-	h3.store.autoRenew = false
-	h3.writeToken(10*time.Minute, "CID-a")
-	h3.setRecord(8*time.Hour-10*time.Minute, "CID-a", 480)
-	h3.setEnd(10 * time.Minute)
-	h3.eng.Tick(bg)
-	if len(h3.emitted(api.EventSessionReminder)) != 0 {
-		t.Fatal("expiry notice disabled")
-	}
-}
-
 func TestRenamePortalMovesToken(t *testing.T) {
 	h := newHarness(t, true)
 	h.login()

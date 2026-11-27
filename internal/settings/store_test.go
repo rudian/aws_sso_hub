@@ -63,7 +63,7 @@ func TestDefaultsFirstRun(t *testing.T) {
 	if len(a.ScanRoots) != 1 || !strings.HasSuffix(a.ScanRoots[0], "code") {
 		t.Fatalf("scanRoots %v", a.ScanRoots)
 	}
-	if !a.Reminders.ExpiryNotice || !a.Reminders.AutoRenew || a.Reminders.LeadMinutes != 15 {
+	if !a.Reminders.AutoSignIn || !a.Reminders.AutoRenew || a.Reminders.LeadMinutes != 10 {
 		t.Fatalf("reminders %+v", a.Reminders)
 	}
 	if a.Tray.Enabled || a.BackupRetention != 20 || a.TerminalApp != api.TerminalAuto {
@@ -130,7 +130,7 @@ func TestInvalidValuesReplacedOnLoad(t *testing.T) {
 	if a.Theme != api.ThemeSystem || a.Language != api.LanguageSystem || a.TerminalApp != api.TerminalAuto {
 		t.Fatalf("%+v", a)
 	}
-	if a.Reminders.LeadMinutes != 15 || a.Reminders.ExpiryNotice || a.BackupRetention != 20 {
+	if a.Reminders.LeadMinutes != 10 || a.Reminders.AutoSignIn || a.BackupRetention != 20 {
 		t.Fatalf("%+v", a)
 	}
 	if len(a.ScanRoots) != 1 || a.ScanRoots[0] != "/default/root" {
@@ -687,5 +687,49 @@ func TestConsoleProxiesNormalizeOnLoad(t *testing.T) {
 		if err != nil || o.API().ConsoleProxies == nil || len(o.API().ConsoleProxies) != 0 || o.ConsoleProxy("corp") != "" {
 			t.Fatalf("%s: %#v %v", body, o.API().ConsoleProxies, err)
 		}
+	}
+}
+
+func TestReminderSwitchBecomesAutoSignIn(t *testing.T) {
+	for _, c := range []struct {
+		name, reminders string
+		on              bool
+		lead            int
+	}{
+		{"old switch on", `{"expiryNotice":true,"leadMinutes":30,"autoRenew":true}`, true, 10},
+		{"old switch off", `{"expiryNotice":false,"leadMinutes":60,"autoRenew":true}`, false, 10},
+		{"new settings stay", `{"autoSignIn":false,"leadMinutes":30,"autoRenew":true}`, false, 30},
+		{"new settings with a stray old key", `{"autoSignIn":true,"expiryNotice":false,"leadMinutes":15,"autoRenew":true}`, true, 15},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			if err := os.WriteFile(path, []byte(`{"schemaVersion":1,"reminders":`+c.reminders+`}`), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			s, _, err := Open(path, "/default/root", fixedNow)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r := s.API().Reminders; r.AutoSignIn != c.on || r.LeadMinutes != c.lead || !r.AutoRenew || s.AutoSignIn() != c.on ||
+				s.SignInLead() != time.Duration(c.lead)*time.Minute {
+				t.Fatalf("%+v", r)
+			}
+		})
+	}
+}
+
+func TestSignInLeadValues(t *testing.T) {
+	s, _, err := Open(filepath.Join(t.TempDir(), "settings.json"), "/default/root", fixedNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []int{10, 15, 30, 60} {
+		if _, err := s.Update(api.SettingsPatch{Reminders: &api.ReminderSettings{AutoSignIn: true, LeadMinutes: n, AutoRenew: true}}); err != nil {
+			t.Fatalf("%d: %v", n, err)
+		}
+	}
+	for _, n := range []int{0, 5, 20, 45, 90} {
+		_, err := s.Update(api.SettingsPatch{Reminders: &api.ReminderSettings{AutoSignIn: true, LeadMinutes: n, AutoRenew: true}})
+		wantInvalid(t, err, "reminders.leadMinutes")
 	}
 }

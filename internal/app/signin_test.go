@@ -211,3 +211,55 @@ func TestIsolatedSignInWindows(t *testing.T) {
 		t.Fatal("shutdown must close sign-in windows")
 	}
 }
+
+func TestOpenIntroPage(t *testing.T) {
+	const intro = "http://127.0.0.1:53682/start/0123456789abcdef0123456789abcdef"
+	w := newWorld(t)
+	w.c.Paths.Sandbox = false
+	fake := &fakePrivate{private: true, isolated: true}
+	w.c.private = fake
+	w.c.signInDelay = 10 * time.Millisecond
+
+	got, err := w.c.openIntro(intro)
+	if err != nil || !got.Isolated || len(fake.windows) != 1 || fake.windows[0].url != intro {
+		t.Fatalf("%+v %v", got, err)
+	}
+	w.c.signInEnded([]string{intro, "https://oidc.us-west-2.amazonaws.com/authorize?x=1"}, true)
+	waitFor(t, fake.windows[0].isClosed)
+
+	for _, u := range []string{signInURL, "http://127.0.0.1:9/x", "http://localhost:53682/start/0123456789abcdef0123456789abcdef", ""} {
+		if _, err := w.c.openIntro(u); api.AsAppError(err).Code != api.ErrInvalidInput {
+			t.Errorf("%q: %v", u, err)
+		}
+	}
+	if _, err := NewAccountService(w.c).OpenSignInPage(intro); api.AsAppError(err).Code != api.ErrInvalidInput {
+		t.Fatalf("the frontend must not open an intro page: %v", err)
+	}
+	if len(fake.windows) != 1 || len(w.c.RT.(*fakeRuntime).urls) != 0 {
+		t.Fatalf("rejected pages were opened: %v", fake.windows)
+	}
+}
+
+func TestIntroPageOpensTheNormalWayToo(t *testing.T) {
+	const intro = "http://127.0.0.1:53682/start/0123456789abcdef0123456789abcdef"
+	if err := checkOpenable(intro, false); err != nil {
+		t.Fatalf("a browser without a private window opens the intro page the normal way: %v", err)
+	}
+	for _, u := range []string{"http://127.0.0.1:53682/oauth/callback?code=x", "http://127.0.0.1:9/x", "http://localhost:53682/start/0123456789abcdef0123456789abcdef"} {
+		if checkOpenable(u, false) == nil {
+			t.Errorf("%q accepted outside sandbox mode", u)
+		}
+	}
+	if checkHTTPS(intro) == nil {
+		t.Fatal("the frontend's links stay https only")
+	}
+	w := newWorld(t)
+	w.c.Paths.Sandbox = false
+	w.c.private = &fakePrivate{private: false} // Safari: no private window
+	if got, err := w.c.openIntro(intro); err != nil || got.Private {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if rt := w.c.RT.(*fakeRuntime); len(rt.urls) != 1 || rt.urls[0] != intro {
+		t.Fatalf("%v", rt.urls)
+	}
+}

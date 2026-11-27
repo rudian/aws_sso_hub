@@ -65,11 +65,11 @@ func TestParamsAreRedacted(t *testing.T) {
 
 func TestEventNames(t *testing.T) {
 	names := []string{
-		EventAccountsChanged, EventSessionChanged, EventSessionRenewed, EventSessionReminder,
+		EventAccountsChanged, EventSessionChanged, EventSessionRenewed,
 		EventLoginProgress, EventMigrationProgress, EventReposChanged, EventScanProgress,
 		EventCloneProgress, EventExternalChange, EventSettingsChanged, EventNavigate, EventSecondInstance,
 	}
-	if len(names) != 13 {
+	if len(names) != 12 {
 		t.Fatalf("want 13 events, got %d", len(names))
 	}
 	seen := map[string]bool{}

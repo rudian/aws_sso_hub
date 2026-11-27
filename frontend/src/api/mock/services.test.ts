@@ -248,7 +248,8 @@ describe('mock services', () => {
     expect(seen).toEqual(['dark'])
     off()
     expect(await code(mock.system.UpdateSettings({ scanRoots: [] }))).toBe(ErrorCode.ErrInvalidInput)
-    expect(await code(mock.system.UpdateSettings({ reminders: { expiryNotice: true, leadMinutes: 10, autoRenew: true } }))).toBe(ErrorCode.ErrInvalidInput)
+    expect(await code(mock.system.UpdateSettings({ reminders: { autoSignIn: true, leadMinutes: 45, autoRenew: true } }))).toBe(ErrorCode.ErrInvalidInput)
+    expect((await call(mock.system.UpdateSettings({ reminders: { autoSignIn: false, leadMinutes: 10, autoRenew: true } }))).reminders.leadMinutes).toBe(10)
   })
 
   it('settings: clone and portal fields default, update with copies, and clear', async () => {

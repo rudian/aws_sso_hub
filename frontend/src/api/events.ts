@@ -17,7 +17,6 @@ export interface EventPayloads {
   'accounts:changed': AccountsState
   'session:changed': SessionStatus
   'session:renewed': SessionStatus
-  'session:reminder': SessionStatus
   'login:progress': LoginProgress
   'migration:progress': MigrationProgress
   'repos:changed': ReposState

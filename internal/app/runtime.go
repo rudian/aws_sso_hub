@@ -10,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/rudian/aws_sso_hub/internal/api"
+	"github.com/rudian/aws_sso_hub/internal/browser"
 	"github.com/rudian/aws_sso_hub/internal/execx"
 )
 
@@ -160,9 +161,15 @@ func checkHTTPS(raw string) error {
 	return nil
 }
 
-// checkOpenable is the check for URLs the engines open themselves (authorize URL, portal and console links):
-// https, or http on the loopback interface when the app runs in sandbox mode (fake servers live there).
+// checkOpenable is the check for URLs the engines open themselves (authorize URL, sign-in intro page, portal and
+// console links): https, the sign-in intro page that a sign-in the app started by itself serves on the IPv4
+// loopback address (browser.CheckIntroURL; a browser without a private window opens it the normal way), or http
+// on the loopback interface when the app runs in sandbox mode (fake servers live there). The frontend's own
+// links go through checkHTTPS instead.
 func checkOpenable(raw string, sandbox bool) error {
+	if browser.CheckIntroURL(raw) == nil {
+		return nil
+	}
 	u, err := url.Parse(raw)
 	if sandbox && err == nil && u.Scheme == "http" {
 		switch u.Hostname() {

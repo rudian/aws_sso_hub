@@ -79,7 +79,7 @@ func (e *Engine) sessionStatusFor(pd portalDef, now time.Time) api.SessionStatus
 	minutes := normMinutes(rec.SessionMinutes)
 	out := api.SessionStatus{
 		Portal: pd.name, State: raw.State, SessionMinutes: minutes, CanRefresh: raw.CanRefresh,
-		Refreshing: raw.Refreshing, Error: raw.Err, IssuedAt: rec.TokenIssuedAt,
+		Refreshing: raw.Refreshing, Error: raw.Err, IssuedAt: rec.TokenIssuedAt, SignInWaiting: raw.Waiting,
 	}
 	if !raw.ExpiresAt.IsZero() {
 		out.ExpiresAt = fmtTime(raw.ExpiresAt)
@@ -164,8 +164,8 @@ func sigOf(s api.SessionStatus, now time.Time) string {
 			low = t.Sub(now) < expiringWindow
 		}
 	}
-	return fmt.Sprintf("%s|%v|%v|%d|%v|%s|%v|%v|%v|%s", s.State, s.Refreshing, s.SessionKnown, s.SessionMinutes, s.SessionOverrun, code, low, s.CanRefresh,
-		s.SessionEndExact, s.SessionEndsAt)
+	return fmt.Sprintf("%s|%v|%v|%d|%v|%s|%v|%v|%v|%s|%v", s.State, s.Refreshing, s.SessionKnown, s.SessionMinutes, s.SessionOverrun, code, low, s.CanRefresh,
+		s.SessionEndExact, s.SessionEndsAt, s.SignInWaiting)
 }
 
 func (e *Engine) seedSig(portal string, s api.SessionStatus) {
@@ -210,8 +210,15 @@ func (e *Engine) publishSession(pd portalDef) api.SessionStatus {
 	return st
 }
 
-// Login runs the interactive sign-in and records the session lineage (login time, client id hash).
+// Login runs the interactive sign-in and records the session lineage (login time, client id hash). It takes
+// over from a sign-in page the app opened by itself for the portal.
 func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (api.LoginResult, error) {
+	e.stopAutoSignIn(portal)
+	return e.login(ctx, portal, mode, nil)
+}
+
+// login runs an interactive sign-in; auto is set for one the app started by itself (see autosignin.go).
+func (e *Engine) login(ctx context.Context, portal string, mode api.LoginMode, auto *autoLogin) (api.LoginResult, error) {
 	snap, err := e.Snapshot()
 	if err != nil {
 		return api.LoginResult{}, err
@@ -224,12 +231,21 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 	progress := func(p api.LoginProgress) {
 		p.Portal = portal
 		isolated = isolated || p.IsolatedWindow
-		e.emit(api.EventLoginProgress, p)
+		if auto == nil { // the sign-in window of the app follows only the sign-ins it started
+			e.emit(api.EventLoginProgress, p)
+		}
 		if p.Phase == api.LoginPhaseStarting {
 			e.publishSession(pd)
 		}
 	}
-	tok, lerr := e.d.Sessions.Login(ctx, pd.sess, mode, progress)
+	opts := sso.LoginOptions{Portal: portal}
+	if pd.legacy {
+		opts.Portal = startURLHost(pd.sess.StartURL)
+	}
+	if auto != nil {
+		opts.Intro, opts.Background, opts.Wait = auto.intro, true, auto.wait
+	}
+	tok, lerr := e.d.Sessions.LoginWith(ctx, pd.sess, mode, opts, progress)
 	if lerr != nil {
 		if !isInProgress(lerr) {
 			e.publishSession(pd)
@@ -254,7 +270,6 @@ func (e *Engine) Login(ctx context.Context, portal string, mode api.LoginMode) (
 		}
 	})
 	e.mu.Lock()
-	delete(e.reminded, portal)
 	if !endsNow {
 		e.probes[portal] = fmtTime(now)
 	} else {
@@ -303,6 +318,7 @@ func (e *Engine) Logout(ctx context.Context, portal string) (api.LogoutResult, e
 	if !ok {
 		return api.LogoutResult{}, api.NewError(api.ErrPortalNotFound, "portal not found").WithParam("portal", portal)
 	}
+	e.stopAutoSignIn(portal)
 	var roles []sso.AccountRole
 	for _, name := range pd.profiles {
 		if p, ok := snap.Profile(name); ok && p.AccountID != "" && p.Role != "" {
@@ -316,9 +332,6 @@ func (e *Engine) Logout(ctx context.Context, portal string) (api.LogoutResult, e
 	e.updateRecord(portal, func(r *api.SessionRecord) {
 		*r = api.SessionRecord{SessionMinutes: r.SessionMinutes}
 	})
-	e.mu.Lock()
-	delete(e.reminded, portal)
-	e.mu.Unlock()
 	e.publishSession(pd)
 	e.EmitState(ctx)
 	return api.LogoutResult{Portal: portal, DeletedRoleCaches: n, ServerLogout: server}, nil
@@ -379,7 +392,7 @@ func (e *Engine) probeDue(portal string, st api.SessionStatus, now time.Time) bo
 	return err == nil && !now.Before(loginAt.Add(probeDelay))
 }
 
-// Tick is the 30 s ticker body: renew tokens, emit session changes and reminders.
+// Tick is the 30 s ticker body: renew tokens, emit session changes, open the sign-in page before a session ends.
 func (e *Engine) Tick(ctx context.Context) {
 	snap, err := e.Snapshot()
 	if err != nil {
@@ -437,38 +450,9 @@ func (e *Engine) Tick(ctx context.Context) {
 			e.emit(api.EventSessionChanged, st)
 			changed = true
 		}
-		e.maybeRemind(pd.name, st, raw, now)
+		e.maybeAutoSignIn(ctx, snap, pd, st, now)
 	}
 	if changed {
 		e.EmitState(ctx)
-	}
-}
-
-func (e *Engine) maybeRemind(portal string, st api.SessionStatus, raw sso.Status, now time.Time) {
-	if !e.d.Store.ExpiryNotice() {
-		return
-	}
-	lead := e.d.Store.ReminderLead()
-	key := ""
-	if st.SessionKnown {
-		if t, err := time.Parse(time.RFC3339, st.SessionEndsAt); err == nil {
-			if left := t.Sub(now); left > 0 && left <= lead {
-				key = "L:" + st.LoginAt
-			}
-		}
-	} else if (raw.State == api.SessionActive || raw.State == api.SessionExpiring) && !raw.CanRefresh {
-		if left := raw.ExpiresAt.Sub(now); left > 0 && left <= lead {
-			key = "E:" + fmtTime(raw.ExpiresAt)
-		}
-	}
-	if key == "" {
-		return
-	}
-	e.mu.Lock()
-	dup := e.reminded[portal] == key
-	e.reminded[portal] = key
-	e.mu.Unlock()
-	if !dup {
-		e.emit(api.EventSessionReminder, st)
 	}
 }

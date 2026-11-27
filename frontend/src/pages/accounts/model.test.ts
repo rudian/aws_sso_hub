@@ -42,7 +42,7 @@ describe('accounts model', () => {
   afterEach(() => vi.useRealTimers())
 
   it('pillState maps every session state', () => {
-    const base = { portal: 'x', sessionKnown: false, sessionEndExact: false, sessionMinutes: 480, sessionOverrun: false, progressPct: 0, canRefresh: false, refreshing: false }
+    const base = { portal: 'x', sessionKnown: false, sessionEndExact: false, sessionMinutes: 480, sessionOverrun: false, progressPct: 0, canRefresh: false, refreshing: false, signInWaiting: false }
     const states: Array<[SessionState, string]> = [
       [SessionState.SessionActive, 'active'],
       [SessionState.SessionExpiring, 'expiring'],

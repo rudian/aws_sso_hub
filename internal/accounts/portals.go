@@ -44,6 +44,7 @@ func (e *Engine) PreviewRenamePortal(oldName, newName string) (api.FilePreview, 
 // RenamePortal renames the sso-session, moves the token file and the session record, and drops the old
 // role caches (they are keyed by the session name).
 func (e *Engine) RenamePortal(oldName, newName, baseHash string) (api.WriteResult, error) {
+	e.stopAutoSignIn(oldName) // a sign-in page left open would sign in under the old name
 	e.writeMu.Lock()
 	defer e.writeMu.Unlock()
 	snap, after, err := e.planRenamePortal(oldName, newName)
@@ -70,7 +71,7 @@ func (e *Engine) RenamePortal(oldName, newName, baseHash string) (api.WriteResul
 	recMu.Unlock()
 	e.mu.Lock()
 	delete(e.lastSig, oldName)
-	delete(e.reminded, oldName)
+	delete(e.autoDone, oldName)
 	e.mu.Unlock()
 	e.EmitState(context.Background())
 	return api.WriteResult{File: e.display(e.d.Paths.AWSConfigFile), BackupID: id}, nil
@@ -110,6 +111,7 @@ func (e *Engine) PreviewRemovePortal(name string) (api.FilePreview, error) {
 
 // RemovePortal deletes an unused sso-session, its token file and its session record (no server logout).
 func (e *Engine) RemovePortal(name, baseHash string) (api.WriteResult, error) {
+	e.stopAutoSignIn(name)
 	e.writeMu.Lock()
 	defer e.writeMu.Unlock()
 	snap, after, err := e.planRemovePortal(name)
@@ -129,7 +131,7 @@ func (e *Engine) RemovePortal(name, baseHash string) (api.WriteResult, error) {
 	recMu.Unlock()
 	e.mu.Lock()
 	delete(e.lastSig, name)
-	delete(e.reminded, name)
+	delete(e.autoDone, name)
 	e.mu.Unlock()
 	e.EmitState(context.Background())
 	return api.WriteResult{File: e.display(e.d.Paths.AWSConfigFile), BackupID: id}, nil

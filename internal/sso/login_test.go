@@ -266,7 +266,7 @@ func TestCallbackOnlyPath(t *testing.T) {
 			r2, _ := http.Post(base+"/oauth/callback", "text/plain", strings.NewReader("a"))
 			r3, _ := http.Get(base + "/oauth/callback?code=C&state=" + url.QueryEscape(pu.Query().Get("state")))
 			b, _ := io.ReadAll(r3.Body)
-			if !strings.Contains(string(b), "signed in") || r3.Header.Get("Content-Type") != "text/html; charset=utf-8" {
+			if !strings.Contains(string(b), "Signed in to initech") || r3.Header.Get("Content-Type") != "text/html; charset=utf-8" {
 				got <- [3]int{-1, -1, -1}
 				return
 			}
@@ -409,7 +409,7 @@ func TestLoginInProgress(t *testing.T) {
 }
 
 func TestCallbackPageEscapes(t *testing.T) {
-	p := string(CallbackPage("en", false, `<script>alert("x")</script>`))
+	p := string(CallbackPage("en", "", false, `<script>alert("x")</script>`))
 	if strings.Contains(p, "<script>") || !strings.Contains(p, "&lt;script&gt;") {
 		t.Fatal(p)
 	}
@@ -418,12 +418,12 @@ func TestCallbackPageEscapes(t *testing.T) {
 		ok   bool
 		want string
 	}{{"zh-CN", true, "登录成功"}, {"zh-CN", false, "登录没有完成"}, {"en", true, "You're signed in"}, {"en", false, "Sign-in didn't finish"}} {
-		page := string(CallbackPage(c.lang, c.ok, "access_denied"))
+		page := string(CallbackPage(c.lang, "", c.ok, "access_denied"))
 		if !strings.Contains(page, c.want) || strings.Contains(page, "http://") || strings.Contains(page, "https://") || !strings.Contains(page, `<meta charset="utf-8">`) {
 			t.Errorf("%s ok=%v: missing %q or external URL", c.lang, c.ok, c.want)
 		}
 	}
-	if !strings.Contains(string(CallbackPage("zh-CN", false, "access_denied")), "浏览器返回了：access_denied。回到 AWS SSO Hub 重试即可。") {
+	if !strings.Contains(string(CallbackPage("zh-CN", "", false, "access_denied")), "浏览器返回了：access_denied。回到 AWS SSO Hub 重试即可。") {
 		t.Fatal("zh error body")
 	}
 }

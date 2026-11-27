@@ -277,16 +277,20 @@ export function SettingsPage() {
         </Card>
 
         <Card id="set-reminders" title={t('settings.reminders')}>
-          <Row label={t('settings.reminders.expiry')}>
-            <Switch label={t('settings.reminders.expiry')} checked={s.reminders.expiryNotice} onChange={(v) => void save({ reminders: { ...s.reminders, expiryNotice: v } })} />
+          <Row
+            label={t('settings.reminders.autoSignIn')}
+            desc={s.reminders.autoRenew ? t('settings.reminders.autoSignIn.hint') : t('settings.reminders.autoSignIn.needsRenew')}
+          >
+            <Switch label={t('settings.reminders.autoSignIn')} checked={s.reminders.autoSignIn} onChange={(v) => void save({ reminders: { ...s.reminders, autoSignIn: v } })} />
           </Row>
           <Row label={t('settings.reminders.lead')}>
             <Select
               aria-label={t('settings.reminders.lead')}
               value={String(s.reminders.leadMinutes)}
-              disabled={!s.reminders.expiryNotice}
+              disabled={!s.reminders.autoSignIn}
               onChange={(e) => void save({ reminders: { ...s.reminders, leadMinutes: Number(e.target.value) } })}
             >
+              <option value="10">{t('settings.reminders.lead.option', { n: 10 })}</option>
               <option value="15">{t('settings.reminders.lead.option', { n: 15 })}</option>
               <option value="30">{t('settings.reminders.lead.option', { n: 30 })}</option>
               <option value="60">{t('settings.reminders.lead.hour')}</option>

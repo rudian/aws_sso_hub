@@ -142,26 +142,35 @@ func trimSlash(s string) string {
 	return s
 }
 
-func (m *Manager) beginLogin(key string) bool {
+func (m *Manager) beginLogin(key string, background bool) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.logging[key] {
 		return false
 	}
 	m.logging[key] = true
+	if background {
+		m.background[key] = true
+	}
 	return true
 }
 
 func (m *Manager) endLogin(key string) {
 	m.mu.Lock()
 	delete(m.logging, key)
+	delete(m.background, key)
 	m.mu.Unlock()
 }
 
 // Login runs the interactive sign-in and writes the CLI format token file.
 func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, progress func(api.LoginProgress)) (*CachedToken, error) {
+	return m.LoginWith(ctx, s, mode, LoginOptions{}, progress)
+}
+
+// LoginWith is Login with options (see LoginOptions).
+func (m *Manager) LoginWith(ctx context.Context, s Session, mode api.LoginMode, opts LoginOptions, progress func(api.LoginProgress)) (*CachedToken, error) {
 	key := keyOf(s)
-	if !m.beginLogin(key) {
+	if !m.beginLogin(key, opts.Background) {
 		return nil, ErrInProgress
 	}
 	defer m.endLogin(key)
@@ -169,17 +178,19 @@ func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, prog
 		progress = func(api.LoginProgress) {}
 	}
 	var pages []string // sign-in pages this login offered, for SignInEnded
+	addPage := func(u string) {
+		if u != "" {
+			pages = append(pages, u)
+		}
+	}
 	report := progress
 	progress = func(p api.LoginProgress) {
 		page := p.VerificationURIComplete
 		if page == "" {
 			page = p.VerificationURI // the bare device page is shared by all device sign-ins of a region
 		}
-		for _, u := range []string{p.AuthorizeURL, page} {
-			if u != "" {
-				pages = append(pages, u)
-			}
-		}
+		addPage(p.AuthorizeURL)
+		addPage(page)
 		report(p)
 	}
 	var tok *CachedToken
@@ -194,7 +205,7 @@ func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, prog
 	} else {
 		for attempt := 0; attempt < 2; attempt++ {
 			var restart bool
-			tok, restart, err = m.loginPKCE(ctx, s, progress, attempt == 0)
+			tok, restart, err = m.loginPKCE(ctx, s, opts, progress, addPage, attempt == 0)
 			if !restart {
 				break
 			}
@@ -216,7 +227,9 @@ func (m *Manager) Login(ctx context.Context, s Session, mode api.LoginMode, prog
 
 type callbackResult struct{ code, errParam string }
 
-func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.LoginProgress), mayRestart bool) (*CachedToken, bool, error) {
+// loginPKCE runs one browser sign-in. addPage records a page it opens that SignInEnded must know about.
+func (m *Manager) loginPKCE(ctx context.Context, s Session, opts LoginOptions, progress func(api.LoginProgress), addPage func(string),
+	mayRestart bool) (*CachedToken, bool, error) {
 	if err := checkRegion(s.Region); err != nil {
 		return nil, false, err
 	}
@@ -250,18 +263,43 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 		return nil, false, err
 	}
 	authURL := AuthorizeURL(base, reg.ClientID, redirect, state, challenge, m.scopesFor(s))
+	portal := opts.Portal
+	if portal == "" {
+		portal = s.Name
+	}
+	// The intro page comes first only where the app can open it; elsewhere the sign-in opens AWS's page.
+	introURL, introPath := "", ""
+	if opts.Intro != nil && m.cfg.OpenIntro != nil {
+		if introPath, err = newIntroPath(); err != nil {
+			return nil, false, err
+		}
+		introURL = "http://" + wantHost + introPath
+	}
 
 	results := make(chan callbackResult, 1)
 	lang := m.lang()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != redirectPath {
+		isIntro := introPath != "" && r.URL.Path == introPath
+		if r.URL.Path != redirectPath && !isIntro {
 			http.NotFound(w, r)
 			return
 		}
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", http.MethodGet)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if isIntro {
+			// Only the exact listener address: a page of another site that makes the browser call this
+			// address through a name of its own (DNS rebinding) gets nothing.
+			if r.Host != wantHost {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			setPageHeaders(w)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(IntroPage(lang, *opts.Intro, authURL, m.now()))
 			return
 		}
 		q := r.URL.Query()
@@ -278,10 +316,9 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 		if errValue == "" && !ok {
 			errValue = "invalid_request"
 		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
+		setPageHeaders(w)
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(CallbackPage(lang, ok, errValue))
+		_, _ = w.Write(CallbackPage(lang, portal, ok, errValue))
 		if res.errParam != "" || res.code != "" {
 			select {
 			case results <- res:
@@ -308,6 +345,11 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 
 	opened, private, isolated := false, false, false
 	switch {
+	case introURL != "":
+		addPage(introURL)
+		w, err := m.cfg.OpenIntro(introURL)
+		opened = err == nil
+		private, isolated = opened && w.Private, opened && w.Isolated
 	case m.cfg.OpenSignIn != nil:
 		w, err := m.cfg.OpenSignIn(authURL)
 		opened = err == nil
@@ -315,7 +357,10 @@ func (m *Manager) loginPKCE(ctx context.Context, s Session, progress func(api.Lo
 	case m.cfg.OpenBrowser != nil:
 		opened = m.cfg.OpenBrowser(authURL) == nil
 	}
-	timeout := m.cfg.CallbackTimeout
+	timeout := opts.Wait
+	if timeout <= 0 {
+		timeout = m.cfg.CallbackTimeout
+	}
 	if timeout <= 0 {
 		timeout = 10 * time.Minute
 	}

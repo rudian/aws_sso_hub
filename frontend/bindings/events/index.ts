@@ -59,11 +59,6 @@ export const ReposScanProgress = "repos:scan-progress";
 export const SessionChanged = "session:changed";
 
 /**
- * Name of the custom event "session:reminder".
- */
-export const SessionReminder = "session:reminder";
-
-/**
  * Name of the custom event "session:renewed".
  */
 export const SessionRenewed = "session:renewed";
